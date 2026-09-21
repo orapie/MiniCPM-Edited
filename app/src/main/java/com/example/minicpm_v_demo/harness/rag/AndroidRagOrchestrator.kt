@@ -22,6 +22,7 @@ data class CompiledAndroidPrompt(
     val contextText: String,
     val characterDebug: Any? = null,
     val mode: RagMode,
+    val contextDecisions: List<RagContextDecision> = emptyList(),
 )
 
 class AndroidRagOrchestrator(
@@ -60,6 +61,7 @@ class AndroidRagOrchestrator(
                 rendered = rendered,
                 sources = prompt.sources,
                 contextText = prompt.contextText,
+                contextDecisions = prompt.contextDecisions,
                 mode = mode,
             )
         } else {
@@ -96,6 +98,7 @@ class AndroidRagOrchestrator(
                 contextText = prompt.contextText,
                 characterDebug = prompt.characterDebug,
                 mode = mode,
+                contextDecisions = prompt.contextDecisions,
             )
         }
     }

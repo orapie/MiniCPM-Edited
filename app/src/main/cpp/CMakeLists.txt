@@ -35,10 +35,10 @@ if(DEFINED ANDROID_ABI)
     endif()
 endif()
 
-# llama.cpp-omni source lives at the repository root so it can be shared with the iOS demo.
-# Allow override via -DLLAMA_SRC=... if you keep llama.cpp-omni elsewhere.
+# llama.cpp-omni is vendored at the repository root so this checkout is self-contained.
+# Allow override via -DLLAMA_SRC=... for development against another source tree.
 if(NOT DEFINED LLAMA_SRC)
-    set(LLAMA_SRC ${CMAKE_CURRENT_LIST_DIR}/../../../../../llama.cpp-omni)
+    set(LLAMA_SRC ${CMAKE_CURRENT_LIST_DIR}/../../../../llama.cpp-omni)
 endif()
 get_filename_component(LLAMA_SRC ${LLAMA_SRC} ABSOLUTE)
 if(NOT EXISTS ${LLAMA_SRC}/CMakeLists.txt)

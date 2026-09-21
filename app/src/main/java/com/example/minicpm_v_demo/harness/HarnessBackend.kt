@@ -1,5 +1,6 @@
 package com.example.minicpm_v_demo.harness
 
+import android.util.Log
 import com.example.minicpm_v_demo.LlamaState
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,6 +20,10 @@ data class HarnessChatRequest(
 }
 
 interface HarnessBackend {
+    companion object {
+        private const val TAG = "HarnessBackend"
+    }
+
     val state: StateFlow<LlamaState>
     val isVisionSupported: Boolean
     val isVideoUnderstandingSupported: Boolean
@@ -35,6 +40,9 @@ interface HarnessBackend {
     suspend fun setImageMaxSliceNums(n: Int)
     fun sendUserPrompt(message: String, predictLength: Int): Flow<String>
 
+    /** Exact tokenizer count when the active backend exposes one; null for test/mock backends. */
+    suspend fun countPromptTokens(prompt: String): Int? = null
+
     /**
      * Sends a role-aware chat request to the runtime.
      *
@@ -44,6 +52,16 @@ interface HarnessBackend {
      * character mode is already supplied explicitly by the Harness prompt compiler.
      */
     fun sendChatPrompt(request: HarnessChatRequest, predictLength: Int): Flow<String> = flow {
+        val systemTokens = request.systemPrompt?.let { countPromptTokens(it) }
+        val userTokens = countPromptTokens(request.userPrompt)
+        if (systemTokens != null || userTokens != null) {
+            Log.i(
+                TAG,
+                "Prompt preflight tokens: system=${systemTokens ?: "n/a"}, " +
+                    "user=${userTokens ?: "n/a"}, " +
+                    "total=${if (systemTokens != null && userTokens != null) systemTokens + userTokens else "n/a"}",
+            )
+        }
         request.systemPrompt?.let { systemPrompt ->
             clearContext()
             setSystemPrompt(systemPrompt)

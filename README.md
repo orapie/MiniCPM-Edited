@@ -7,7 +7,6 @@
 - VoxCPM2 TTS 页面。
 - Harness 编排层、模型注册表、模型文件管理和下载适配。
 - Android 侧 RAG、角色 Prompt、会话保存和 Memory 记录。
-- `harness_logic/` Python 子项目，用于在桌面端验证 Harness、角色、session 和 mock backend 链路。
 
 ## 项目概览
 
@@ -17,7 +16,7 @@
 - 最低系统版本：Android 7.0 (`minSdk 24`)
 - 目标系统版本：Android 16 (`targetSdk 36`)
 - 支持 ABI：`arm64-v8a`
-- 主要技术栈：Kotlin、Android ViewBinding、JNI、CMake、llama.cpp-omni、Python 标准库测试
+- 主要技术栈：Kotlin、Android ViewBinding、JNI、CMake、llama.cpp-omni
 
 ## 当前能力
 
@@ -29,9 +28,6 @@
 - 三种 Android 对话模式：普通对话、RAG、角色 RAG。
 - RAG 资源、角色卡、剧情事件、prompt 模板和 fixtures 通过 `app/src/main/assets/harness/` 随 APK 打包。
 - 应用启动时将 Harness assets 拷贝到应用私有目录 `filesDir/harness/`，运行时 session、memory、settings 等也写在该目录下。
-- Python `harness_logic/` 可独立运行，用于模型 registry、下载计划、角色 Prompt、角色会话和 Memory 的本地 mock 验证。
-
-注意：Android 主链路会调用真实 native runtime；`harness_logic/` 里的角色聊天仍以 mock backend 验证编排链路，不代表真实 LLM 推理。
 
 ## 项目结构
 
@@ -74,15 +70,6 @@
 │   ├── src/main/cpp/
 │   ├── src/main/res/
 │   └── build.gradle.kts
-├── harness_logic/
-│   ├── README.md
-│   ├── run.sh
-│   ├── cli.py
-│   ├── registry.py
-│   ├── facade.py
-│   ├── character_system/
-│   ├── data/
-│   └── tests/
 ├── docs/
 ├── gradle/
 ├── build.gradle.kts
@@ -196,31 +183,6 @@ app/build/outputs/apk/debug/app-debug.apk
 
 当前 APK 只打包 `arm64-v8a`。普通 `x86/x86_64` 模拟器通常不能直接验证 native 推理。
 
-## Python Harness 子项目
-
-`harness_logic/` 是独立 Python Harness 项目，默认运行目录是：
-
-```text
-harness_logic/data/
-```
-
-推荐从仓库根目录启动：
-
-```bash
-./harness_logic/run.sh
-```
-
-也可以直接调用 CLI：
-
-```bash
-python3 -m harness_logic list
-python3 -m harness_logic character-list
-python3 -m harness_logic character-prompt --character lu_jiangxian --input "玄谙究竟是什么？"
-python3 -m unittest discover -s harness_logic/tests -v
-```
-
-Python 项目的详细说明见 [harness_logic/README.md](harness_logic/README.md)。
-
 ## 关键文件
 
 - [app/build.gradle.kts](app/build.gradle.kts)：Android、NDK、CMake、ABI、依赖与动态 CPU so 构建配置。
@@ -232,7 +194,6 @@ Python 项目的详细说明见 [harness_logic/README.md](harness_logic/README.m
 - [app/src/main/java/com/example/minicpm_v_demo/harness/rag/AndroidRagOrchestrator.kt](app/src/main/java/com/example/minicpm_v_demo/harness/rag/AndroidRagOrchestrator.kt)：普通 RAG 和角色 RAG Prompt 编译。
 - [app/src/main/java/com/example/minicpm_v_demo/harness/character/CharacterPromptCompiler.kt](app/src/main/java/com/example/minicpm_v_demo/harness/character/CharacterPromptCompiler.kt)：角色身份、剧情边界、关系和记忆片段组装。
 - [app/src/main/java/com/example/minicpm_v_demo/harness/session/ChatSessionStore.kt](app/src/main/java/com/example/minicpm_v_demo/harness/session/ChatSessionStore.kt)：Android 侧会话落盘。
-- [harness_logic/README.md](harness_logic/README.md)：Python Harness 子项目说明。
 
 ## 文档索引
 
@@ -245,5 +206,4 @@ Python 项目的详细说明见 [harness_logic/README.md](harness_logic/README.m
 
 - Android 主工程中，模型下载和本地文件路径仍保留对 `LlamaEngine` 旧逻辑的兼容，`HarnessModelRegistry` 还不是唯一事实源。
 - Android RAG 使用当前打包的 hash n-gram 索引，不是外部 embedding 服务。
-- `harness_logic/` 的 mock 对话只证明角色 Prompt、session 和 Memory 链路可运行，不证明真实模型输出质量。
 - 真实推理验证需要在 arm64 设备上下载完整模型 artifact 后运行。

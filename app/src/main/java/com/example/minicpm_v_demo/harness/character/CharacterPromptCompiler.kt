@@ -1,5 +1,6 @@
 package com.example.minicpm_v_demo.harness.character
 
+import com.example.minicpm_v_demo.harness.context.ContextController
 import com.example.minicpm_v_demo.harness.data.HarnessDataPaths
 
 class CharacterPromptCompiler(
@@ -40,7 +41,7 @@ class CharacterPromptCompiler(
         }
         val dynamicState = runtimeContext.dynamicState ?: npc.dynamicState
 
-        val mandatory = linkedMapOf(
+        val mandatoryBase = linkedMapOf(
             "global_summary" to compileGlobalSummary(npc, cutoff),
             "core_personality" to compileCorePersonality(npc),
             "speech_examples" to compileSpeechExamples(npc),
@@ -49,8 +50,24 @@ class CharacterPromptCompiler(
             "relevant_relationships" to "无。",
             "authorized_story_facts" to "无；不得自行补全。",
             "retrieved_memories" to "无。",
-            "conversation_summary" to runtimeContext.conversationSummary.trim().take(100).ifBlank { "无。" },
+            "conversation_summary" to "无。",
         )
+
+        val mandatoryBaseChars = render(mandatoryBase).length
+        require(mandatoryBaseChars <= runtimeContext.maxChars) {
+            "mandatory character prompt exceeds maxChars without summary: " +
+                "$mandatoryBaseChars > ${runtimeContext.maxChars}"
+        }
+        val summaryBudgetChars = runtimeContext.maxChars - mandatoryBaseChars
+        val summary = runtimeContext.conversationSummary.trim()
+        val selectedSummary = if (summary.isBlank() || summaryBudgetChars <= 0) {
+            "无。"
+        } else {
+            ContextController.compress(summary, userInput, summaryBudgetChars).ifBlank { "无。" }
+        }
+        val mandatory = mandatoryBase.toMutableMap().apply {
+            this["conversation_summary"] = selectedSummary
+        }
 
         var content = render(mandatory)
         require(content.length <= runtimeContext.maxChars) {
@@ -83,7 +100,11 @@ class CharacterPromptCompiler(
                     definitionBoost(item.event.eventId, primaryDefinitionEventId),
             )
         }
-        optionalItems.sortByDescending { it.priority }
+        val rankedItems = optionalItems.sortedWith(
+            compareByDescending<PromptCandidate> {
+                it.priority + ContextController.queryBoost(userInput, it.text)
+            }.thenBy { it.id },
+        )
 
         val selected = mutableListOf<SelectedPromptItem>()
         val dropped = mutableListOf<DroppedPromptItem>()
@@ -92,7 +113,7 @@ class CharacterPromptCompiler(
             "authorized_story_facts" to mutableListOf<String>(),
             "retrieved_memories" to mutableListOf<String>(),
         )
-        for (item in optionalItems) {
+        for (item in rankedItems) {
             val proposedLines = sectionLines.mapValues { it.value.toMutableList() }.toMutableMap()
             proposedLines.getValue(item.section).add(item.text)
             val values = mandatory.toMutableMap()
@@ -104,7 +125,11 @@ class CharacterPromptCompiler(
                 sectionLines.clear()
                 sectionLines.putAll(proposedLines)
                 content = proposed
-                selected += SelectedPromptItem(item.section, item.id, round5(item.priority))
+                selected += SelectedPromptItem(
+                    item.section,
+                    item.id,
+                    round5(item.priority + ContextController.queryBoost(userInput, item.text)),
+                )
             } else {
                 dropped += DroppedPromptItem(item.section, item.id, "character_budget")
             }
@@ -126,6 +151,10 @@ class CharacterPromptCompiler(
                 selectedItems = selected,
                 droppedItems = dropped,
                 retrievalDecisions = decisions,
+                estimatedPromptTokens = ContextController.estimateTokens(content),
+                estimatedMandatoryTokens = ContextController.estimateTokens(render(mandatory)),
+                conversationSummaryChars = selectedSummary.length,
+                estimatedUserTokens = ContextController.estimateTokens(userInput),
             ),
         )
     }

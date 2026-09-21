@@ -52,6 +52,9 @@ class LlamaBackendAdapter(context: Context) : HarnessBackend {
     override fun sendUserPrompt(message: String, predictLength: Int): Flow<String> =
         engine.sendUserPrompt(message, predictLength)
 
+    override suspend fun countPromptTokens(prompt: String): Int =
+        engine.countPromptTokens(prompt)
+
     override fun cancelGeneration() {
         engine.cancelGeneration()
     }

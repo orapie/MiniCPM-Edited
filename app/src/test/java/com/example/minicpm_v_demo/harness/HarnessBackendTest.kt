@@ -53,6 +53,18 @@ class HarnessBackendTest {
         }
     }
 
+    @Test
+    fun defaultBackendTokenPreflightDoesNotChangeRequestOrdering() = runBlocking {
+        val backend = RecordingBackend()
+
+        backend.sendChatPrompt(
+            HarnessChatRequest(systemPrompt = "policy", userPrompt = "question"),
+            predictLength = 32,
+        ).toList()
+
+        assertEquals(listOf("clear", "system:policy", "user:question:32"), backend.calls)
+    }
+
     private class RecordingBackend : HarnessBackend {
         override val state: StateFlow<LlamaState> = MutableStateFlow(LlamaState.ModelReady)
         override val isVisionSupported: Boolean = false

@@ -153,6 +153,22 @@ class CharacterPromptCompilerTest {
     }
 
     @Test
+    fun conversationSummaryUsesRemainingBudgetInsteadOfFixedCharacterCutoff() {
+        val compiled = testCompiler().buildNpcPrompt(
+            npcId = "lu_jiangxian",
+            userInput = "玄谙曾经见过什么？",
+            runtimeContext = RuntimeContext(
+                storyCutoff = "evt-010",
+                maxChars = 1100,
+                conversationSummary = "玄谙曾在大黎山见过命阳白玉剑。".repeat(30),
+            ),
+        )
+
+        assertTrue(compiled.debug.conversationSummaryChars > 100)
+        assertTrue(compiled.debug.promptChars <= 1100)
+    }
+
+    @Test
     fun everyBundledCharacterFitsTheAndroidPromptBudget() {
         val compiler = testCompiler()
 

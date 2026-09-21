@@ -1,5 +1,6 @@
 #include <android/log.h>
 #include <jni.h>
+#include <chrono>
 #include <iomanip>
 #include <cmath>
 #include <string>
@@ -78,6 +79,8 @@ static int                                g_image_max_slice_nums = 9;
 // as a global rather than a llama_n_ctx() call so we don't depend on
 // llama-side defaults when llama_context_default_params changes.
 static int                                g_n_ctx = DEFAULT_CONTEXT_SIZE;
+
+using SteadyClock = std::chrono::steady_clock;
 
 extern "C"
 JNIEXPORT void JNICALL
@@ -444,6 +447,7 @@ Java_com_example_minicpm_1v_1demo_LlamaEngine_processSystemPrompt(
         jobject /*unused*/,
         jstring jsystem_prompt
 ) {
+    const auto started_at = SteadyClock::now();
     reset_short_term_states();
 
     const auto *system_prompt = env->GetStringUTFChars(jsystem_prompt, nullptr);
@@ -492,6 +496,10 @@ Java_com_example_minicpm_1v_1demo_LlamaEngine_processSystemPrompt(
 
         current_position = new_n_past;
         generation_start_position = current_position;
+        LOGi("%s: system_tokens=vision_chunks current_position=%d eval_ms=%lld",
+             __func__, current_position,
+             (long long) std::chrono::duration_cast<std::chrono::milliseconds>(
+                 SteadyClock::now() - started_at).count());
         mtmd_input_chunks_free(chunks);
     } else {
         const auto system_tokens = common_tokenize(g_context, formatted_system_prompt,
@@ -513,6 +521,10 @@ Java_com_example_minicpm_1v_1demo_LlamaEngine_processSystemPrompt(
         }
 
         current_position += (int) system_tokens.size();
+        LOGi("%s: system_tokens=%d current_position=%d eval_ms=%lld",
+             __func__, (int) system_tokens.size(), current_position,
+             (long long) std::chrono::duration_cast<std::chrono::milliseconds>(
+                 SteadyClock::now() - started_at).count());
     }
 
     system_prompt_position = current_position;
@@ -632,6 +644,7 @@ Java_com_example_minicpm_1v_1demo_LlamaEngine_processUserPrompt(
         jstring juser_prompt,
         jint n_predict
 ) {
+    const auto started_at = SteadyClock::now();
     reset_short_term_states();
 
     const auto *const user_prompt = env->GetStringUTFChars(juser_prompt, nullptr);
@@ -709,6 +722,10 @@ Java_com_example_minicpm_1v_1demo_LlamaEngine_processUserPrompt(
 
         current_position = new_n_past;
         generation_start_position = current_position;
+        LOGi("%s: user_tokens=vision_chunks current_position=%d eval_ms=%lld",
+             __func__, current_position,
+             (long long) std::chrono::duration_cast<std::chrono::milliseconds>(
+                 SteadyClock::now() - started_at).count());
         mtmd_input_chunks_free(chunks);
     } else {
         if (use_plain_text_eval) {
@@ -722,8 +739,9 @@ Java_com_example_minicpm_1v_1demo_LlamaEngine_processUserPrompt(
 
         const int user_prompt_size = (int) user_tokens.size();
         const int max_batch_size = g_n_ctx - OVERFLOW_HEADROOM;
+        int skipped_tokens = 0;
         if (user_prompt_size > max_batch_size) {
-            const int skipped_tokens = user_prompt_size - max_batch_size;
+            skipped_tokens = user_prompt_size - max_batch_size;
             user_tokens.resize(max_batch_size);
             LOGw("%s: User prompt too long! Skipped %d tokens!", __func__, skipped_tokens);
         }
@@ -733,12 +751,38 @@ Java_com_example_minicpm_1v_1demo_LlamaEngine_processUserPrompt(
             return 2;
         }
 
-        current_position += user_prompt_size;
+        // Advance by the number of tokens actually decoded.  When the user
+        // prompt exceeds the context budget, user_tokens has been resized;
+        // using the original size desynchronizes current_position from KV.
+        current_position += (int) user_tokens.size();
         generation_start_position = current_position;
+        LOGi("%s: user_tokens=%d original_tokens=%d skipped_tokens=%d current_position=%d eval_ms=%lld",
+             __func__, (int) user_tokens.size(), user_prompt_size, skipped_tokens,
+             current_position,
+             (long long) std::chrono::duration_cast<std::chrono::milliseconds>(
+                 SteadyClock::now() - started_at).count());
     }
 
     stop_generation_position = current_position + n_predict;
     return 0;
+}
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_example_minicpm_1v_1demo_LlamaEngine_countTokens(
+        JNIEnv *env,
+        jobject /*unused*/,
+        jstring jprompt,
+        jboolean add_special
+) {
+    if (!g_context || !jprompt) {
+        return -1;
+    }
+
+    const auto *prompt = env->GetStringUTFChars(jprompt, nullptr);
+    const auto tokens = common_tokenize(g_context, prompt, add_special == JNI_TRUE, true);
+    env->ReleaseStringUTFChars(jprompt, prompt);
+    return static_cast<jint>(tokens.size());
 }
 
 static bool is_valid_utf8(const char *string) {

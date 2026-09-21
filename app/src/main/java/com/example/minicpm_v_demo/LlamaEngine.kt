@@ -897,6 +897,8 @@ class LlamaEngine private constructor(
     private external fun getMinicpmvVersionNative(): Int
     private external fun prepare(): Int
     private external fun systemInfo(): String
+    /** Counts tokens with the loaded model tokenizer without mutating KV state. */
+    private external fun countTokens(prompt: String, addSpecial: Boolean): Int
     private external fun processSystemPrompt(systemPrompt: String): Int
     private external fun processUserPrompt(userPrompt: String, predictLength: Int): Int
     private external fun generateNextToken(): String?
@@ -1033,6 +1035,7 @@ class LlamaEngine private constructor(
                 "Cannot process system prompt in ${_state.value.javaClass.simpleName}!"
             }
 
+            val startedAt = System.nanoTime()
             Log.i(TAG, "Sending system prompt...")
             _readyForSystemPrompt = false
             _state.value = LlamaState.ProcessingSystemPrompt
@@ -1044,8 +1047,27 @@ class LlamaEngine private constructor(
                     }
                 }
             }
-            Log.i(TAG, "System prompt processed! Awaiting user prompt...")
+            Log.i(
+                TAG,
+                "System prompt processed! elapsed_ms=${elapsedMillis(startedAt)}; " +
+                    "awaiting user prompt...",
+            )
             _state.value = LlamaState.ModelReady
+        }
+
+    /**
+     * Returns the exact token count for the loaded model tokenizer. This is a
+     * read-only operation and does not alter the active KV cache.
+     */
+    suspend fun countPromptTokens(prompt: String, addSpecial: Boolean = true): Int =
+        withContext(llamaDispatcher) {
+            require(prompt.isNotEmpty()) { "Prompt must not be empty!" }
+            check(_state.value !is LlamaState.Uninitialized && _state.value !is LlamaState.Error) {
+                "Cannot count tokens before the native model is available"
+            }
+            countTokens(prompt, addSpecial).also { count ->
+                check(count >= 0) { "Native tokenizer is not ready" }
+            }
         }
 
     suspend fun prefillImage(imageData: ByteArray) =
@@ -1168,6 +1190,8 @@ class LlamaEngine private constructor(
 
         try {
             _cancelGeneration = false
+            val startedAt = System.nanoTime()
+            var firstTokenLogged = false
             Log.i(TAG, "Sending user prompt...")
             _readyForSystemPrompt = false
             _state.value = LlamaState.ProcessingUserPrompt
@@ -1180,11 +1204,21 @@ class LlamaEngine private constructor(
                 }
             }
 
-            Log.i(TAG, "User prompt processed. Generating assistant prompt...")
+            Log.i(
+                TAG,
+                "User prompt processed. prefill_ms=${elapsedMillis(startedAt)}; " +
+                    "generating assistant prompt...",
+            )
             _state.value = LlamaState.Generating
             while (!_cancelGeneration) {
                 generateNextToken()?.let { utf8token ->
-                    if (utf8token.isNotEmpty()) emit(utf8token)
+                    if (utf8token.isNotEmpty()) {
+                        if (!firstTokenLogged) {
+                            firstTokenLogged = true
+                            Log.i(TAG, "First assistant token received. ttft_ms=${elapsedMillis(startedAt)}")
+                        }
+                        emit(utf8token)
+                    }
                 } ?: break
             }
             if (_cancelGeneration) {
@@ -1203,6 +1237,9 @@ class LlamaEngine private constructor(
             throw e
         }
     }.flowOn(llamaDispatcher)
+
+    private fun elapsedMillis(startedAt: Long): Long =
+        (System.nanoTime() - startedAt) / 1_000_000L
 
     fun cancelGeneration() {
         _cancelGeneration = true

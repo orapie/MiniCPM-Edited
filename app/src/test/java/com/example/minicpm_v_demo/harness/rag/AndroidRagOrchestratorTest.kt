@@ -87,6 +87,8 @@ class AndroidRagOrchestratorTest {
         assertTrue(compiled.renderedPrompt.contains("<|im_start|>system"))
         assertTrue(compiled.renderedPrompt.contains("<检索资料>"))
         assertTrue(compiled.sources.isNotEmpty())
+        assertTrue(compiled.contextDecisions.isNotEmpty())
+        assertTrue(compiled.contextDecisions.all { it.selectedChars <= it.originalChars })
         assertEquals(null, compiled.characterDebug)
     }
 

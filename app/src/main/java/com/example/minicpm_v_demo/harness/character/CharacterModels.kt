@@ -28,6 +28,10 @@ data class CharacterPromptDebug(
     val selectedItems: List<SelectedPromptItem>,
     val droppedItems: List<DroppedPromptItem>,
     val retrievalDecisions: List<RetrievalDecision>,
+    val estimatedPromptTokens: Int = 0,
+    val estimatedMandatoryTokens: Int = 0,
+    val conversationSummaryChars: Int = 0,
+    val estimatedUserTokens: Int = 0,
 )
 
 data class SelectedPromptItem(

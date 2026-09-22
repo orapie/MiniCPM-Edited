@@ -25,11 +25,9 @@ static std::string join(const std::vector<T> &values, const std::string &delim) 
     return str.str();
 }
 
-// Inference parameters mirror the iOS demo defaults (MTMDParams.swift / mtmd-ios.cpp):
-//   nThreads=4, nCtx=4096 (8192 for MiniCPM-V-4.6 to fit video frames),
-//   nBatch=2048, temperature=0.7, top_k=0, top_p=1.0, penalty_repeat=1.0,
-//   nPredict=100. Keeping Android in lockstep avoids per-platform
-//   divergence in generation quality and prefill latency.
+// Inference parameters use the iOS demo's context and batch sizes, with
+// Android-specific conversational sampling to discourage short-range loops.
+// Sampling values are tuned through fixed-prompt device evaluation.
 constexpr int   N_THREADS               = 4;
 
 constexpr int   DEFAULT_CONTEXT_SIZE    = 4096;
@@ -40,10 +38,8 @@ constexpr int   DEFAULT_CONTEXT_SIZE    = 4096;
 constexpr int   V46_CONTEXT_SIZE        = 8192;
 constexpr int   OVERFLOW_HEADROOM       = 4;
 constexpr int   BATCH_SIZE              = 2048;
-// Aligned with the model's generation_config.json (do_sample=true,
-// temperature=0.7, top_k=0, top_p=1.0, repetition_penalty=1.0). top_k=0 and
-// top_p=1.0 effectively disable those filters, so sampling is pure
-// temperature-only as the model card recommends.
+// Keep moderate randomness for natural Chinese conversation. Candidate filters
+// and repetition penalties are configured in new_sampler().
 constexpr float DEFAULT_SAMPLER_TEMP    = 0.7f;
 
 static llama_model                      * g_model;
@@ -260,15 +256,18 @@ static llama_context *init_context(llama_model *model, const int n_ctx = DEFAULT
 }
 
 static common_sampler *new_sampler(float temp) {
-    // Match the model's generation_config defaults: pure temperature sampling
-    // with top_k / top_p disabled and no repetition penalty. Keep this in
-    // lockstep with mtmd-ios.cpp so iOS and Android produce identical
-    // distributions for a given seed.
+    // Android conversational defaults: preserve fluent Chinese while
+    // discouraging local token loops. Change one value at a time only after
+    // evaluating fixed prompts on device.
     common_params_sampling sparams;
     sparams.temp = temp;
-    sparams.top_k = 0;            // disabled
-    sparams.top_p = 1.0f;         // disabled
-    sparams.penalty_repeat = 1.0f; // disabled
+    sparams.top_k = 40;
+    sparams.top_p = 0.90f;
+    sparams.min_p = 0.05f;
+    sparams.penalty_last_n = 128;
+    sparams.penalty_repeat = 1.12f;
+    sparams.penalty_freq = 0.05f;
+    sparams.penalty_present = 0.0f;
     return common_sampler_init(g_model, sparams);
 }
 

@@ -1,6 +1,7 @@
 package com.example.minicpm_v_demo
 
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -27,6 +28,9 @@ import com.google.android.material.textfield.TextInputEditText
 import com.example.minicpm_v_demo.harness.HarnessChatRequest
 import com.example.minicpm_v_demo.harness.HarnessFacade
 import com.example.minicpm_v_demo.harness.character.CharacterCard
+import com.example.minicpm_v_demo.harness.character.CharacterPromptDebug
+import com.example.minicpm_v_demo.harness.character.RoleplayObservationContext
+import com.example.minicpm_v_demo.harness.character.RoleplayOutputObserver
 import com.example.minicpm_v_demo.harness.rag.AndroidRagOrchestrator
 import com.example.minicpm_v_demo.harness.rag.CompiledAndroidPrompt
 import com.example.minicpm_v_demo.harness.rag.RagMode
@@ -38,6 +42,7 @@ import com.example.minicpm_v_demo.harness.session.ChatTurn
 import com.example.minicpm_v_demo.harness.session.MemoryStore
 import io.noties.markwon.Markwon
 import kotlinx.coroutines.Dispatchers
+import java.util.UUID
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.launch
@@ -690,6 +695,17 @@ class MainActivity : AppCompatActivity() {
                 predictLength = promptInput.predictLength,
             )
                 .onCompletion { cause ->
+                    promptInput.roleplayObservationContext?.let { observationContext ->
+                        val visibleOutput = fullResponse.toString().visibleAssistantText()
+                        val observation = RoleplayOutputObserver.observe(
+                            context = observationContext,
+                            rawOutput = fullResponse.toString(),
+                            visibleOutput = visibleOutput,
+                            completion = if (cause == null) "completed" else "failed",
+                            includeRawText = isDebuggableBuild(),
+                        )
+                        Log.i(TAG, observation.toLogLine(includeRawText = isDebuggableBuild()))
+                    }
                     val finalText = when {
                         cause != null -> {
                             Log.e(TAG, "Generation failed", cause)
@@ -773,17 +789,52 @@ class MainActivity : AppCompatActivity() {
             Log.e(TAG, "Failed to compile RAG prompt; falling back to raw user input", error)
             return HarnessPromptInput(HarnessChatRequest(userPrompt = userMsg), null)
         }
+        val roleplayObservationContext = if (compiled.mode == RagMode.CHARACTER_RAG) {
+            runCatching {
+                val characterDebug = compiled.characterDebug as? CharacterPromptDebug
+                val characterName = orchestrator.availableCharacters()
+                    .firstOrNull { it.npcId == currentCharacterId }
+                    ?.identity
+                    ?.name
+                    ?: currentCharacterId
+                RoleplayOutputObserver.createContext(
+                    observationId = UUID.randomUUID().toString(),
+                    characterId = currentCharacterId,
+                    characterName = characterName,
+                    storyCutoff = currentStoryCutoff,
+                    modelId = harness.getSelectedModel().id,
+                    ragMode = compiled.mode.name,
+                    systemPrompt = compiled.rendered.splitPrompt.systemPrompt,
+                    userPrompt = compiled.rendered.splitPrompt.userPrompt,
+                    renderedPrompt = compiled.renderedPrompt,
+                    estimatedSystemTokens = characterDebug?.estimatedPromptTokens,
+                    estimatedUserTokens = characterDebug?.estimatedUserTokens,
+                    contextChars = compiled.contextText.length,
+                    sourceCount = compiled.sources.size,
+                    predictLength = CHARACTER_RESPONSE_TOKEN_LIMIT,
+                )
+            }.onFailure { error ->
+                Log.w(TAG, "Failed to create roleplay observation; continuing generation", error)
+            }.getOrNull()
+        } else {
+            null
+        }
         return HarnessPromptInput(
             request = HarnessChatRequest(
                 systemPrompt = compiled.rendered.splitPrompt.systemPrompt,
                 userPrompt = compiled.rendered.splitPrompt.userPrompt,
+                observationId = roleplayObservationContext?.observationId,
             ),
             compiled = compiled,
+            roleplayObservationContext = roleplayObservationContext,
         )
     }
 
     private fun StringBuilder.hasVisibleAssistantText(): Boolean =
         toString().visibleAssistantText().isNotBlank()
+
+    private fun isDebuggableBuild(): Boolean =
+        applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
 
     private fun String.visibleAssistantText(): String {
         val start = indexOf("<think>")
@@ -965,6 +1016,7 @@ class MainActivity : AppCompatActivity() {
     private data class HarnessPromptInput(
         val request: HarnessChatRequest,
         val compiled: CompiledAndroidPrompt?,
+        val roleplayObservationContext: RoleplayObservationContext? = null,
     ) {
         val predictLength: Int
             get() = if (compiled?.mode == RagMode.CHARACTER_RAG) {

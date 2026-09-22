@@ -10,11 +10,16 @@ import kotlinx.coroutines.flow.flow
 data class HarnessChatRequest(
     val userPrompt: String,
     val systemPrompt: String? = null,
+    /** Correlates prompt preflight logs with optional caller-side diagnostics. */
+    val observationId: String? = null,
 ) {
     init {
         require(userPrompt.isNotBlank()) { "User prompt must not be blank" }
         require(systemPrompt == null || systemPrompt.isNotBlank()) {
             "System prompt must be null or non-blank"
+        }
+        require(observationId == null || observationId.isNotBlank()) {
+            "Observation id must be null or non-blank"
         }
     }
 }
@@ -59,7 +64,8 @@ interface HarnessBackend {
                 TAG,
                 "Prompt preflight tokens: system=${systemTokens ?: "n/a"}, " +
                     "user=${userTokens ?: "n/a"}, " +
-                    "total=${if (systemTokens != null && userTokens != null) systemTokens + userTokens else "n/a"}",
+                    "total=${if (systemTokens != null && userTokens != null) systemTokens + userTokens else "n/a"}, " +
+                    "observationId=${request.observationId ?: "n/a"}",
             )
         }
         request.systemPrompt?.let { systemPrompt ->

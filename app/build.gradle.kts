@@ -48,9 +48,11 @@ android {
                 arguments += "-DLLAMA_BUILD_TOOLS=ON"
                 arguments += "-DLLAMA_OPENSSL=OFF"
 
+                // Android is a cross-compile target; GGML_NATIVE invokes try_run()
+                // and would incorrectly probe the macOS host CPU.
                 arguments += "-DGGML_NATIVE=OFF"
                 arguments += "-DGGML_LLAMAFILE=ON"
-                arguments += "-DGGML_CPU_KLEIDIAI=OFF"
+                arguments += "-DGGML_CPU_KLEIDIAI=ON"
                 arguments += "-DLLAMA_CURL=OFF"
                 llamaSourceDir?.let {
                     arguments += "-DLLAMA_SRC=${file(it).absolutePath.replace('\\', '/')}"

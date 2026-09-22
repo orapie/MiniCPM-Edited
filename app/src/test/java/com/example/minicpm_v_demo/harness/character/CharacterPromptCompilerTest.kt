@@ -93,6 +93,8 @@ class CharacterPromptCompilerTest {
         val system = compiled.messages[0].content
         assertTrue(system.contains("只说角色此刻会亲口说的话"))
         assertTrue(system.contains("通常一至三句、少于120字"))
+        assertTrue(system.contains("同一事实、理由或结论只说一次"))
+        assertTrue(system.contains("不要换词、换句式或换顺序重复"))
         assertTrue(system.contains("不要旁白、分析、标题、列表、资料摘要"))
         assertTrue(system.contains("任何尖括号标签"))
         assertTrue(system.contains("把这些短句当作语气标尺"))

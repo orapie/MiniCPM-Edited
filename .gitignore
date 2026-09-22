@@ -34,6 +34,7 @@ app/cmake_test_build2/
 # Locally packaged APKs are kept outside Git history. Publish distributable
 # builds through GitHub Releases instead.
 artifacts/*.apk
+/release/
 
 # Keep any directory named data, but ignore everything inside it.
 **/data/**

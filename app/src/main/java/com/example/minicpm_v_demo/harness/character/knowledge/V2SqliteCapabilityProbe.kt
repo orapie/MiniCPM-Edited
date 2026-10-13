@@ -9,6 +9,7 @@ data class V2SqliteCapabilityReport(
     val cutoffCount: Int,
     val fts5TrigramDeclared: Boolean,
     val ftsMatchWorked: Boolean,
+    val ftsMatchError: String? = null,
     val error: String? = null,
 ) {
     val isUsable: Boolean
@@ -26,7 +27,14 @@ data class V2SqliteCapabilityReport(
 object V2SqliteCapabilityProbe {
     fun probe(databaseFile: File): V2SqliteCapabilityReport {
         if (!databaseFile.isFile || databaseFile.length() == 0L) {
-            return V2SqliteCapabilityReport(null, null, 0, false, false, "database_missing")
+            return V2SqliteCapabilityReport(
+                schemaVersion = null,
+                sqliteVersion = null,
+                cutoffCount = 0,
+                fts5TrigramDeclared = false,
+                ftsMatchWorked = false,
+                error = "database_missing",
+            )
         }
         return try {
             SQLiteDatabase.openDatabase(
@@ -43,27 +51,37 @@ object V2SqliteCapabilityProbe {
                     "SELECT sql FROM sqlite_master WHERE type='table' AND name='claims_fts'",
                 ).orEmpty().lowercase()
                 val fts5TrigramDeclared = "fts5" in ftsDefinition && "trigram" in ftsDefinition
-                val ftsMatchWorked = database.ftsMatchWorked()
+                val ftsMatch = database.ftsMatch()
                 V2SqliteCapabilityReport(
                     schemaVersion = schemaVersion,
                     sqliteVersion = sqliteVersion,
                     cutoffCount = cutoffCount,
                     fts5TrigramDeclared = fts5TrigramDeclared,
-                    ftsMatchWorked = ftsMatchWorked,
+                    ftsMatchWorked = ftsMatch.first,
+                    ftsMatchError = ftsMatch.second,
                 )
             }
         } catch (error: Exception) {
-            V2SqliteCapabilityReport(null, null, 0, false, false, error.javaClass.simpleName)
+            V2SqliteCapabilityReport(
+                schemaVersion = null,
+                sqliteVersion = null,
+                cutoffCount = 0,
+                fts5TrigramDeclared = false,
+                ftsMatchWorked = false,
+                error = error.javaClass.simpleName,
+            )
         }
     }
 
-    private fun SQLiteDatabase.ftsMatchWorked(): Boolean = try {
+    private fun SQLiteDatabase.ftsMatch(): Pair<Boolean, String?> = try {
         rawQuery(
             "SELECT count(*) FROM claims_fts WHERE claims_fts MATCH ?",
             arrayOf("\"陆江仙\""),
-        ).use { cursor -> cursor.moveToFirst() && cursor.getInt(0) > 0 }
-    } catch (_: Exception) {
-        false
+        ).use { cursor ->
+            (cursor.moveToFirst() && cursor.getInt(0) > 0) to null
+        }
+    } catch (error: Exception) {
+        false to error.javaClass.simpleName
     }
 
     private fun SQLiteDatabase.singleString(sql: String): String? = rawQuery(sql, emptyArray()).use { cursor ->

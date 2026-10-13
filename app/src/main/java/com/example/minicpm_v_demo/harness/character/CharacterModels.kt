@@ -11,6 +11,9 @@ data class RuntimeContext(
     val maxChars: Int = 4500,
     val topK: Int = 8,
     val conversationSummary: String = "",
+    val knowledgeGraphEnabled: Boolean = true,
+    val graphFactTopK: Int = 4,
+    val knowledgeGraphMaxChars: Int = 320,
 )
 
 data class CompiledCharacterPrompt(
@@ -32,6 +35,10 @@ data class CharacterPromptDebug(
     val estimatedMandatoryTokens: Int = 0,
     val conversationSummaryChars: Int = 0,
     val estimatedUserTokens: Int = 0,
+    val knowledgeGraphStatus: String = "not_configured",
+    val knowledgeGraphFallbackReason: String? = null,
+    val knowledgeGraphDecisions: List<com.example.minicpm_v_demo.harness.character.knowledge.KnowledgeDecision> = emptyList(),
+    val knowledgeGraphInjectedChars: Int = 0,
 )
 
 data class SelectedPromptItem(

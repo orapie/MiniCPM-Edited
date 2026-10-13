@@ -453,7 +453,6 @@ Java_com_example_minicpm_1v_1demo_LlamaEngine_processSystemPrompt(
     LOGd("%s: System prompt received: \n%s", __func__, system_prompt);
     std::string formatted_system_prompt(system_prompt);
 
-    const bool has_chat_template = common_chat_templates_was_explicit(g_chat_templates.get());
     if (g_ctx_vision) {
         // The vision user path below uses the Qwen/MiniCPM role markers explicitly. Keep the
         // system turn on the matching native role path even when the GGUF has no embedded chat
@@ -465,7 +464,12 @@ Java_com_example_minicpm_1v_1demo_LlamaEngine_processSystemPrompt(
         system_msg.role = ROLE_SYSTEM;
         system_msg.content = system_prompt;
         chat_msgs.push_back(system_msg);
-    } else if (has_chat_template) {
+    } else {
+        // common_chat_templates_init() always provides a safe default (ChatML)
+        // when a GGUF does not embed a chat_template. Character+RAG is the
+        // first path that sends a system message for text-only MiniCPM models;
+        // passing that message through as raw text made the model continue the
+        // role prompt instead of answering the following user turn.
         formatted_system_prompt = chat_add_and_format(ROLE_SYSTEM, system_prompt);
     }
     env->ReleaseStringUTFChars(jsystem_prompt, system_prompt);
@@ -680,13 +684,12 @@ Java_com_example_minicpm_1v_1demo_LlamaEngine_processUserPrompt(
 
         g_image_prefilled = false;
     } else {
-        const bool has_chat_template = common_chat_templates_was_explicit(g_chat_templates.get());
-        if (has_chat_template) {
-            formatted_user_prompt = chat_add_and_format(ROLE_USER, content_for_format.c_str());
-            apply_thinking_mode_to_generation_prompt(formatted_user_prompt);
-        } else {
-            formatted_user_prompt = content_for_format;
-        }
+        // See processSystemPrompt(): use llama.cpp's default ChatML formatter
+        // even when this GGUF has no explicit template metadata. The user
+        // message must be followed by an assistant generation turn; otherwise
+        // the model treats it as an unstructured continuation.
+        formatted_user_prompt = chat_add_and_format(ROLE_USER, content_for_format.c_str());
+        apply_thinking_mode_to_generation_prompt(formatted_user_prompt);
     }
     env->ReleaseStringUTFChars(juser_prompt, user_prompt);
 

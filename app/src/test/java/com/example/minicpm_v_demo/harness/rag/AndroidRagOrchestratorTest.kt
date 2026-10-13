@@ -28,7 +28,9 @@ class AndroidRagOrchestratorTest {
         )
 
         assertEquals(RagMode.CHARACTER_RAG, compiled.mode)
-        assertTrue(compiled.renderedPrompt.contains("<|system|>"))
+        assertTrue(compiled.renderedPrompt.contains("<|im_start|>system"))
+        assertTrue(compiled.renderedPrompt.contains("<|im_start|>user"))
+        assertTrue(compiled.renderedPrompt.endsWith("<|im_start|>assistant\n"))
         assertTrue(compiled.renderedPrompt.contains("此刻确实知道的事"))
         assertEquals(emptyList<RagSource>(), compiled.sources)
         assertEquals("", compiled.contextText)
@@ -126,8 +128,39 @@ class AndroidRagOrchestratorTest {
                 mode = RagMode.CHARACTER_RAG,
             )
 
-            assertTrue(compiled.renderedPrompt.contains("<|assistant|>"))
+            assertTrue(compiled.renderedPrompt.contains("<|im_start|>assistant"))
             assertTrue(compiled.sources.isEmpty())
+        } finally {
+            tempRoot.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun runtimeGraphFactsStayInSystemAndExternalContextStaysEmpty() {
+        val tempRoot = Files.createTempDirectory("orchestrator-graph-runtime-test").toFile()
+        try {
+            val paths = HarnessDataPaths(File(tempRoot, "harness"))
+            AssetBootstrapper.bootstrapFromDirectory(harnessAssetsDir(), paths)
+            val orchestrator = AndroidRagOrchestrator(
+                ragSearchService = RagSearchService.fromPaths(paths),
+                characterCompiler = CharacterPromptCompiler.fromPaths(paths),
+            )
+
+            val query = "玄谙为何还要毁掉明阳"
+            val compiled = orchestrator.compile(
+                userInput = query,
+                mode = RagMode.CHARACTER_RAG,
+                characterId = "lu_jiangxian",
+                storyCutoff = "evt-018",
+                maxCharacterChars = 900,
+            )
+
+            val debug = compiled.characterDebug as CharacterPromptDebug
+            assertEquals("ready", debug.knowledgeGraphStatus)
+            assertTrue(compiled.rendered.splitPrompt.systemPrompt.contains("拒绝玄谙以生存和能力为理由的取代方案"))
+            assertEquals(query, compiled.rendered.splitPrompt.userPrompt)
+            assertEquals(emptyList<RagSource>(), compiled.sources)
+            assertEquals("", compiled.contextText)
         } finally {
             tempRoot.deleteRecursively()
         }

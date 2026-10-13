@@ -114,6 +114,9 @@ android {
     androidResources {
         noCompress.add("gguf")
         noCompress.add("bin")
+        // The Phase 1 character cognition graph is copied from assets into
+        // filesDir before Android SQLite opens it read-only.
+        noCompress.add("sqlite3")
     }
 }
 

@@ -2,6 +2,8 @@ package com.example.minicpm_v_demo.harness.character
 
 import com.example.minicpm_v_demo.harness.data.HarnessDataPaths
 import com.example.minicpm_v_demo.harness.data.harnessAssetsDir
+import com.example.minicpm_v_demo.harness.character.knowledge.KnowledgeDecisionReason
+import com.example.minicpm_v_demo.harness.character.knowledge.V2EpistemicKnowledgeStore
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -204,7 +206,67 @@ class CharacterPromptCompilerTest {
         }.exceptionOrNull() is IllegalArgumentException)
     }
 
+    @Test
+    fun graphFactIsPlacedOnlyInSystemMessageWhenAuthorized() {
+        val query = "玄谙为何还要毁掉明阳"
+        val compiled = testCompilerWithGraph().buildNpcPrompt(
+            npcId = "lu_jiangxian",
+            userInput = query,
+            runtimeContext = RuntimeContext(storyCutoff = "evt-018", maxChars = 1_500),
+        )
+
+        assertEquals(query, compiled.messages[1].content)
+        assertTrue(compiled.messages[0].content.contains("拒绝玄谙以生存和能力为理由的取代方案"))
+        assertEquals("ready", compiled.debug.knowledgeGraphStatus)
+        assertTrue(compiled.debug.selectedItems.any { it.id == "v2-claim-evt-012" })
+        assertTrue(compiled.debug.knowledgeGraphInjectedChars > 0)
+    }
+
+    @Test
+    fun unavailableGraphFallsBackToExistingStoryEvents() {
+        val root = harnessAssetsDir()
+        val compiler = CharacterPromptCompiler(
+            loader = testLoader(),
+            v2KnowledgeStore = V2EpistemicKnowledgeStore(File(root, "missing-knowledge.json")),
+        )
+        val compiled = compiler.buildNpcPrompt(
+            npcId = "lu_jiangxian",
+            userInput = "玄谙究竟是什么？",
+            runtimeContext = RuntimeContext(storyCutoff = "evt-010", maxChars = 900),
+        )
+
+        assertEquals("unavailable", compiled.debug.knowledgeGraphStatus)
+        assertEquals("v2_store_unavailable", compiled.debug.knowledgeGraphFallbackReason)
+        assertTrue(compiled.debug.selectedItems.any { it.id == "evt-009" })
+        assertTrue(compiled.messages[0].content.contains("玄谙是洞华天中一块青铜残片"))
+    }
+
+    @Test
+    fun graphDoesNotBypassFutureKnowledgeBoundary() {
+        val compiled = testCompilerWithGraph().buildNpcPrompt(
+            npcId = "lu_jiangxian",
+            userInput = "玄谙为何还要毁掉明阳",
+            runtimeContext = RuntimeContext(storyCutoff = "evt-010", maxChars = 1_500),
+        )
+
+        assertFalse(compiled.messages[0].content.contains("拒绝玄谙以生存和能力为理由的取代方案"))
+        assertTrue(compiled.debug.knowledgeGraphDecisions.any {
+            it.claimId == "v2-claim-evt-012" && it.reason == KnowledgeDecisionReason.ACQUIRED_AFTER_CUTOFF
+        })
+    }
+
     private fun testCompiler(): CharacterPromptCompiler = CharacterPromptCompiler(testLoader())
+
+    private fun testCompilerWithGraph(): CharacterPromptCompiler {
+        val root = harnessAssetsDir()
+        return CharacterPromptCompiler(
+            loader = testLoader(),
+            v2KnowledgeStore = V2EpistemicKnowledgeStore(
+                fallbackFile = File(root, "characters/knowledge/v2/knowledge_fallback.json"),
+                sourceDatabaseFile = File(root, "characters/knowledge/v2/character_knowledge_v2.sqlite3"),
+            ),
+        )
+    }
 
     private fun testLoader(): CharacterJsonLoader {
         val root = harnessAssetsDir()

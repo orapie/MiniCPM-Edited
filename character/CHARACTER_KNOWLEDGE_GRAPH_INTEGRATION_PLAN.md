@@ -49,6 +49,26 @@ assets/harness/characters/{characters,story,prompts}
 `CharacterRagPromptBuilder` 已正确把普通外部 RAG 资料放到 user message；
 角色身份和已授权剧情事实留在 system message。新图谱必须保持这个边界。
 
+### 2.3 当前实施状态（2026-10-13，`char_sys`）
+
+| 项目 | 实际状态 | 已有证据 | 尚未完成的边界 |
+| --- | --- | --- | --- |
+| Phase 0：契约与 SQLite 可行性 | **已完成，选择 JSON 回退** | API 36 ARM64 模拟器实测能只读打开 V2（SQLite `3.50.4`）且 28 个 cutoff 正常，但 `fts5/trigram` 的 `MATCH` 无法命中 | Android SQLite 不能作为 V2 FTS 生产主路径；原始数据库继续仅作审计资产 |
+| Phase 1：资产打包与路径 | **已实现，随 V2 回退资产更新** | V1/V2 最小资产已进入 APK；V2 同时包含由源库导出的 `knowledge_fallback.json`；启动时复制到 `filesDir/harness/characters/knowledge/` | 资产存在不表示模型已经读取图谱 |
+| Character+RAG 传输前置条件 | **已修复** | 文本模型的 system/user 消息在无内嵌模板 GGUF 上也使用 ChatML；编译测试覆盖 system/user/assistant 边界 | 仍需要设备上的真实模型回归，不能仅凭编译断言模型行为 |
+| Phase 2：统一检索器 | **2A/2B 已实现，未注入提示词** | `V2EpistemicKnowledgeStore` 读取带源库 SHA-256 的 JSON 导出，执行 V2 时间/认知/审核过滤、稳定评分、中文 n-gram 召回；`KnowledgeDecision` 记录选择/拒绝理由，`retrieveSafely()` 为资产异常提供 fail-closed 降级结果 | V1、跨图谱统一门面、UI/模型调用均未开始 |
+| Phase 3：提示词注入/回退 | **3A 已实现：仅 V2 facts** | `CharacterPromptCompiler.fromPaths()` 创建 V2 store；已授权 V2 fact 写入 system 的 `authorized_story_facts`，无图谱/无命中时回退到 `story_events.jsonl` | V1 人物关系和 V1 claim 兼容尚未接入 |
+| Phase 4：端侧质量验收 | **未开始** | JVM 测试与 Debug APK 构建通过 | 没有设备功能、TTFT 或防剧透实测结论 |
+
+当前实际检索链仍是：
+
+```text
+story_events.jsonl -> KeywordStoryRetriever -> KnowledgeBoundaryFilter
+```
+
+因此下一步是 **Phase 4A：设备功能与防剧透验收**。V1 关系检索和 V1 claim 兼容应分别延后，
+避免一次合并三种事实来源而无法定位角色失真或剧透问题。
+
 ## 3. 目标架构与数据流
 
 ```text
@@ -91,6 +111,11 @@ assets/harness/characters/{characters,story,prompts}
 **目的：先证明 V2 数据库可在 `minSdk 24` 的真实 Android SQLite 环境打开和查询，
 再决定运行时格式，避免把桌面 Python/SQLite 能力误当成手机能力。**
 
+**当前状态：** `CharacterKnowledgeContractValidator` 已校验 V1/V2 schema、cutoff 和
+最小文件；`V2SqliteCapabilityProbe` 已以只读方式检查 metadata、cutoffs、FTS 声明和一次
+`MATCH`。在 API 36 ARM64 模拟器上，数据库可打开且 schema/cutoff 验证通过（SQLite
+`3.50.4`），但 `MATCH` 没有命中。因此已选择 JSON 导出而非 SQLite FTS 主路径。
+
 1. 新建 `CharacterKnowledgeManifest`，读取两个 `manifest.json`，校验：
    `schema_version` 分别为 `1.x`/`2.x`、`knowledge_base_version == v2`、数据库文件
    存在、所选角色和 cutoff 同时存在于角色卡与图谱。
@@ -106,12 +131,20 @@ assets/harness/characters/{characters,story,prompts}
      `graph/{claims,knowledge_edges,relations}.jsonl` 与 cutoffs 导出成紧凑、版本化 JSON，
      由同一 Kotlin 过滤/中文 n-gram 检索实现读取。V2 语义不变，仅替换存储/候选召回层。
 
-验收：在 Android 上对 `lu_jiangxian + evt-018` 完成一次数据库打开、候选查询和关闭；
-失败分支有可重复的导出命令、产物校验与同等的检索测试。
+已执行的验收：在 Android 上完成 V2 数据库打开、候选 `MATCH` 查询和关闭，并保存 SQLite
+版本及 FTS5/trigram 结果。由于该查询不工作，已新增可重复的
+`character/export_v2_knowledge_fallback.py`；它将 V2 claims、knowledge edges、cutoffs 和源库
+SHA-256 导出为 `knowledge_fallback.json`。Android 只读取该导出，仍保留 SQLite 文件用于版本
+与审计核对。
 
 ### Phase 1：资产打包、升级和路径
 
 **目的：把图谱变成 App 能安全读取、可随资产版本升级的数据，而不是在源码根目录读取。**
+
+**当前状态：已实现，尚未接入角色回答。** V1 最小包和 V2 SQLite 已位于
+`app/src/main/assets/harness/characters/knowledge/{v1,v2}`；`.sqlite3` 在 APK 内为未压缩
+条目。`AssetBootstrapper` 对每个实际文件计算 SHA-256，使用临时目录校验后备份替换，并在
+JVM 测试中验证损坏的 manifest 会被下一次 bootstrap 恢复。
 
 1. 将生产副本加入：
 
@@ -128,12 +161,13 @@ assets/harness/characters/{characters,story,prompts}
    APK；需要“查看依据”功能时再按需携带经裁剪的证据索引。
 2. 扩展 `HarnessDataPaths`，新增 `characterKnowledgeDir`、`v1KnowledgeDir`、
    `v2KnowledgeDatabaseFile` 与 manifest 路径，全部位于 `filesDir/harness`。
-3. 扩展 `AssetBootstrapper`：按 manifest 的 schema/version/内容摘要决定是否升级；先复制到
-   临时文件、校验可打开和版本正确，再原子替换。运行期数据库始终只读，不能直接在 APK
-   asset 内打开。
+3. 扩展 `AssetBootstrapper`：按最小包每个文件的 SHA-256 决定是否升级；先复制到临时目录，
+   校验 V1/V2 manifest 与最小文件，再备份替换。运行期数据库始终只读，不能直接在 APK
+   asset 内打开。此项已实现。
 4. 在 `app/build.gradle.kts` 中为 `sqlite3` 添加 `androidResources.noCompress`；这样 APK
    内的预构建数据库可以被可靠复制，且不会产生不必要的启动解压成本。
 5. 把“资产版本”和“当前检索器版本”写入 debug 日志，不记录完整用户提问或证据原文。
+   该观测项移入 Phase 3，与实际检索结果一起实现；当前安装器不记录用户内容。
 
 验收：冷启动后 `filesDir/harness/characters/knowledge/v2/character_knowledge_v2.sqlite3`
 存在、可只读打开；升级 manifest 后只替换对应知识库，旧版失败时仍保有最后一次有效文件。
@@ -141,6 +175,11 @@ assets/harness/characters/{characters,story,prompts}
 ### Phase 2：统一领域模型与检索器
 
 **目的：在不让 UI 感知 V1/V2 差异的前提下，保留每条结果为什么被允许或拒绝的审计信息。**
+
+**当前状态：2A 已实现；必须在 Phase 0 的设备决策门得出结论后实施。** 首个实现切片为
+**Phase 2A（仅 V2 facts）**：定义领域模型、只读 V2 store、认知/时间/审核硬过滤与
+`KnowledgeDecision`。不读取 V1、不改变 `CharacterPromptCompiler`、不向模型注入任何结果。
+这样可以先独立验证“召回/拒绝理由正确”，再扩展关系与提示词。
 
 新增 `app/src/main/java/com/example/minicpm_v_demo/harness/character/knowledge/`：
 
@@ -169,6 +208,15 @@ assets/harness/characters/{characters,story,prompts}
 5. 返回获得方式（direct/witnessed/reported/inferred）和可信度，以便生成“亲历/目击/
    听说/推断”的限定语。
 
+#### Phase 2B：评分、审计与降级（已完成）
+
+`V2EpistemicKnowledgeStore.retrieveAudited()` 为每条 V2 claim 产出不含事实正文、玩家问题或
+证据原文的 `KnowledgeDecision`。拒绝原因包括无角色认知边、取得时间晚于 cutoff、profile、
+审核状态、belief 状态、有效期、词法不匹配和 top-K 截断；仅最终入选项保留 score。
+`retrieveSafely()` 在 JSON 缺失、哈希不匹配或解析失败时返回 `UNAVAILABLE` 与空结果，供下一
+阶段无条件回退到既有 `story_events.jsonl`，而不是容忍未知事实或阻塞应用启动。对应 JVM 测试
+覆盖未来知识拒绝、审计无正文以及资产缺失的 fail-closed 行为。
+
 #### V1 关系与兼容路径算法
 
 1. 关系查询优先匹配 `target_id` 的 canonical name/alias；用户没有点名对象且询问
@@ -183,6 +231,16 @@ assets/harness/characters/{characters,story,prompts}
 ### Phase 3：接入角色提示词编译与现有回退
 
 **目的：替换“只依赖 `story_events.jsonl`”的事实来源，但不改变普通 RAG 的安全边界。**
+
+**当前状态：3A 已实现（V2 facts），V1 部分未开始。** 已完成的 ChatML native 传输修复是本阶段
+的前置条件，不属于图谱注入本身：今后必须保留“system/user/assistant 边界”回归断言，不能因接入
+图谱而回退为裸文本。
+
+3A 实现细节：`RuntimeContext` 默认启用 `knowledgeGraphEnabled`，并以 `graphFactTopK=4`、
+`knowledgeGraphMaxChars=320` 为 V2 事实设置独立上限；V2 有已授权命中时优先填充
+`authorized_story_facts`，否则保留既有 `KeywordStoryRetriever + KnowledgeBoundaryFilter`。图谱
+事实只保留在 system message；外部 RAG 原文仍只经 `CharacterRagPromptBuilder` 放入 user message。
+`CharacterPromptDebug` 记录图谱状态、降级原因、无正文的筛选决策和实际注入字符数。
 
 1. 为 `CharacterPromptCompiler` 注入可选 `CharacterKnowledgeRetriever`。`fromPaths()` 创建
    检索器；构造/manifest/DB 失败不阻止应用启动，标记为 unavailable。
@@ -251,9 +309,11 @@ assets/harness/characters/{characters,story,prompts}
 
 ## 5. 迁移顺序、风险与完成定义
 
-建议按 **Phase 0 → 1 → 2（仅 V2 fact）→ 3 → 4 → V1 relation → V1 claim 兼容** 的
-小步顺序提交。这样先让“事件/认知”这个最关键的防泄漏模型落地，再加入关系表达，避免
-两个数据源同时改变导致问题无法归因。
+调整后的顺序为：**完成 Phase 0 设备决策门 → Phase 2A（仅 V2 facts、无提示词注入） →
+Phase 2B（V2 评分/降级/审计，已完成） → Phase 3A（V2 注入与 story-events 回退，已完成） → Phase 4A
+（设备功能与防剧透） → V1 relation → V1 claim 兼容 → Phase 4B（完整质量/性能回归）**。
+这样先让“事件/认知”这个最关键的防泄漏模型落地，再加入关系表达，避免两个数据源同时改变
+导致问题无法归因。
 
 主要风险及控制：
 

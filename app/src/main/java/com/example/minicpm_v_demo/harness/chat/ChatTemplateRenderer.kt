@@ -39,7 +39,7 @@ class ChatTemplateRenderer(
             "llama" -> "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n" +
                 "$system<|eot_id|><|start_header_id|>user<|end_header_id|>\n" +
                 "$user<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n"
-            "qwen" -> "<|im_start|>system\n$system<|im_end|>\n" +
+            "qwen", "chatml" -> "<|im_start|>system\n$system<|im_end|>\n" +
                 "<|im_start|>user\n$user<|im_end|>\n" +
                 "<|im_start|>assistant\n"
             else -> "<|system|>\n$system\n\n<|user|>\n$user\n\n<|assistant|>\n"
@@ -51,7 +51,11 @@ class ChatTemplateRenderer(
             val profile = when (family) {
                 HarnessModelFamily.LLAMA -> "llama"
                 HarnessModelFamily.QWEN -> "qwen"
-                HarnessModelFamily.MINICPM_TEXT -> "minicpm_text"
+                // Matches llama.cpp's safe fallback when a MiniCPM GGUF has
+                // no embedded chat_template. Native Character+RAG calls send
+                // system/user messages separately, so debug rendering must not
+                // imply the obsolete raw-text layout.
+                HarnessModelFamily.MINICPM_TEXT -> "chatml"
                 HarnessModelFamily.MINICPM_VISION -> "minicpm_vision"
                 else -> "android_send_user_prompt_v1"
             }

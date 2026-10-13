@@ -1,6 +1,10 @@
 package com.example.minicpm_v_demo.harness.character
 
 import com.example.minicpm_v_demo.harness.context.ContextController
+import com.example.minicpm_v_demo.harness.character.knowledge.KnowledgeStoreStatus
+import com.example.minicpm_v_demo.harness.character.knowledge.V2EpistemicKnowledgeStore
+import com.example.minicpm_v_demo.harness.character.knowledge.V2KnowledgeFact
+import com.example.minicpm_v_demo.harness.character.knowledge.V2KnowledgeQuery
 import com.example.minicpm_v_demo.harness.data.HarnessDataPaths
 
 class CharacterPromptCompiler(
@@ -8,6 +12,7 @@ class CharacterPromptCompiler(
     private val retriever: KeywordStoryRetriever = KeywordStoryRetriever(),
     private val boundaryFilter: KnowledgeBoundaryFilter = KnowledgeBoundaryFilter(),
     private val memoryRetriever: MemoryRetriever = MemoryRetriever(),
+    private val v2KnowledgeStore: V2EpistemicKnowledgeStore? = null,
 ) {
     private val events: List<StoryEvent> by lazy { loader.loadEvents() }
     private val eventsById: Map<String, StoryEvent> by lazy { events.associateBy { it.eventId } }
@@ -22,6 +27,8 @@ class CharacterPromptCompiler(
     ): CompiledCharacterPrompt {
         require(userInput.isNotBlank()) { "userInput must not be empty" }
         require(runtimeContext.maxChars >= 400) { "maxChars must be at least 400" }
+        require(runtimeContext.graphFactTopK >= 0) { "graphFactTopK must not be negative" }
+        require(runtimeContext.knowledgeGraphMaxChars >= 0) { "knowledgeGraphMaxChars must not be negative" }
         val npc = loader.loadCharacter(npcId)
         val cutoff = runtimeContext.storyCutoff ?: npc.knowledgeScope.storyCutoff
         require(eventsById.containsKey(cutoff)) { "unknown story cutoff: $cutoff" }
@@ -29,9 +36,25 @@ class CharacterPromptCompiler(
         val candidates = retriever.retrieve(userInput, events, limit = maxOf(runtimeContext.topK * 2, 12))
         val (authorizedAll, decisions) = boundaryFilter.filter(candidates, npc, cutoff, events, userInput)
         val authorized = authorizedAll.take(runtimeContext.topK)
+        val graphRetrieval = if (runtimeContext.knowledgeGraphEnabled && v2KnowledgeStore != null) {
+            v2KnowledgeStore.retrieveSafely(
+                V2KnowledgeQuery(
+                    characterId = npc.npcId,
+                    query = userInput,
+                    storyCutoff = cutoff,
+                    limit = runtimeContext.graphFactTopK,
+                ),
+            )
+        } else {
+            null
+        }
+        val graphFacts = graphRetrieval?.takeIf { it.status == KnowledgeStoreStatus.READY }
+            ?.facts.orEmpty()
         val memories = memoryRetriever.retrieve(npc, authorized, events, cutoff, limit = 3)
         val memoryIds = memories.map { it.event.eventId }.toSet()
-        val factCandidates = authorized.filter { it.event.eventId !in memoryIds }
+        // V2 is the authoritative fact source when it finds permitted evidence.
+        // The old story-events route remains a strict fallback only.
+        val factCandidates = if (graphFacts.isEmpty()) authorized.filter { it.event.eventId !in memoryIds } else emptyList()
         val relationships = selectRelationships(npc, userInput)
         val definitionIntent = isDefinitionQuery(userInput)
         val primaryDefinitionEventId = if (definitionIntent) {
@@ -82,6 +105,22 @@ class CharacterPromptCompiler(
                 priority = if (definitionIntent) 1.65 else 2.0,
             )
         }
+        val graphPreDropped = mutableListOf<DroppedPromptItem>()
+        var graphChars = 0
+        graphFacts.forEach { item ->
+            val text = formatGraphFact(item, npc)
+            if (graphChars + text.length > runtimeContext.knowledgeGraphMaxChars) {
+                graphPreDropped += DroppedPromptItem("authorized_story_facts", item.claimId, "knowledge_graph_budget")
+            } else {
+                graphChars += text.length
+                optionalItems += PromptCandidate(
+                    section = "authorized_story_facts",
+                    id = item.claimId,
+                    text = text,
+                    priority = item.score + 1.0,
+                )
+            }
+        }
         factCandidates.forEach { item ->
             optionalItems += PromptCandidate(
                 section = "authorized_story_facts",
@@ -107,7 +146,7 @@ class CharacterPromptCompiler(
         )
 
         val selected = mutableListOf<SelectedPromptItem>()
-        val dropped = mutableListOf<DroppedPromptItem>()
+        val dropped = graphPreDropped
         val sectionLines = mutableMapOf(
             "relevant_relationships" to mutableListOf<String>(),
             "authorized_story_facts" to mutableListOf<String>(),
@@ -155,6 +194,13 @@ class CharacterPromptCompiler(
                 estimatedMandatoryTokens = ContextController.estimateTokens(render(mandatory)),
                 conversationSummaryChars = selectedSummary.length,
                 estimatedUserTokens = ContextController.estimateTokens(userInput),
+                knowledgeGraphStatus = graphRetrieval?.status?.name?.lowercase()
+                    ?: if (runtimeContext.knowledgeGraphEnabled) "not_configured" else "disabled",
+                knowledgeGraphFallbackReason = graphRetrieval?.fallbackReason,
+                knowledgeGraphDecisions = graphRetrieval?.decisions.orEmpty(),
+                knowledgeGraphInjectedChars = sectionLines.getValue("authorized_story_facts")
+                    .filter { line -> graphFacts.any { formatGraphFact(it, npc) == line } }
+                    .sumOf(String::length),
             ),
         )
     }
@@ -210,6 +256,16 @@ class CharacterPromptCompiler(
         return "${KnowledgeLeadIns.getValue(item.memory.source)}$perspectiveFact"
     }
 
+    private fun formatGraphFact(item: V2KnowledgeFact, npc: CharacterCard): String {
+        val perspectiveFact = item.statement.replace(npc.identity.name, "你")
+        val leadIn = KnowledgeLeadIns[item.acquisitionMethod] ?: "你所知的是："
+        return if (item.confidence < 0.9 && item.acquisitionMethod !in setOf("reported", "inferred")) {
+            "你大致确认：$perspectiveFact"
+        } else {
+            "$leadIn$perspectiveFact"
+        }
+    }
+
     private fun isDefinitionQuery(query: String): Boolean = DefinitionSignals.any { it in query }
 
     private fun definitionBoost(eventId: String, primaryEventId: String?): Double =
@@ -257,6 +313,10 @@ class CharacterPromptCompiler(
                     charactersDir = paths.charactersDir,
                     storyEventsFile = paths.storyEventsFile,
                     promptTemplateFile = java.io.File(paths.promptsDir, "roleplay_system.prompt"),
+                ),
+                v2KnowledgeStore = V2EpistemicKnowledgeStore(
+                    fallbackFile = paths.v2CharacterKnowledgeFallbackFile,
+                    sourceDatabaseFile = paths.v2CharacterKnowledgeDatabaseFile,
                 ),
             )
         }

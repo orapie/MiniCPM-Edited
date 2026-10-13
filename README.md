@@ -7,6 +7,7 @@
 - VoxCPM2 TTS 页面。
 - Harness 编排层、模型注册表、模型文件管理和下载适配。
 - Android 侧 RAG、角色 Prompt、会话保存和 Memory 记录。
+- Character+RAG 的 V2「事件和认知状态」知识图谱：按角色认知、剧情截止点和审核状态过滤后注入角色上下文。
 
 ## 项目概览
 
@@ -45,6 +46,9 @@
 │   │   ├── characters/
 │   │   │   ├── characters/
 │   │   │   ├── story/
+│   │   │   ├── knowledge/
+│   │   │   │   ├── v1/
+│   │   │   │   └── v2/
 │   │   │   ├── prompts/
 │   │   │   └── schemas/
 │   │   ├── agent/
@@ -101,6 +105,11 @@ MainActivity
   -> AndroidRagOrchestrator
       -> RagSearchService + VectorIndex + HashEmbeddingModel
       -> CharacterPromptCompiler
+          -> V2EpistemicKnowledgeStore (Character+RAG)
+              -> 角色认知/时间/审核硬过滤
+              -> JSON n-gram 召回与稳定排序
+              -> system: authorized_story_facts
+          -> KeywordStoryRetriever + KnowledgeBoundaryFilter（图谱不可用或无命中时回退）
       -> ChatTemplateRenderer
   -> HarnessFacade.sendUserPrompt(...)
 ```
@@ -119,6 +128,39 @@ Harness 数据包在 [app/src/main/assets/harness/manifest.json](app/src/main/as
 - `world_cup` 和 `novel_test` 文档。
 - 6 个角色和 28 条剧情事件。
 - 角色 Prompt 模板、schema、agent fixtures 和默认 role。
+- V1 人物—关系—人物图谱资产，以及 V2 事件/认知图谱的 SQLite 审计源与 JSON 运行时导出。
+
+## Character+RAG 与知识图谱
+
+`CHARACTER_RAG` 每轮以 `(characterId, storyCutoff, userInput)` 编译角色提示词。当前启用的是
+V2「事件和认知状态」图谱：只有该角色在当前剧情截止点前已获得、仍有效、且通过来源与审核检查的
+剧情事实，才会写入 system message 的 `authorized_story_facts`。模型不会自行决定能否使用未来或
+他人私密事实。
+
+Android 系统 SQLite 在已验证的 API 36 ARM64 模拟器上能打开 V2 数据库，但不能可靠执行其
+FTS5/trigram `MATCH` 查询。因此 APK 同时携带：
+
+- `character_knowledge_v2.sqlite3`：只读审计源和版本核对对象；
+- `knowledge_fallback.json`：由 SQLite 在构建期导出的运行时事实/认知边/cutoff 数据；
+- `V2EpistemicKnowledgeStore`：在内存中以中文二/三元 gram 召回，再做时间、认知与审核硬过滤。
+
+图谱文件安装至：
+
+```text
+filesDir/harness/characters/knowledge/v1/
+filesDir/harness/characters/knowledge/v2/
+```
+
+安装器会计算每个图谱文件的 SHA-256；资产损坏或版本变化时会先在临时目录校验，再替换运行时副本。
+若 V2 JSON 缺失、哈希不匹配、解析失败或没有授权命中，Character+RAG 会 fail-closed 并回退到既有
+`story_events.jsonl -> KeywordStoryRetriever -> KnowledgeBoundaryFilter` 路径，而不是放宽知识边界。
+
+当前尚未接入 V1 的人物关系和 V1 claim 兼容检索；它们不会影响角色当前回答。普通 `RAG` 模式也不
+读取角色知识图谱，外部 RAG 文档仍由 `CharacterRagPromptBuilder` 放在 user message，绝不与可信角色
+事实混入 system message。
+
+相关实现和分阶段状态见
+[character/CHARACTER_KNOWLEDGE_GRAPH_INTEGRATION_PLAN.md](character/CHARACTER_KNOWLEDGE_GRAPH_INTEGRATION_PLAN.md)。
 
 ## RAG 文本数据位置
 
@@ -193,6 +235,8 @@ app/build/outputs/apk/debug/app-debug.apk
 - [app/src/main/java/com/example/minicpm_v_demo/harness/data/AssetBootstrapper.kt](app/src/main/java/com/example/minicpm_v_demo/harness/data/AssetBootstrapper.kt)：打包资源到运行目录的复制逻辑。
 - [app/src/main/java/com/example/minicpm_v_demo/harness/rag/AndroidRagOrchestrator.kt](app/src/main/java/com/example/minicpm_v_demo/harness/rag/AndroidRagOrchestrator.kt)：普通 RAG 和角色 RAG Prompt 编译。
 - [app/src/main/java/com/example/minicpm_v_demo/harness/character/CharacterPromptCompiler.kt](app/src/main/java/com/example/minicpm_v_demo/harness/character/CharacterPromptCompiler.kt)：角色身份、剧情边界、关系和记忆片段组装。
+- [app/src/main/java/com/example/minicpm_v_demo/harness/character/knowledge/V2EpistemicKnowledgeStore.kt](app/src/main/java/com/example/minicpm_v_demo/harness/character/knowledge/V2EpistemicKnowledgeStore.kt)：V2 事实/认知图谱 JSON 回退、检索、边界过滤和审计。
+- [character/export_v2_knowledge_fallback.py](character/export_v2_knowledge_fallback.py)：从 V2 SQLite 审计源可重复生成运行时 JSON 导出。
 - [app/src/main/java/com/example/minicpm_v_demo/harness/session/ChatSessionStore.kt](app/src/main/java/com/example/minicpm_v_demo/harness/session/ChatSessionStore.kt)：Android 侧会话落盘。
 
 ## 文档索引
@@ -206,4 +250,4 @@ app/build/outputs/apk/debug/app-debug.apk
 
 - Android 主工程中，模型下载和本地文件路径仍保留对 `LlamaEngine` 旧逻辑的兼容，`HarnessModelRegistry` 还不是唯一事实源。
 - Android RAG 使用当前打包的 hash n-gram 索引，不是外部 embedding 服务。
-- 真实推理验证需要在 arm64 设备上下载完整模型 artifact 后运行。
+- V2 图谱接入的 JVM 与运行时 prompt 编译测试已通过；真实模型多轮输出、防剧透诱导、prompt token、prefill 与 TTFT 仍需在含完整模型的 arm64 设备上验收。

@@ -1,0 +1,57 @@
+{
+  "schema_version": "1.0.0",
+  "mode": "bootstrap",
+  "source_policy": {
+    "canon": "local novel text; evidence-checked AI claims may enter runtime",
+    "curated": "existing reviewed cards/events; accepted",
+    "external": "downloaded web text; excluded until explicitly accepted after review"
+  },
+  "counts": {
+    "documents": 6,
+    "chunks": 13,
+    "entities": 9,
+    "claims": 215,
+    "relations": 17,
+    "review_items": 0
+  },
+  "cutoffs": {
+    "evt-001": 1000098,
+    "evt-002": 1000153,
+    "evt-003": 2000016,
+    "evt-004": 2000058,
+    "evt-005": 2000143,
+    "evt-006": 2000230,
+    "evt-007": 2000340,
+    "evt-008": 2000387,
+    "evt-009": 3000088,
+    "evt-010": 3000120,
+    "evt-011": 3000168,
+    "evt-012": 3000230,
+    "evt-013": 4000038,
+    "evt-014": 4000169,
+    "evt-015": 4000226,
+    "evt-016": 5000084,
+    "evt-017": 5000150,
+    "evt-018": 6000101,
+    "evt-019": 6000165,
+    "evt-020": 6000237,
+    "evt-021": 1000045,
+    "evt-022": 1000109,
+    "evt-023": 1000153,
+    "evt-024": 1000100,
+    "evt-025": 2000075,
+    "evt-026": 2000187,
+    "evt-027": 4000226,
+    "evt-028": 5000013
+  },
+  "files": {
+    "documents": "documents.jsonl",
+    "chunks": "chunks.jsonl",
+    "entities": "entities.jsonl",
+    "claims": "claims.jsonl",
+    "relations": "relations.jsonl",
+    "review_queue": "review_queue.jsonl",
+    "graph": "graph.json",
+    "lexical_index": "lexical_index.json"
+  }
+}

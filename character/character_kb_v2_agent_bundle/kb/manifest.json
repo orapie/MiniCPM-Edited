@@ -1,0 +1,191 @@
+{
+  "schema_version": "2.0.0",
+  "knowledge_base_version": "v2",
+  "supersedes": null,
+  "coexists_with": "../knowledge_base (v1)",
+  "build_mode": "curated",
+  "ai_double_pass_executed": false,
+  "ai_stats": {
+    "scenes_processed": 0,
+    "accepted": 0,
+    "rejected": 0,
+    "corrected": 0
+  },
+  "design": [
+    "scene_level_segmentation",
+    "entity_alias_resolution",
+    "independent_evidence_verification",
+    "temporal_epistemic_graph",
+    "sqlite_fts5_trigram_retrieval"
+  ],
+  "counts": {
+    "documents": 6,
+    "scenes": 12,
+    "utterances": 399,
+    "resolved_mentions": 340,
+    "unresolved_utterance_speakers": 307,
+    "entities": 9,
+    "aliases": 12,
+    "events": 28,
+    "claims": 215,
+    "evidence": 287,
+    "knowledge_edges": 251,
+    "relations": 17,
+    "conflicts": 0,
+    "snapshots": 6
+  },
+  "cutoffs": {
+    "evt-001": {
+      "story_order": 1,
+      "sequence": 1000098
+    },
+    "evt-002": {
+      "story_order": 2,
+      "sequence": 1000153
+    },
+    "evt-003": {
+      "story_order": 3,
+      "sequence": 2000016
+    },
+    "evt-004": {
+      "story_order": 4,
+      "sequence": 2000058
+    },
+    "evt-005": {
+      "story_order": 5,
+      "sequence": 2000143
+    },
+    "evt-006": {
+      "story_order": 6,
+      "sequence": 2000230
+    },
+    "evt-007": {
+      "story_order": 7,
+      "sequence": 2000340
+    },
+    "evt-008": {
+      "story_order": 8,
+      "sequence": 2000387
+    },
+    "evt-009": {
+      "story_order": 9,
+      "sequence": 3000088
+    },
+    "evt-010": {
+      "story_order": 10,
+      "sequence": 3000120
+    },
+    "evt-011": {
+      "story_order": 11,
+      "sequence": 3000168
+    },
+    "evt-012": {
+      "story_order": 12,
+      "sequence": 3000230
+    },
+    "evt-013": {
+      "story_order": 13,
+      "sequence": 4000038
+    },
+    "evt-014": {
+      "story_order": 14,
+      "sequence": 4000169
+    },
+    "evt-015": {
+      "story_order": 15,
+      "sequence": 4000226
+    },
+    "evt-016": {
+      "story_order": 16,
+      "sequence": 5000084
+    },
+    "evt-017": {
+      "story_order": 17,
+      "sequence": 5000150
+    },
+    "evt-018": {
+      "story_order": 18,
+      "sequence": 6000101
+    },
+    "evt-019": {
+      "story_order": 19,
+      "sequence": 6000165
+    },
+    "evt-020": {
+      "story_order": 20,
+      "sequence": 6000237
+    },
+    "evt-021": {
+      "story_order": 21,
+      "sequence": 1000045
+    },
+    "evt-022": {
+      "story_order": 22,
+      "sequence": 1000109
+    },
+    "evt-023": {
+      "story_order": 23,
+      "sequence": 1000153
+    },
+    "evt-024": {
+      "story_order": 24,
+      "sequence": 1000100
+    },
+    "evt-025": {
+      "story_order": 25,
+      "sequence": 2000075
+    },
+    "evt-026": {
+      "story_order": 26,
+      "sequence": 2000187
+    },
+    "evt-027": {
+      "story_order": 27,
+      "sequence": 4000226
+    },
+    "evt-028": {
+      "story_order": 28,
+      "sequence": 5000013
+    }
+  },
+  "runtime": {
+    "database": "character_knowledge_v2.sqlite3",
+    "fts_table": "claims_fts",
+    "fts_tokenizer": "trigram",
+    "minimum_inputs": [
+      "character_id",
+      "query",
+      "story_cutoff"
+    ]
+  },
+  "validation": {
+    "passed": true,
+    "error_count": 0,
+    "errors": [],
+    "checks": [
+      "evidence_spans",
+      "claim_references",
+      "entity_references",
+      "event_references",
+      "scene_presence",
+      "cutoff_presence"
+    ]
+  },
+  "files": {
+    "database": "character_knowledge_v2.sqlite3",
+    "documents": "corpus/documents.jsonl",
+    "scenes": "corpus/scenes.jsonl",
+    "utterances": "corpus/utterances.jsonl",
+    "mentions": "graph/entity_mentions.jsonl",
+    "entities": "graph/entities.jsonl",
+    "aliases": "graph/aliases.jsonl",
+    "events": "graph/events.jsonl",
+    "claims": "graph/claims.jsonl",
+    "evidence": "graph/evidence.jsonl",
+    "knowledge_edges": "graph/knowledge_edges.jsonl",
+    "relations": "graph/relations.jsonl",
+    "conflicts": "quality/conflicts.jsonl",
+    "local_model_smoke": "quality/local_model_smoke.md",
+    "snapshots": "snapshots/"
+  }
+}

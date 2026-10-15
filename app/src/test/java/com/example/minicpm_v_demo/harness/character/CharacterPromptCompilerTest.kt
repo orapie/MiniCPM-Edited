@@ -3,6 +3,7 @@ package com.example.minicpm_v_demo.harness.character
 import com.example.minicpm_v_demo.harness.data.HarnessDataPaths
 import com.example.minicpm_v_demo.harness.data.harnessAssetsDir
 import com.example.minicpm_v_demo.harness.character.knowledge.KnowledgeDecisionReason
+import com.example.minicpm_v_demo.harness.character.knowledge.V1GraphKnowledgeStore
 import com.example.minicpm_v_demo.harness.character.knowledge.V2EpistemicKnowledgeStore
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -220,6 +221,8 @@ class CharacterPromptCompilerTest {
         assertEquals("ready", compiled.debug.knowledgeGraphStatus)
         assertTrue(compiled.debug.selectedItems.any { it.id == "v2-claim-evt-012" })
         assertTrue(compiled.debug.knowledgeGraphInjectedChars > 0)
+        assertFalse(compiled.debug.legacyStoryRetrievalExecuted)
+        assertFalse(compiled.debug.legacyMemoryRetrievalExecuted)
     }
 
     @Test
@@ -253,6 +256,67 @@ class CharacterPromptCompilerTest {
         assertTrue(compiled.debug.knowledgeGraphDecisions.any {
             it.claimId == "v2-claim-evt-012" && it.reason == KnowledgeDecisionReason.ACQUIRED_AFTER_CUTOFF
         })
+    }
+
+    @Test
+    fun v1RelationshipGraphInjectsOnlyTheCurrentNpcsAttitude() {
+        val root = harnessAssetsDir()
+        val compiler = CharacterPromptCompiler(
+            loader = testLoader(),
+            v1KnowledgeStore = V1GraphKnowledgeStore(
+                manifestFile = File(root, "characters/knowledge/v1/manifest.json"),
+                relationsFile = File(root, "characters/knowledge/v1/relations.jsonl"),
+            ),
+        )
+
+        val compiled = compiler.buildNpcPrompt(
+            npcId = "bai_junyi",
+            userInput = "你怎么看玄谙？",
+            runtimeContext = RuntimeContext(storyCutoff = "evt-024", maxChars = 1_200),
+        )
+
+        assertEquals("ready", compiled.debug.v1RelationshipGraphStatus)
+        assertTrue(compiled.debug.selectedItems.any { it.id == "rel-84a3d8143c5b7647" })
+        assertTrue(compiled.messages[0].content.contains("玄谙是你的长期上位者与差遣者"))
+        assertTrue(compiled.messages[0].content.contains("敬畏并服从其长期安排"))
+        assertFalse(compiled.messages[0].content.contains("元府同僚与怀疑对象"))
+        assertTrue(compiled.debug.v1RelationshipGraphInjectedChars > 0)
+        assertEquals("not_requested", compiled.debug.knowledgeGraphStatus)
+        assertFalse(compiled.debug.legacyStoryRetrievalExecuted)
+    }
+
+    @Test
+    fun identityAndChitchatSkipAllKnowledgeRetrieval() {
+        val compiled = testCompilerWithGraph().buildNpcPrompt(
+            npcId = "lu_jiangxian",
+            userInput = "你是谁？",
+            runtimeContext = RuntimeContext(storyCutoff = "evt-018", maxChars = 900),
+        )
+
+        assertEquals("identity_or_chitchat", compiled.debug.knowledgeQueryIntent)
+        assertEquals("not_requested", compiled.debug.knowledgeGraphStatus)
+        assertEquals("not_requested", compiled.debug.v1RelationshipGraphStatus)
+        assertFalse(compiled.debug.legacyStoryRetrievalExecuted)
+        assertFalse(compiled.debug.legacyMemoryRetrievalExecuted)
+        assertTrue(compiled.messages[0].content.contains("你就是陆江仙"))
+    }
+
+    @Test
+    fun graphSwitchOffUsesLegacyStoryFallback() {
+        val compiled = testCompilerWithGraph().buildNpcPrompt(
+            npcId = "lu_jiangxian",
+            userInput = "玄谙究竟是什么？",
+            runtimeContext = RuntimeContext(
+                storyCutoff = "evt-010",
+                maxChars = 900,
+                knowledgeGraphEnabled = false,
+            ),
+        )
+
+        assertEquals("disabled", compiled.debug.knowledgeGraphStatus)
+        assertTrue(compiled.debug.legacyStoryRetrievalExecuted)
+        assertTrue(compiled.debug.selectedItems.any { it.id == "evt-009" })
+        assertTrue(compiled.messages[0].content.contains("玄谙是洞华天中一块青铜残片"))
     }
 
     private fun testCompiler(): CharacterPromptCompiler = CharacterPromptCompiler(testLoader())

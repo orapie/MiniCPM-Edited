@@ -33,6 +33,10 @@
     <string name="rag_mode_rag">RAG</string>
     <string name="rag_mode_character_rag">Character + RAG</string>
     <string name="rag_mode_changed">Switched to: %1$s</string>
+    <string name="character_graph_enable">Enable character graph</string>
+    <string name="character_graph_disable">Disable character graph</string>
+    <string name="character_graph_enabled">Character graph enabled</string>
+    <string name="character_graph_disabled">Character graph disabled for this session comparison</string>
     <string name="rag_sources">Sources</string>
     <string name="rag_prompt">Prompt</string>
     <string name="rag_sources_title">Sources</string>

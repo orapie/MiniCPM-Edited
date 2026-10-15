@@ -71,6 +71,8 @@ class MainActivity : AppCompatActivity() {
     private var ragOrchestrator: AndroidRagOrchestrator? = null
     private var currentSession: ChatSession? = null
     private var currentRagMode: RagMode = RagMode.OFF
+    /** Session-only developer A/B switch; it never changes character data. */
+    private var characterKnowledgeGraphEnabled: Boolean = true
     private var generationJob: Job? = null
     private var isModelReady = false
     private var isImagePrefilled = false
@@ -775,14 +777,24 @@ class MainActivity : AppCompatActivity() {
                 characterId = currentCharacterId,
                 storyCutoff = currentStoryCutoff,
                 conversationSummary = currentSession?.conversationSummary.orEmpty(),
+                knowledgeGraphEnabled = characterKnowledgeGraphEnabled,
                 modelFamily = harness.getSelectedModelSpec().family,
             )
+            val characterDebug = compiled.characterDebug as? CharacterPromptDebug
             Log.d(
                 TAG,
                 "Compiled ${compiled.mode} prompt: sources=${compiled.sources.size}, " +
                     "contextChars=${compiled.contextText.length}, renderedChars=${compiled.renderedPrompt.length}, " +
                     "systemChars=${compiled.rendered.splitPrompt.systemPrompt.length}, " +
-                    "userChars=${compiled.rendered.splitPrompt.userPrompt.length}",
+                    "userChars=${compiled.rendered.splitPrompt.userPrompt.length}, " +
+                    "graphEnabled=$characterKnowledgeGraphEnabled, " +
+                    "knowledgeIntent=${characterDebug?.knowledgeQueryIntent}, " +
+                    "v2=${characterDebug?.knowledgeGraphStatus}/${characterDebug?.knowledgeGraphInjectedChars}, " +
+                    "v1=${characterDebug?.v1RelationshipGraphStatus}/${characterDebug?.v1RelationshipGraphInjectedChars}, " +
+                    "legacyStory=${characterDebug?.legacyStoryRetrievalExecuted}, " +
+                    "legacyMemory=${characterDebug?.legacyMemoryRetrievalExecuted}, " +
+                    "estimatedSystemTokens=${characterDebug?.estimatedPromptTokens}, " +
+                    "estimatedUserTokens=${characterDebug?.estimatedUserTokens}",
             )
             compiled
         }.getOrElse { error ->
@@ -895,6 +907,22 @@ class MainActivity : AppCompatActivity() {
                     Toast.LENGTH_SHORT,
                 ).show()
                 dialog.dismiss()
+            }
+            .setNeutralButton(
+                getString(
+                    if (characterKnowledgeGraphEnabled) R.string.character_graph_disable
+                    else R.string.character_graph_enable,
+                ),
+            ) { _, _ ->
+                characterKnowledgeGraphEnabled = !characterKnowledgeGraphEnabled
+                Toast.makeText(
+                    this,
+                    getString(
+                        if (characterKnowledgeGraphEnabled) R.string.character_graph_enabled
+                        else R.string.character_graph_disabled,
+                    ),
+                    Toast.LENGTH_SHORT,
+                ).show()
             }
             .setNegativeButton(R.string.cancel, null)
             .show()

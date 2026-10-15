@@ -49,25 +49,30 @@ assets/harness/characters/{characters,story,prompts}
 `CharacterRagPromptBuilder` 已正确把普通外部 RAG 资料放到 user message；
 角色身份和已授权剧情事实留在 system message。新图谱必须保持这个边界。
 
-### 2.3 当前实施状态（2026-10-13，`char_sys`）
+### 2.3 当前实施状态（2026-10-14，`char_sys`）
 
 | 项目 | 实际状态 | 已有证据 | 尚未完成的边界 |
 | --- | --- | --- | --- |
 | Phase 0：契约与 SQLite 可行性 | **已完成，选择 JSON 回退** | API 36 ARM64 模拟器实测能只读打开 V2（SQLite `3.50.4`）且 28 个 cutoff 正常，但 `fts5/trigram` 的 `MATCH` 无法命中 | Android SQLite 不能作为 V2 FTS 生产主路径；原始数据库继续仅作审计资产 |
 | Phase 1：资产打包与路径 | **已实现，随 V2 回退资产更新** | V1/V2 最小资产已进入 APK；V2 同时包含由源库导出的 `knowledge_fallback.json`；启动时复制到 `filesDir/harness/characters/knowledge/` | 资产存在不表示模型已经读取图谱 |
 | Character+RAG 传输前置条件 | **已修复** | 文本模型的 system/user 消息在无内嵌模板 GGUF 上也使用 ChatML；编译测试覆盖 system/user/assistant 边界 | 仍需要设备上的真实模型回归，不能仅凭编译断言模型行为 |
-| Phase 2：统一检索器 | **2A/2B 已实现，未注入提示词** | `V2EpistemicKnowledgeStore` 读取带源库 SHA-256 的 JSON 导出，执行 V2 时间/认知/审核过滤、稳定评分、中文 n-gram 召回；`KnowledgeDecision` 记录选择/拒绝理由，`retrieveSafely()` 为资产异常提供 fail-closed 降级结果 | V1、跨图谱统一门面、UI/模型调用均未开始 |
-| Phase 3：提示词注入/回退 | **3A 已实现：仅 V2 facts** | `CharacterPromptCompiler.fromPaths()` 创建 V2 store；已授权 V2 fact 写入 system 的 `authorized_story_facts`，无图谱/无命中时回退到 `story_events.jsonl` | V1 人物关系和 V1 claim 兼容尚未接入 |
-| Phase 4：端侧质量验收 | **未开始** | JVM 测试与 Debug APK 构建通过 | 没有设备功能、TTFT 或防剧透实测结论 |
+| Phase 2：统一检索器 | **2A/2B 与 V1 relation 已实现** | V2 负责带时间/认知边界的事件事实；`V1GraphKnowledgeStore` 读取 `relations.jsonl`，仅保留由当前 NPC 发出的已审核关系边，并审计选择/丢弃原因 | V1 claim 兼容和统一跨图谱门面尚未开始 |
+| Phase 3：提示词注入/回退 | **3A + V1 relation 已实现** | V2 facts 写入 system 的 `authorized_story_facts`；V1 relation 写入独立的 `relevant_relationships`，各自限额；V1 不可用时回退既有角色卡关系，V2 无命中时回退 `story_events.jsonl` | V1 claim 兼容尚未接入 |
+| Phase 4：端侧质量验收与优化 | **4A 完成；4B 路由/观测实现完成** | 身份闲聊跳过图谱和旧剧情库；关系题只查 V1；剧情题 V2 优先、无有效命中才查旧事件库；菜单提供当前会话图谱开关，Logcat 输出无正文的路由、注入字符和 token 估算 | 最新 APK 安装被模拟器 `INSTALL_FAILED_INSUFFICIENT_STORAGE` 阻断，故 V1 端侧测试和图谱开/关的受控 prefill、TTFT、人工一致性样本尚未完成 |
 
-当前实际检索链仍是：
+当前 `CHARACTER_RAG` 实际检索链是：
 
 ```text
-story_events.jsonl -> KeywordStoryRetriever -> KnowledgeBoundaryFilter
+身份/闲聊 -> 不查询图谱或 story_events，仅使用角色卡 system context
+关系问题 -> V1 relations.jsonl -> 当前 NPC 为 source 的审核关系 -> system relevant_relationships
+剧情问题 -> V2 knowledge_fallback.json -> 时间/认知/审核硬过滤 -> system authorized_story_facts
+  -> V2 无授权命中、不可用或手动关闭时：story_events.jsonl -> KeywordStoryRetriever -> KnowledgeBoundaryFilter
+  -> V1 不可用时：角色卡 relationships 回退
 ```
 
-因此下一步是 **Phase 4A：设备功能与防剧透验收**。V1 关系检索和 V1 claim 兼容应分别延后，
-避免一次合并三种事实来源而无法定位角色失真或剧透问题。
+下一步是 **完成受控性能与角色一致性基线**：对同一模型、角色、cutoff、问题和生成长度，分别在
+图谱开/关下重复测量 system/user token、prefill、TTFT、输出事实命中和人工角色一致性；在确认收益前
+不接入 V1 claim 兼容，避免第三类事实来源掩盖效果或增加上下文成本。
 
 ## 3. 目标架构与数据流
 
@@ -232,15 +237,16 @@ JVM 测试中验证损坏的 manifest 会被下一次 bootstrap 恢复。
 
 **目的：替换“只依赖 `story_events.jsonl`”的事实来源，但不改变普通 RAG 的安全边界。**
 
-**当前状态：3A 已实现（V2 facts），V1 部分未开始。** 已完成的 ChatML native 传输修复是本阶段
+**当前状态：3A（V2 facts）与 V1 relation 已实现。** 已完成的 ChatML native 传输修复是本阶段
 的前置条件，不属于图谱注入本身：今后必须保留“system/user/assistant 边界”回归断言，不能因接入
 图谱而回退为裸文本。
 
-3A 实现细节：`RuntimeContext` 默认启用 `knowledgeGraphEnabled`，并以 `graphFactTopK=4`、
-`knowledgeGraphMaxChars=320` 为 V2 事实设置独立上限；V2 有已授权命中时优先填充
-`authorized_story_facts`，否则保留既有 `KeywordStoryRetriever + KnowledgeBoundaryFilter`。图谱
-事实只保留在 system message；外部 RAG 原文仍只经 `CharacterRagPromptBuilder` 放入 user message。
-`CharacterPromptDebug` 记录图谱状态、降级原因、无正文的筛选决策和实际注入字符数。
+4B 优化后，`RuntimeContext` 默认启用 `knowledgeGraphEnabled`，但按问题意图调整实际工作量：身份/闲聊
+跳过所有知识检索；明确关系题只查 V1；剧情题将 V2 限制为最多 2 条/180 字符，V1 定向关系限制为
+1 条/96 字符。仅当 V2 无授权命中、不可用或被开关关闭时，才调用旧的
+`KeywordStoryRetriever + KnowledgeBoundaryFilter + MemoryRetriever`。图谱事实只保留在 system；外部 RAG
+原文仍只经 `CharacterRagPromptBuilder` 放入 user。`CharacterPromptDebug` 和 Logcat 记录无正文的意图、
+图谱状态、注入字符、旧链路是否执行及 token 估算。
 
 1. 为 `CharacterPromptCompiler` 注入可选 `CharacterKnowledgeRetriever`。`fromPaths()` 创建
    检索器；构造/manifest/DB 失败不阻止应用启动，标记为 unavailable。
@@ -307,11 +313,28 @@ JVM 测试中验证损坏的 manifest 会被下一次 bootstrap 恢复。
    外部文档 prompt injection、连续多轮记忆。输出文本经 `RoleplayOutputObserver` 观察，
    但不自动改写模型回答。
 
+#### Phase 4A 已执行的端侧验收
+
+新增 `CharacterGraphRuntimeAcceptanceTest` 并在 API 36 ARM64 模拟器执行。测试使用目标应用的
+`filesDir/harness`，而非源码目录：它重跑资产安装、从运行时路径创建 `CharacterPromptCompiler`，
+确认 `lu_jiangxian + evt-018` 的 V2 授权事实进入 system、原问题保持在 user，且在 `evt-010`
+同一事实得到 `ACQUIRED_AFTER_CUTOFF` 决策而不进入 system。Logcat 只输出
+`status`、system 字符数、图谱注入字符数和未来事实已阻断标记；不记录玩家问题或事实正文。
+
+该验收证明端侧图谱数据路径和防剧透边界，不证明模型一定不会自行幻觉未来事件，也不构成图谱
+开启/关闭的性能对比。完整模型输出、prompt token、prefill、TTFT 与人工角色一致性保留给后续
+质量验收，并须使用相同角色、cutoff、问题和 `predictLength` 的重复样本。
+
+V1 relation 的同一 instrumentation test 已扩展为验证 `bai_junyi -> xuan_an` 的定向关系进入
+system，并检查注入字符数；本轮尝试执行时，模拟器因 `INSTALL_FAILED_INSUFFICIENT_STORAGE` 无法
+安装新的 Debug APK，测试框架报告 0 项测试。因此 V1 的端侧通过状态不得由旧的 V2 结果替代。
+
 ## 5. 迁移顺序、风险与完成定义
 
 调整后的顺序为：**完成 Phase 0 设备决策门 → Phase 2A（仅 V2 facts、无提示词注入） →
 Phase 2B（V2 评分/降级/审计，已完成） → Phase 3A（V2 注入与 story-events 回退，已完成） → Phase 4A
-（设备功能与防剧透） → V1 relation → V1 claim 兼容 → Phase 4B（完整质量/性能回归）**。
+（设备功能与防剧透，已完成） → V1 relation（已完成） → Phase 4B 路由/观测（已完成） →
+Phase 4B 受控端侧质量/性能基线 → V1 claim 兼容**。
 这样先让“事件/认知”这个最关键的防泄漏模型落地，再加入关系表达，避免两个数据源同时改变
 导致问题无法归因。
 

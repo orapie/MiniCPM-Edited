@@ -24,6 +24,8 @@ enum class KnowledgeDecisionReason {
     NOT_VALID_AT_CUTOFF,
     NO_LEXICAL_MATCH,
     RANK_LIMIT,
+    RELATION_NOT_FROM_CHARACTER,
+    RELATION_NOT_RELEVANT,
 }
 
 enum class KnowledgeStoreStatus { READY, UNAVAILABLE, INVALID_REQUEST }
@@ -34,4 +36,22 @@ data class V2KnowledgeRetrieval(
     val decisions: List<KnowledgeDecision>,
     /** A stable code only; never surface filesystem paths or database text. */
     val fallbackReason: String? = null,
+)
+
+data class V1RelationshipRetrieval(
+    val status: KnowledgeStoreStatus,
+    val relations: List<V1KnowledgeRelation>,
+    val decisions: List<KnowledgeDecision>,
+    /** A stable code only; never surface filesystem paths or graph text. */
+    val fallbackReason: String? = null,
+)
+
+data class V1KnowledgeRelation(
+    val relationId: String,
+    val targetId: String,
+    val targetName: String,
+    val relationshipType: String,
+    val attitude: String,
+    val confidence: Double,
+    val score: Double,
 )

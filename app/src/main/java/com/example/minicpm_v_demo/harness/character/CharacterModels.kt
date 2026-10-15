@@ -13,7 +13,9 @@ data class RuntimeContext(
     val conversationSummary: String = "",
     val knowledgeGraphEnabled: Boolean = true,
     val graphFactTopK: Int = 4,
+    val graphRelationTopK: Int = 2,
     val knowledgeGraphMaxChars: Int = 320,
+    val knowledgeGraphRelationMaxChars: Int = 160,
 )
 
 data class CompiledCharacterPrompt(
@@ -39,6 +41,14 @@ data class CharacterPromptDebug(
     val knowledgeGraphFallbackReason: String? = null,
     val knowledgeGraphDecisions: List<com.example.minicpm_v_demo.harness.character.knowledge.KnowledgeDecision> = emptyList(),
     val knowledgeGraphInjectedChars: Int = 0,
+    val v1RelationshipGraphStatus: String = "not_configured",
+    val v1RelationshipGraphFallbackReason: String? = null,
+    val v1RelationshipGraphDecisions: List<com.example.minicpm_v_demo.harness.character.knowledge.KnowledgeDecision> = emptyList(),
+    val v1RelationshipGraphInjectedChars: Int = 0,
+    /** Stable, content-free routing label for runtime A/B measurements. */
+    val knowledgeQueryIntent: String = "unknown",
+    val legacyStoryRetrievalExecuted: Boolean = false,
+    val legacyMemoryRetrievalExecuted: Boolean = false,
 )
 
 data class SelectedPromptItem(

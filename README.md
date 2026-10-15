@@ -132,10 +132,10 @@ Harness 数据包在 [app/src/main/assets/harness/manifest.json](app/src/main/as
 
 ## Character+RAG 与知识图谱
 
-`CHARACTER_RAG` 每轮以 `(characterId, storyCutoff, userInput)` 编译角色提示词。当前启用的是
-V2「事件和认知状态」图谱：只有该角色在当前剧情截止点前已获得、仍有效、且通过来源与审核检查的
-剧情事实，才会写入 system message 的 `authorized_story_facts`。模型不会自行决定能否使用未来或
-他人私密事实。
+`CHARACTER_RAG` 每轮以 `(characterId, storyCutoff, userInput)` 编译角色提示词。V2「事件和认知状态」
+图谱只允许角色在当前剧情截止点前获得、仍有效、且通过来源与审核检查的事实进入 system message 的
+`authorized_story_facts`；V1「人物—关系—人物」图谱只允许从当前角色出发的已审核关系进入
+`relevant_relationships`。模型不会自行决定能否使用未来或他人私密事实。
 
 Android 系统 SQLite 在已验证的 API 36 ARM64 模拟器上能打开 V2 数据库，但不能可靠执行其
 FTS5/trigram `MATCH` 查询。因此 APK 同时携带：
@@ -152,12 +152,12 @@ filesDir/harness/characters/knowledge/v2/
 ```
 
 安装器会计算每个图谱文件的 SHA-256；资产损坏或版本变化时会先在临时目录校验，再替换运行时副本。
-若 V2 JSON 缺失、哈希不匹配、解析失败或没有授权命中，Character+RAG 会 fail-closed 并回退到既有
-`story_events.jsonl -> KeywordStoryRetriever -> KnowledgeBoundaryFilter` 路径，而不是放宽知识边界。
+角色链路按意图限流：身份/闲聊不查询图谱或旧剧情库；关系问题只查 V1；剧情问题优先查 V2。V2 JSON
+缺失、哈希不匹配、解析失败、没有授权命中，或在 RAG 菜单中为当前会话关闭角色图谱时，才会 fail-closed
+回退到 `story_events.jsonl -> KeywordStoryRetriever -> KnowledgeBoundaryFilter`，而不是放宽知识边界。
 
-当前尚未接入 V1 的人物关系和 V1 claim 兼容检索；它们不会影响角色当前回答。普通 `RAG` 模式也不
-读取角色知识图谱，外部 RAG 文档仍由 `CharacterRagPromptBuilder` 放在 user message，绝不与可信角色
-事实混入 system message。
+V1 的人物关系已接入；V1 claim 兼容检索尚未接入。普通 `RAG` 模式不读取角色知识图谱，外部 RAG 文档
+仍由 `CharacterRagPromptBuilder` 放在 user message，绝不与可信角色事实混入 system message。
 
 相关实现和分阶段状态见
 [character/CHARACTER_KNOWLEDGE_GRAPH_INTEGRATION_PLAN.md](character/CHARACTER_KNOWLEDGE_GRAPH_INTEGRATION_PLAN.md)。

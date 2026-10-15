@@ -36,6 +36,10 @@
     <string name="rag_mode_rag">资料检索</string>
     <string name="rag_mode_character_rag">角色 + 资料</string>
     <string name="rag_mode_changed">已切换为：%1$s</string>
+    <string name="character_graph_enable">启用角色图谱</string>
+    <string name="character_graph_disable">关闭角色图谱</string>
+    <string name="character_graph_enabled">角色图谱已启用</string>
+    <string name="character_graph_disabled">角色图谱已关闭，可用于当前会话对比</string>
     <string name="rag_sources">来源</string>
     <string name="rag_prompt">Prompt</string>
     <string name="rag_sources_title">检索来源</string>

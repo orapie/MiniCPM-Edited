@@ -41,6 +41,7 @@ class AndroidRagOrchestrator(
         topK: Int = 1,
         maxCharacterChars: Int = 900,
         conversationSummary: String = "",
+        knowledgeGraphEnabled: Boolean = true,
         modelFamily: HarnessModelFamily = HarnessModelFamily.MINICPM_TEXT,
     ): CompiledAndroidPrompt {
         if (mode == RagMode.OFF) {
@@ -82,6 +83,7 @@ class AndroidRagOrchestrator(
                     storyCutoff = storyCutoff,
                     maxChars = maxCharacterChars,
                     conversationSummary = conversationSummary,
+                    knowledgeGraphEnabled = knowledgeGraphEnabled,
                 ),
             )
             val prompt = characterRagPromptBuilder.build(

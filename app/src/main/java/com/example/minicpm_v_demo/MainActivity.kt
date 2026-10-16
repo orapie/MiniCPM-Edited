@@ -30,6 +30,8 @@ import com.example.minicpm_v_demo.harness.HarnessFacade
 import com.example.minicpm_v_demo.harness.character.CharacterCard
 import com.example.minicpm_v_demo.harness.character.CharacterPromptDebug
 import com.example.minicpm_v_demo.harness.character.RoleplayObservationContext
+import com.example.minicpm_v_demo.harness.character.RoleplayAnswerabilityDecision
+import com.example.minicpm_v_demo.harness.character.RoleplayAnswerabilityGate
 import com.example.minicpm_v_demo.harness.character.RoleplayOutputObserver
 import com.example.minicpm_v_demo.harness.rag.AndroidRagOrchestrator
 import com.example.minicpm_v_demo.harness.rag.CompiledAndroidPrompt
@@ -45,6 +47,7 @@ import kotlinx.coroutines.Dispatchers
 import java.util.UUID
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -692,10 +695,11 @@ class MainActivity : AppCompatActivity() {
         generationJob = lifecycleScope.launch(Dispatchers.Default) {
             val fullResponse = StringBuilder()
             val promptInput = compilePromptForHarness(userMsg)
-            harness.sendChatPrompt(
+            val responseFlow = promptInput.fixedResponse?.let(::flowOf) ?: harness.sendChatPrompt(
                 request = promptInput.request,
                 predictLength = promptInput.predictLength,
             )
+            responseFlow
                 .onCompletion { cause ->
                     promptInput.roleplayObservationContext?.let { observationContext ->
                         val visibleOutput = fullResponse.toString().visibleAssistantText()
@@ -790,7 +794,11 @@ class MainActivity : AppCompatActivity() {
                     "graphEnabled=$characterKnowledgeGraphEnabled, " +
                     "knowledgeIntent=${characterDebug?.knowledgeQueryIntent}, " +
                     "v2=${characterDebug?.knowledgeGraphStatus}/${characterDebug?.knowledgeGraphInjectedChars}, " +
-                    "v1=${characterDebug?.v1RelationshipGraphStatus}/${characterDebug?.v1RelationshipGraphInjectedChars}, " +
+                    "v1Claims=${characterDebug?.v1ClaimGraphStatus}/${characterDebug?.v1ClaimGraphInjectedChars}, " +
+                    "v1Relations=${characterDebug?.v1RelationshipGraphStatus}/${characterDebug?.v1RelationshipGraphInjectedChars}, " +
+                    "profile=${characterDebug?.profileRoute}/${characterDebug?.profileCandidateCount}/" +
+                        "${characterDebug?.profileSelectedIds?.size}/${characterDebug?.profileBudgetDroppedCount}/" +
+                        "${characterDebug?.profileInjectedChars}, " +
                     "legacyStory=${characterDebug?.legacyStoryRetrievalExecuted}, " +
                     "legacyMemory=${characterDebug?.legacyMemoryRetrievalExecuted}, " +
                     "estimatedSystemTokens=${characterDebug?.estimatedPromptTokens}, " +
@@ -831,6 +839,16 @@ class MainActivity : AppCompatActivity() {
         } else {
             null
         }
+        val answerabilityDecision = if (compiled.mode == RagMode.CHARACTER_RAG) {
+            RoleplayAnswerabilityGate.evaluate(compiled.characterDebug as? CharacterPromptDebug)
+        } else {
+            RoleplayAnswerabilityDecision.Allow
+        }
+        val fixedResponse = (answerabilityDecision as? RoleplayAnswerabilityDecision.BlockFutureFact)
+            ?.visibleResponse
+        if (fixedResponse != null) {
+            Log.i(TAG, "Character answerability gate blocked a future fact for character=$currentCharacterId")
+        }
         return HarnessPromptInput(
             request = HarnessChatRequest(
                 systemPrompt = compiled.rendered.splitPrompt.systemPrompt,
@@ -839,6 +857,7 @@ class MainActivity : AppCompatActivity() {
             ),
             compiled = compiled,
             roleplayObservationContext = roleplayObservationContext,
+            fixedResponse = fixedResponse,
         )
     }
 
@@ -1045,6 +1064,8 @@ class MainActivity : AppCompatActivity() {
         val request: HarnessChatRequest,
         val compiled: CompiledAndroidPrompt?,
         val roleplayObservationContext: RoleplayObservationContext? = null,
+        /** Non-null only for a matched graph fact unavailable at this cutoff. */
+        val fixedResponse: String? = null,
     ) {
         val predictLength: Int
             get() = if (compiled?.mode == RagMode.CHARACTER_RAG) {

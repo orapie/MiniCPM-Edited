@@ -2,6 +2,9 @@ package com.example.minicpm_v_demo.harness.character
 
 import com.example.minicpm_v_demo.harness.context.ContextController
 import com.example.minicpm_v_demo.harness.character.knowledge.KnowledgeStoreStatus
+import com.example.minicpm_v_demo.harness.character.knowledge.V1ClaimKnowledgeStore
+import com.example.minicpm_v_demo.harness.character.knowledge.V1ClaimQuery
+import com.example.minicpm_v_demo.harness.character.knowledge.V1KnowledgeFact
 import com.example.minicpm_v_demo.harness.character.knowledge.V1GraphKnowledgeStore
 import com.example.minicpm_v_demo.harness.character.knowledge.V1KnowledgeRelation
 import com.example.minicpm_v_demo.harness.character.knowledge.V1RelationshipQuery
@@ -17,6 +20,7 @@ class CharacterPromptCompiler(
     private val memoryRetriever: MemoryRetriever = MemoryRetriever(),
     private val v2KnowledgeStore: V2EpistemicKnowledgeStore? = null,
     private val v1KnowledgeStore: V1GraphKnowledgeStore? = null,
+    private val v1ClaimKnowledgeStore: V1ClaimKnowledgeStore? = null,
 ) {
     private val events: List<StoryEvent> by lazy { loader.loadEvents() }
     private val eventsById: Map<String, StoryEvent> by lazy { events.associateBy { it.eventId } }
@@ -35,6 +39,8 @@ class CharacterPromptCompiler(
         require(runtimeContext.graphRelationTopK >= 0) { "graphRelationTopK must not be negative" }
         require(runtimeContext.knowledgeGraphMaxChars >= 0) { "knowledgeGraphMaxChars must not be negative" }
         require(runtimeContext.knowledgeGraphRelationMaxChars >= 0) { "knowledgeGraphRelationMaxChars must not be negative" }
+        require(runtimeContext.profileTopK >= 0) { "profileTopK must not be negative" }
+        require(runtimeContext.profileMaxChars >= 0) { "profileMaxChars must not be negative" }
         val npc = loader.loadCharacter(npcId)
         val cutoff = runtimeContext.storyCutoff ?: npc.knowledgeScope.storyCutoff
         require(eventsById.containsKey(cutoff)) { "unknown story cutoff: $cutoff" }
@@ -52,6 +58,25 @@ class CharacterPromptCompiler(
             null
         }
         val graphFacts = graphRetrieval?.takeIf { it.status == KnowledgeStoreStatus.READY }
+            ?.facts.orEmpty()
+        // V2 is the authoritative source for story/epistemic facts.  V1
+        // claims are a strict compatibility fallback, never a second fact
+        // source beside a V2 hit, which prevents duplicate prompt injection.
+        val v1ClaimRetrieval = if (queryPlan.retrieveFacts && graphFacts.isEmpty() &&
+            runtimeContext.knowledgeGraphEnabled && v1ClaimKnowledgeStore != null
+        ) {
+            v1ClaimKnowledgeStore.retrieveSafely(
+                V1ClaimQuery(
+                    characterId = npc.npcId,
+                    query = userInput,
+                    storyCutoff = cutoff,
+                    limit = queryPlan.factLimit,
+                ),
+            )
+        } else {
+            null
+        }
+        val v1ClaimFacts = v1ClaimRetrieval?.takeIf { it.status == KnowledgeStoreStatus.READY }
             ?.facts.orEmpty()
         val relationRetrieval = if (queryPlan.retrieveRelations && runtimeContext.knowledgeGraphEnabled && v1KnowledgeStore != null) {
             v1KnowledgeStore.retrieveSafely(
@@ -71,7 +96,7 @@ class CharacterPromptCompiler(
         // Old events are a fallback only.  Do not pay their retrieval and memory
         // cost when V2 already supplied authorized story facts or when a query is
         // intentionally handled by identity/relationship context alone.
-        val useLegacyStoryFallback = queryPlan.retrieveFacts && graphFacts.isEmpty()
+        val useLegacyStoryFallback = queryPlan.retrieveFacts && graphFacts.isEmpty() && v1ClaimFacts.isEmpty()
         val candidates = if (useLegacyStoryFallback) {
             retriever.retrieve(userInput, events, limit = maxOf(runtimeContext.topK * 2, 12))
         } else {
@@ -91,7 +116,11 @@ class CharacterPromptCompiler(
         val memoryIds = memories.map { it.event.eventId }.toSet()
         // V2 is the authoritative fact source when it finds permitted evidence.
         // The old story-events route remains a strict fallback only.
-        val factCandidates = if (graphFacts.isEmpty()) authorized.filter { it.event.eventId !in memoryIds } else emptyList()
+        val factCandidates = if (graphFacts.isEmpty() && v1ClaimFacts.isEmpty()) {
+            authorized.filter { it.event.eventId !in memoryIds }
+        } else {
+            emptyList()
+        }
         // A ready V1 graph is authoritative for speaker-directed attitudes.
         // Character-card relationships stay as a fail-closed compatibility path.
         val relationships = if (!queryPlan.retrieveRelations || relationRetrieval?.status == KnowledgeStoreStatus.READY) {
@@ -113,6 +142,8 @@ class CharacterPromptCompiler(
             "speech_examples" to compileSpeechExamples(npc),
             "story_cutoff" to formatCutoff(cutoff),
             "dynamic_state" to compileDynamicState(dynamicState),
+            "role_constraints" to compileRoleConstraints(npc),
+            "relevant_profile" to "无。",
             "relevant_relationships" to "无。",
             "authorized_story_facts" to "无；不得自行补全。",
             "retrieved_memories" to "无。",
@@ -141,6 +172,26 @@ class CharacterPromptCompiler(
         }
         val optionalItems = mutableListOf<PromptCandidate>()
         val graphPreDropped = mutableListOf<DroppedPromptItem>()
+        var profileChars = 0
+        val profileCandidates = if (queryPlan.retrieveProfile) {
+            profileCandidates(npc, userInput, queryPlan.profileLimit)
+        } else {
+            emptyList()
+        }
+        val profileRoute = when {
+            !queryPlan.retrieveProfile -> "skipped_greeting"
+            profileCandidates.isEmpty() -> "no_candidates"
+            ProfileSignals.any { it in userInput } -> "explicit"
+            else -> "contextual"
+        }
+        profileCandidates.forEach { item ->
+            if (profileChars + item.text.length > queryPlan.profileCharBudget) {
+                graphPreDropped += DroppedPromptItem("relevant_profile", item.id, "character_profile_budget")
+            } else {
+                profileChars += item.text.length
+                optionalItems += item
+            }
+        }
         relationships.forEach { relation ->
             optionalItems += PromptCandidate(
                 section = "relevant_relationships",
@@ -179,6 +230,20 @@ class CharacterPromptCompiler(
                 )
             }
         }
+        v1ClaimFacts.forEach { item ->
+            val text = formatV1ClaimFact(item, npc)
+            if (graphChars + text.length > queryPlan.factCharBudget) {
+                graphPreDropped += DroppedPromptItem("authorized_story_facts", item.claimId, "knowledge_graph_budget")
+            } else {
+                graphChars += text.length
+                optionalItems += PromptCandidate(
+                    section = "authorized_story_facts",
+                    id = item.claimId,
+                    text = text,
+                    priority = item.score + 0.9,
+                )
+            }
+        }
         factCandidates.forEach { item ->
             optionalItems += PromptCandidate(
                 section = "authorized_story_facts",
@@ -206,6 +271,7 @@ class CharacterPromptCompiler(
         val selected = mutableListOf<SelectedPromptItem>()
         val dropped = graphPreDropped
         val sectionLines = mutableMapOf(
+            "relevant_profile" to mutableListOf<String>(),
             "relevant_relationships" to mutableListOf<String>(),
             "authorized_story_facts" to mutableListOf<String>(),
             "retrieved_memories" to mutableListOf<String>(),
@@ -263,6 +329,18 @@ class CharacterPromptCompiler(
                 knowledgeGraphInjectedChars = sectionLines.getValue("authorized_story_facts")
                     .filter { line -> graphFacts.any { formatGraphFact(it, npc) == line } }
                     .sumOf(String::length),
+                v1ClaimGraphStatus = v1ClaimRetrieval?.status?.name?.lowercase()
+                    ?: when {
+                        graphFacts.isNotEmpty() -> "skipped_v2_authoritative"
+                        !runtimeContext.knowledgeGraphEnabled -> "disabled"
+                        !queryPlan.retrieveFacts -> "not_requested"
+                        else -> "not_configured"
+                    },
+                v1ClaimGraphFallbackReason = v1ClaimRetrieval?.fallbackReason,
+                v1ClaimGraphDecisions = v1ClaimRetrieval?.decisions.orEmpty(),
+                v1ClaimGraphInjectedChars = sectionLines.getValue("authorized_story_facts")
+                    .filter { line -> v1ClaimFacts.any { formatV1ClaimFact(it, npc) == line } }
+                    .sumOf(String::length),
                 v1RelationshipGraphStatus = relationRetrieval?.status?.name?.lowercase()
                     ?: when {
                         !runtimeContext.knowledgeGraphEnabled -> "disabled"
@@ -274,6 +352,14 @@ class CharacterPromptCompiler(
                 v1RelationshipGraphInjectedChars = sectionLines.getValue("relevant_relationships")
                     .filter { line -> graphRelationships.any { formatGraphRelationship(it) == line } }
                     .sumOf(String::length),
+                profileRoute = profileRoute,
+                profileCandidateCount = profileCandidates.size,
+                profileCandidateIds = profileCandidates.map { it.id },
+                profileSelectedIds = selected.filter { it.kind == "relevant_profile" }.map { it.id },
+                profileBudgetDroppedCount = dropped.count {
+                    it.kind == "relevant_profile" && it.reason == "character_profile_budget"
+                },
+                profileInjectedChars = sectionLines.getValue("relevant_profile").sumOf(String::length),
                 knowledgeQueryIntent = queryPlan.intent,
                 legacyStoryRetrievalExecuted = useLegacyStoryFallback,
                 legacyMemoryRetrievalExecuted = useLegacyStoryFallback,
@@ -305,7 +391,9 @@ class CharacterPromptCompiler(
     }
 
     private fun compileSpeechExamples(npc: CharacterCard): String {
-        return npc.identity.speechExamples.take(4)
+        // Reserve enough of the fixed 900-character Android budget for
+        // per-turn evidence after adding stable role-boundary context.
+        return npc.identity.speechExamples.take(3)
             .joinToString("\n") { "“${it.take(54)}”" }
             .ifBlank { "“此事我知道多少，便只说多少。”" }
     }
@@ -313,6 +401,59 @@ class CharacterPromptCompiler(
     private fun compileDynamicState(state: DynamicState): String {
         val emotion = state.emotion
         return "${state.scene.take(46)}；你此刻${emotion.label}。"
+    }
+
+    /**
+     * The template already contains the full shared no-invention, no-leak,
+     * no-meta and no-future contract.  Keep this card-specific reinforcement
+     * short enough that it cannot evict the current turn's evidence under the
+     * Android 900-character budget.
+     */
+    private fun compileRoleConstraints(npc: CharacterCard): String =
+        "保持${npc.identity.name}的身份与当前知识边界，不泄露内部资料。"
+
+    /**
+     * Character-card material is trusted self-knowledge.  It stays separate
+     * from V2 profile claims so this broader answer surface cannot weaken
+     * story cutoff or character-to-character epistemic filtering.
+     */
+    private fun profileCandidates(npc: CharacterCard, userInput: String, limit: Int): List<PromptCandidate> {
+        val identity = npc.identity
+        val candidates = listOf(
+            "profile_background" to profileLine("你的来历", identity.background, 2, 110),
+            "profile_motivation" to profileLine("你的动机与目标", identity.coreMotivations, 2, 110),
+            "profile_values" to profileLine("你的立场与原则", identity.values, 2, 110),
+            "profile_traits" to profileLine("你的性情与习惯", identity.psychologicalTraits, 2, 110),
+            "profile_behavior" to profileLine("你的行事准则", identity.behaviorRules, 2, 110),
+        ).filter { (_, text) -> text.isNotBlank() }
+        return candidates.map { (id, text) ->
+            PromptCandidate(
+                section = "relevant_profile",
+                id = id,
+                text = text,
+                priority = profilePriority(id, userInput, text),
+            )
+        }.sortedWith(compareByDescending<PromptCandidate> { it.priority }.thenBy { it.id })
+            .take(limit)
+    }
+
+    private fun profileLine(label: String, values: List<String>, limit: Int, itemChars: Int): String =
+        values.take(limit).joinToString("；") { it.take(itemChars) }
+            .takeIf { it.isNotBlank() }
+            ?.let { "$label：$it" }
+            .orEmpty()
+
+    private fun profilePriority(id: String, userInput: String, text: String): Double {
+        val categorySignals = when (id) {
+            "profile_background" -> listOf("来历", "出身", "从哪里", "从何", "来自", "哪里", "过去", "前世", "身份", "是谁")
+            "profile_motivation" -> listOf("目的", "动机", "想要", "为何", "为什么", "打算", "计划")
+            "profile_values" -> listOf("原则", "立场", "在乎", "选择", "同意", "拒绝")
+            "profile_traits" -> listOf("性格", "害怕", "喜欢", "讨厌", "习惯", "怎样的人")
+            "profile_behavior" -> listOf("会怎么", "如何做", "怎么办", "行事", "判断", "应对")
+            else -> emptyList()
+        }
+        val signalBoost = if (categorySignals.any { it in userInput }) 2.0 else 0.0
+        return 0.25 + signalBoost + ContextController.queryBoost(userInput, text)
     }
 
     private fun formatCutoff(cutoff: String): String {
@@ -342,6 +483,16 @@ class CharacterPromptCompiler(
         }
     }
 
+    private fun formatV1ClaimFact(item: V1KnowledgeFact, npc: CharacterCard): String {
+        val perspectiveFact = item.statement.replace(npc.identity.name, "你")
+        val leadIn = KnowledgeLeadIns[item.acquisitionMethod] ?: "你所知的是："
+        return if (item.confidence < 0.9 && item.acquisitionMethod !in setOf("reported", "inferred")) {
+            "你大致确认：$perspectiveFact"
+        } else {
+            "$leadIn$perspectiveFact"
+        }
+    }
+
     private fun formatGraphRelationship(item: V1KnowledgeRelation): String =
         "${item.targetName}是你的${item.relationshipType}；${item.attitude.take(58)}"
 
@@ -357,6 +508,7 @@ class CharacterPromptCompiler(
         val relationshipIntent = !definitionIntent &&
             (RelationshipSignals.any { signal -> signal in userInput } || (hasNamedTarget && AttitudeSignals.any { signal -> signal in userInput }))
         val casualOrIdentity = CasualOrIdentityQueries.any { it == normalized }
+        val retrieveProfile = normalized !in CasualGreetings
         val storyIntent = definitionIntent || StorySignals.any { signal -> signal in userInput }
         val retrieveRelations = !casualOrIdentity && relationshipIntent
         val retrieveFacts = !casualOrIdentity && (!relationshipIntent || storyIntent)
@@ -370,8 +522,11 @@ class CharacterPromptCompiler(
             },
             retrieveFacts = retrieveFacts,
             retrieveRelations = retrieveRelations,
+            retrieveProfile = retrieveProfile,
             factLimit = minOf(runtimeContext.graphFactTopK, 2),
             factCharBudget = minOf(runtimeContext.knowledgeGraphMaxChars, 180),
+            profileLimit = minOf(runtimeContext.profileTopK, 2),
+            profileCharBudget = minOf(runtimeContext.profileMaxChars, 180),
             relationLimit = minOf(runtimeContext.graphRelationTopK, if (explicitRelationship) 1 else 2),
             relationCharBudget = minOf(runtimeContext.knowledgeGraphRelationMaxChars, if (explicitRelationship) 96 else 160),
         )
@@ -408,8 +563,11 @@ class CharacterPromptCompiler(
         val intent: String,
         val retrieveFacts: Boolean,
         val retrieveRelations: Boolean,
+        val retrieveProfile: Boolean,
         val factLimit: Int,
         val factCharBudget: Int,
+        val profileLimit: Int,
+        val profileCharBudget: Int,
         val relationLimit: Int,
         val relationCharBudget: Int,
     )
@@ -429,9 +587,11 @@ class CharacterPromptCompiler(
             "你好", "您好", "嗨", "哈喽", "在吗", "谢谢", "再见", "晚安", "早上好",
             "你是谁", "你都知道什么", "你知道什么", "你能做什么",
         )
+        private val CasualGreetings = setOf("你好", "您好", "嗨", "哈喽", "在吗", "谢谢", "再见", "晚安", "早上好")
         private val RelationshipSignals = listOf("关系", "怎么看", "如何看", "态度")
         private val AttitudeSignals = listOf("看法", "想法", "评价", "信任", "讨厌", "喜欢", "恨", "怕")
         private val StorySignals = listOf("发生", "做过", "为何", "为什么", "原因", "真相", "计划", "事件", "经历", "过去", "后来", "何时", "哪里", "最后")
+        private val ProfileSignals = listOf("来历", "出身", "从哪里", "从何", "来自", "哪里", "目的", "动机", "性格", "原则", "立场", "喜欢", "讨厌", "害怕", "底线")
 
         private fun List<String>.takeJoined(limit: Int, itemChars: Int): String =
             take(limit)
@@ -452,6 +612,10 @@ class CharacterPromptCompiler(
                 v1KnowledgeStore = V1GraphKnowledgeStore(
                     manifestFile = paths.v1CharacterKnowledgeManifestFile,
                     relationsFile = java.io.File(paths.v1CharacterKnowledgeDir, "relations.jsonl"),
+                ),
+                v1ClaimKnowledgeStore = V1ClaimKnowledgeStore(
+                    manifestFile = paths.v1CharacterKnowledgeManifestFile,
+                    claimsFile = java.io.File(paths.v1CharacterKnowledgeDir, "claims.jsonl"),
                 ),
             )
         }

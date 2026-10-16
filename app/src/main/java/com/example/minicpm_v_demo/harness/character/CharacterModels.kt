@@ -16,6 +16,9 @@ data class RuntimeContext(
     val graphRelationTopK: Int = 2,
     val knowledgeGraphMaxChars: Int = 320,
     val knowledgeGraphRelationMaxChars: Int = 160,
+    /** Query-aware facts from the current character card, never graph profile claims. */
+    val profileTopK: Int = 2,
+    val profileMaxChars: Int = 180,
 )
 
 data class CompiledCharacterPrompt(
@@ -41,10 +44,21 @@ data class CharacterPromptDebug(
     val knowledgeGraphFallbackReason: String? = null,
     val knowledgeGraphDecisions: List<com.example.minicpm_v_demo.harness.character.knowledge.KnowledgeDecision> = emptyList(),
     val knowledgeGraphInjectedChars: Int = 0,
+    val v1ClaimGraphStatus: String = "not_configured",
+    val v1ClaimGraphFallbackReason: String? = null,
+    val v1ClaimGraphDecisions: List<com.example.minicpm_v_demo.harness.character.knowledge.KnowledgeDecision> = emptyList(),
+    val v1ClaimGraphInjectedChars: Int = 0,
     val v1RelationshipGraphStatus: String = "not_configured",
     val v1RelationshipGraphFallbackReason: String? = null,
     val v1RelationshipGraphDecisions: List<com.example.minicpm_v_demo.harness.character.knowledge.KnowledgeDecision> = emptyList(),
     val v1RelationshipGraphInjectedChars: Int = 0,
+    /** Content-free audit fields for the current character-card profile path. */
+    val profileRoute: String = "not_requested",
+    val profileCandidateCount: Int = 0,
+    val profileCandidateIds: List<String> = emptyList(),
+    val profileSelectedIds: List<String> = emptyList(),
+    val profileBudgetDroppedCount: Int = 0,
+    val profileInjectedChars: Int = 0,
     /** Stable, content-free routing label for runtime A/B measurements. */
     val knowledgeQueryIntent: String = "unknown",
     val legacyStoryRetrievalExecuted: Boolean = false,

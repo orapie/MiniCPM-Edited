@@ -38,9 +38,12 @@ class V2EpistemicKnowledgeStore(
         val queryTerms = terms(request.query)
         val selected = mutableListOf<V2KnowledgeFact>()
         val decisions = document.claims.map { claim ->
+            val matchedTerms = queryTerms.intersect(terms(claim.statement + claim.keywords.joinToString("")))
             val allEdges = document.edgesByCharacterAndClaim[request.characterId to claim.claimId].orEmpty()
             val edge = allEdges.filter { it.acquiredSequence <= cutoff }.maxByOrNull { it.acquiredSequence }
             when {
+                queryTerms.isEmpty() || matchedTerms.isEmpty() ->
+                    KnowledgeDecision(claim.claimId, KnowledgeDisposition.DROPPED, KnowledgeDecisionReason.NO_LEXICAL_MATCH)
                 allEdges.isEmpty() -> KnowledgeDecision(claim.claimId, KnowledgeDisposition.DROPPED, KnowledgeDecisionReason.NO_CHARACTER_KNOWLEDGE_EDGE)
                 edge == null -> KnowledgeDecision(claim.claimId, KnowledgeDisposition.DROPPED, KnowledgeDecisionReason.ACQUIRED_AFTER_CUTOFF)
                 claim.scope != "story" -> KnowledgeDecision(claim.claimId, KnowledgeDisposition.DROPPED, KnowledgeDecisionReason.PROFILE_CLAIM)
@@ -49,26 +52,20 @@ class V2EpistemicKnowledgeStore(
                 edge.beliefStatus != "believed" -> KnowledgeDecision(claim.claimId, KnowledgeDisposition.DROPPED, KnowledgeDecisionReason.UNSUPPORTED_BELIEF_STATUS)
                 claim.validFromSequence > cutoff || (claim.validToSequence != null && claim.validToSequence < cutoff) ->
                     KnowledgeDecision(claim.claimId, KnowledgeDisposition.DROPPED, KnowledgeDecisionReason.NOT_VALID_AT_CUTOFF)
-                queryTerms.isEmpty() -> KnowledgeDecision(claim.claimId, KnowledgeDisposition.DROPPED, KnowledgeDecisionReason.NO_LEXICAL_MATCH)
                 else -> {
-                    val matchedTerms = queryTerms.intersect(terms(claim.statement + claim.keywords.joinToString("")))
-                    if (matchedTerms.isEmpty()) {
-                        KnowledgeDecision(claim.claimId, KnowledgeDisposition.DROPPED, KnowledgeDecisionReason.NO_LEXICAL_MATCH)
-                    } else {
-                        val lexical = matchedTerms.size.toDouble() / queryTerms.size
-                        val score = round5(lexical * 0.70 + claim.importance * 0.15 + claim.confidence * 0.10 + edge.confidence * 0.05)
-                        selected += V2KnowledgeFact(
-                            claimId = claim.claimId,
-                            statement = claim.statement,
-                            eventId = claim.eventId,
-                            matchedTerms = matchedTerms.sorted(),
-                            acquisitionMethod = edge.acquisitionMethod,
-                            acquiredSequence = edge.acquiredSequence,
-                            confidence = minOf(claim.confidence, edge.confidence),
-                            score = score,
-                        )
-                        KnowledgeDecision(claim.claimId, KnowledgeDisposition.SELECTED, KnowledgeDecisionReason.SELECTED, score)
-                    }
+                    val lexical = matchedTerms.size.toDouble() / queryTerms.size
+                    val score = round5(lexical * 0.70 + claim.importance * 0.15 + claim.confidence * 0.10 + edge.confidence * 0.05)
+                    selected += V2KnowledgeFact(
+                        claimId = claim.claimId,
+                        statement = claim.statement,
+                        eventId = claim.eventId,
+                        matchedTerms = matchedTerms.sorted(),
+                        acquisitionMethod = edge.acquisitionMethod,
+                        acquiredSequence = edge.acquiredSequence,
+                        confidence = minOf(claim.confidence, edge.confidence),
+                        score = score,
+                    )
+                    KnowledgeDecision(claim.claimId, KnowledgeDisposition.SELECTED, KnowledgeDecisionReason.SELECTED, score)
                 }
             }
         }

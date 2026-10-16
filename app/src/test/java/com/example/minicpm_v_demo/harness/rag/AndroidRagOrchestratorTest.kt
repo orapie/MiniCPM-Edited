@@ -31,7 +31,7 @@ class AndroidRagOrchestratorTest {
         assertTrue(compiled.renderedPrompt.contains("<|im_start|>system"))
         assertTrue(compiled.renderedPrompt.contains("<|im_start|>user"))
         assertTrue(compiled.renderedPrompt.endsWith("<|im_start|>assistant\n"))
-        assertTrue(compiled.renderedPrompt.contains("此刻确实知道的事"))
+        assertTrue(compiled.renderedPrompt.contains("回答剧情问题的唯一依据"))
         assertEquals(emptyList<RagSource>(), compiled.sources)
         assertEquals("", compiled.contextText)
         assertEquals("玄谙究竟是什么？", compiled.rendered.splitPrompt.userPrompt)

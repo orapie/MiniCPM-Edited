@@ -46,12 +46,31 @@ data class V1RelationshipRetrieval(
     val fallbackReason: String? = null,
 )
 
+data class V1ClaimRetrieval(
+    val status: KnowledgeStoreStatus,
+    val facts: List<V1KnowledgeFact>,
+    val decisions: List<KnowledgeDecision>,
+    /** A stable code only; never surface filesystem paths or graph text. */
+    val fallbackReason: String? = null,
+)
+
 data class V1KnowledgeRelation(
     val relationId: String,
     val targetId: String,
     val targetName: String,
     val relationshipType: String,
     val attitude: String,
+    val confidence: Double,
+    val score: Double,
+)
+
+data class V1KnowledgeFact(
+    val claimId: String,
+    val statement: String,
+    val eventId: String?,
+    val matchedTerms: List<String>,
+    val acquisitionMethod: String,
+    val acquiredSequence: Long,
     val confidence: Double,
     val score: Double,
 )

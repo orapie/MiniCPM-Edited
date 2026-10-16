@@ -3,6 +3,7 @@ package com.example.minicpm_v_demo.harness.character
 import com.example.minicpm_v_demo.harness.data.HarnessDataPaths
 import com.example.minicpm_v_demo.harness.data.harnessAssetsDir
 import com.example.minicpm_v_demo.harness.character.knowledge.KnowledgeDecisionReason
+import com.example.minicpm_v_demo.harness.character.knowledge.V1ClaimKnowledgeStore
 import com.example.minicpm_v_demo.harness.character.knowledge.V1GraphKnowledgeStore
 import com.example.minicpm_v_demo.harness.character.knowledge.V2EpistemicKnowledgeStore
 import org.junit.Assert.assertEquals
@@ -105,6 +106,56 @@ class CharacterPromptCompilerTest {
     }
 
     @Test
+    fun relevantCharacterProfileIsAvailableWithoutOpeningStoryKnowledge() {
+        val compiled = testCompiler().buildNpcPrompt(
+            npcId = "lu_jiangxian",
+            userInput = "你从哪里来？",
+            runtimeContext = RuntimeContext(storyCutoff = "evt-010", maxChars = 900),
+        )
+
+        assertTrue(compiled.messages[0].content.contains("你的来历：初入此世时曾长期藏于鉴身"))
+        assertTrue(compiled.debug.selectedItems.any { it.kind == "relevant_profile" })
+        assertEquals("explicit", compiled.debug.profileRoute)
+        assertTrue(compiled.debug.profileCandidateIds.contains("profile_background"))
+        assertTrue(compiled.debug.profileSelectedIds.contains("profile_background"))
+        assertTrue(compiled.debug.profileInjectedChars > 0)
+    }
+
+    @Test
+    fun stableRoleConstraintsRemainWhenGreetingSkipsProfile() {
+        val compiled = testCompiler().buildNpcPrompt(
+            npcId = "lu_jiangxian",
+            userInput = "晚安。",
+            runtimeContext = RuntimeContext(storyCutoff = "evt-010", maxChars = 900),
+        )
+
+        assertEquals("skipped_greeting", compiled.debug.profileRoute)
+        assertEquals(0, compiled.debug.profileCandidateCount)
+        assertTrue(compiled.debug.profileSelectedIds.isEmpty())
+        assertTrue(compiled.messages[0].content.contains("不可逾越的角色边界：保持陆江仙的身份与当前知识边界"))
+        assertTrue(compiled.messages[0].content.length <= 900)
+    }
+
+    @Test
+    fun profileBudgetDropIsAuditableWithoutLeakingProfileText() {
+        val compiled = testCompiler().buildNpcPrompt(
+            npcId = "lu_jiangxian",
+            userInput = "你从哪里来？",
+            runtimeContext = RuntimeContext(
+                storyCutoff = "evt-010",
+                maxChars = 900,
+                profileMaxChars = 1,
+            ),
+        )
+
+        assertEquals("explicit", compiled.debug.profileRoute)
+        assertTrue(compiled.debug.profileCandidateCount > 0)
+        assertTrue(compiled.debug.profileBudgetDroppedCount > 0)
+        assertTrue(compiled.debug.profileSelectedIds.isEmpty())
+        assertEquals(0, compiled.debug.profileInjectedChars)
+    }
+
+    @Test
     fun properNounQuestionsRecallTheSpecificStoryEvent() {
         val retriever = KeywordStoryRetriever()
         val events = testLoader().loadEvents()
@@ -154,7 +205,7 @@ class CharacterPromptCompilerTest {
         assertTrue(system.contains("只回答玩家最后这一问"))
         assertTrue(system.contains("不补答上一轮"))
         assertTrue(system.contains("此事我尚不清楚"))
-        assertTrue(system.contains("不要追加索要依据"))
+        assertTrue(system.contains("不能编造具体经历"))
     }
 
     @Test
@@ -218,7 +269,9 @@ class CharacterPromptCompilerTest {
 
         assertEquals(query, compiled.messages[1].content)
         assertTrue(compiled.messages[0].content.contains("拒绝玄谙以生存和能力为理由的取代方案"))
+        assertTrue(compiled.messages[0].content.contains("能作答就先说结论，不得猜测或反问"))
         assertEquals("ready", compiled.debug.knowledgeGraphStatus)
+        assertEquals("skipped_v2_authoritative", compiled.debug.v1ClaimGraphStatus)
         assertTrue(compiled.debug.selectedItems.any { it.id == "v2-claim-evt-012" })
         assertTrue(compiled.debug.knowledgeGraphInjectedChars > 0)
         assertFalse(compiled.debug.legacyStoryRetrievalExecuted)
@@ -242,6 +295,57 @@ class CharacterPromptCompilerTest {
         assertEquals("v2_store_unavailable", compiled.debug.knowledgeGraphFallbackReason)
         assertTrue(compiled.debug.selectedItems.any { it.id == "evt-009" })
         assertTrue(compiled.messages[0].content.contains("玄谙是洞华天中一块青铜残片"))
+    }
+
+    @Test
+    fun v1StoryClaimsCoverAnUnavailableV2WithoutRunningTheLegacyRetriever() {
+        val root = harnessAssetsDir()
+        val compiler = CharacterPromptCompiler(
+            loader = testLoader(),
+            v2KnowledgeStore = V2EpistemicKnowledgeStore(File(root, "missing-knowledge.json")),
+            v1ClaimKnowledgeStore = V1ClaimKnowledgeStore(
+                manifestFile = File(root, "characters/knowledge/v1/manifest.json"),
+                claimsFile = File(root, "characters/knowledge/v1/claims.jsonl"),
+            ),
+        )
+
+        val compiled = compiler.buildNpcPrompt(
+            npcId = "lu_jiangxian",
+            userInput = "玄谙究竟是什么？",
+            runtimeContext = RuntimeContext(storyCutoff = "evt-010", maxChars = 900),
+        )
+
+        assertEquals("unavailable", compiled.debug.knowledgeGraphStatus)
+        assertEquals("ready", compiled.debug.v1ClaimGraphStatus)
+        assertTrue(compiled.debug.selectedItems.any { it.id == "event-evt-009" })
+        assertTrue(compiled.debug.v1ClaimGraphInjectedChars > 0)
+        assertFalse(compiled.debug.legacyStoryRetrievalExecuted)
+        assertTrue(compiled.messages[0].content.contains("自己是洞华天中一块青铜残片"))
+    }
+
+    @Test
+    fun v1StoryClaimsKeepTheSameCharacterKnowledgeCutoff() {
+        val root = harnessAssetsDir()
+        val compiler = CharacterPromptCompiler(
+            loader = testLoader(),
+            v2KnowledgeStore = V2EpistemicKnowledgeStore(File(root, "missing-knowledge.json")),
+            v1ClaimKnowledgeStore = V1ClaimKnowledgeStore(
+                manifestFile = File(root, "characters/knowledge/v1/manifest.json"),
+                claimsFile = File(root, "characters/knowledge/v1/claims.jsonl"),
+            ),
+        )
+
+        val compiled = compiler.buildNpcPrompt(
+            npcId = "lu_jiangxian",
+            userInput = "玄谙究竟是什么？",
+            runtimeContext = RuntimeContext(storyCutoff = "evt-008", maxChars = 900),
+        )
+
+        assertEquals("ready", compiled.debug.v1ClaimGraphStatus)
+        assertFalse(compiled.messages[0].content.contains("玄谙是洞华天中一块青铜残片"))
+        assertTrue(compiled.debug.v1ClaimGraphDecisions.any {
+            it.claimId == "event-evt-009" && it.reason == KnowledgeDecisionReason.ACQUIRED_AFTER_CUTOFF
+        })
     }
 
     @Test
@@ -328,6 +432,10 @@ class CharacterPromptCompilerTest {
             v2KnowledgeStore = V2EpistemicKnowledgeStore(
                 fallbackFile = File(root, "characters/knowledge/v2/knowledge_fallback.json"),
                 sourceDatabaseFile = File(root, "characters/knowledge/v2/character_knowledge_v2.sqlite3"),
+            ),
+            v1ClaimKnowledgeStore = V1ClaimKnowledgeStore(
+                manifestFile = File(root, "characters/knowledge/v1/manifest.json"),
+                claimsFile = File(root, "characters/knowledge/v1/claims.jsonl"),
             ),
         )
     }

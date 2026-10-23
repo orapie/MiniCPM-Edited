@@ -6,6 +6,13 @@ class RagSearchService(
     private val index: VectorIndex,
     private val embeddingModel: EmbeddingModel = HashEmbeddingModel(),
 ) {
+    /** Diagnostic-only identifier; no query text or vector values are exposed. */
+    val embeddingBackendName: String
+        get() = when (embeddingModel) {
+            is HashEmbeddingModel -> "hash_ngram"
+            else -> embeddingModel::class.java.simpleName.ifBlank { "custom_embedding" }
+        }
+
     fun search(
         query: String,
         topK: Int = 5,

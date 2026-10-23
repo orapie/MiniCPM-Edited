@@ -397,11 +397,16 @@ static void apply_thinking_mode_to_generation_prompt(std::string &prompt) {
 }
 
 static llama_pos stop_generation_position;
+// A negative predictLength from Kotlin means unlimited output.  Keep the
+// finite-limit flag separate from the position so generation can continue
+// across KV-cache shifts until the model emits EOG or the UI cancels it.
+static bool has_generation_limit = false;
 static std::string cached_token_chars;
 static std::ostringstream assistant_ss;
 
 static void reset_short_term_states() {
     stop_generation_position = 0;
+    has_generation_limit = false;
     cached_token_chars.clear();
     assistant_ss.str("");
 }
@@ -765,7 +770,14 @@ Java_com_example_minicpm_1v_1demo_LlamaEngine_processUserPrompt(
                  SteadyClock::now() - started_at).count());
     }
 
-    stop_generation_position = current_position + n_predict;
+    has_generation_limit = n_predict > 0;
+    if (has_generation_limit) {
+        stop_generation_position = current_position + n_predict;
+        LOGi("%s: finite output limit=%d tokens, stop_position=%d",
+             __func__, n_predict, stop_generation_position);
+    } else {
+        LOGi("%s: unlimited output; stopping only at EOG or user cancellation", __func__);
+    }
     return 0;
 }
 
@@ -828,7 +840,7 @@ Java_com_example_minicpm_1v_1demo_LlamaEngine_generateNextToken(
         shift_context();
     }
 
-    if (current_position >= stop_generation_position) {
+    if (has_generation_limit && current_position >= stop_generation_position) {
         LOGw("%s: STOP: hitting stop position: %d", __func__, stop_generation_position);
         return nullptr;
     }

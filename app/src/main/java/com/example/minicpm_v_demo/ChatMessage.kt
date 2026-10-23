@@ -26,7 +26,9 @@ sealed class ChatMessage {
         val isGenerating: Boolean = false,
         val ragMode: RagMode? = null,
         val sources: List<RagSource> = emptyList(),
-        val debugPrompt: String? = null
+        val debugPrompt: String? = null,
+        /** Content-free Phase 0 trace; intentionally not persisted with chat history. */
+        val debugTrace: String? = null,
     ) : ChatMessage()
 
     data class WelcomeCard(

@@ -309,7 +309,8 @@ class ChatAdapter(
                             (oldItem.isGenerating || oldItem.text == newItem.text) &&
                             oldItem.ragMode == newItem.ragMode &&
                             oldItem.sources == newItem.sources &&
-                            oldItem.debugPrompt == newItem.debugPrompt
+                            oldItem.debugPrompt == newItem.debugPrompt &&
+                            oldItem.debugTrace == newItem.debugTrace
                 oldItem is ChatMessage.WelcomeCard && newItem is ChatMessage.WelcomeCard ->
                     oldItem.isTextOnly == newItem.isTextOnly
                 else -> false

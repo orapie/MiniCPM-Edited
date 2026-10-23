@@ -36,9 +36,16 @@ class V2EpistemicKnowledgeStore(
         val cutoff = document.cutoffs[request.storyCutoff]
             ?: error("Unknown V2 story cutoff: ${request.storyCutoff}")
         val queryTerms = terms(request.query)
+        val matchedClaimIds = queryTerms.flatMapTo(linkedSetOf()) { term ->
+            document.claimIdsByTerm[term].orEmpty()
+        }
         val selected = mutableListOf<V2KnowledgeFact>()
         val decisions = document.claims.map { claim ->
-            val matchedTerms = queryTerms.intersect(terms(claim.statement + claim.keywords.joinToString("")))
+            val matchedTerms = if (claim.claimId in matchedClaimIds) {
+                queryTerms.intersect(document.termsByClaimId.getValue(claim.claimId))
+            } else {
+                emptySet()
+            }
             val allEdges = document.edgesByCharacterAndClaim[request.characterId to claim.claimId].orEmpty()
             val edge = allEdges.filter { it.acquiredSequence <= cutoff }.maxByOrNull { it.acquiredSequence }
             when {
@@ -99,6 +106,59 @@ class V2EpistemicKnowledgeStore(
         }
     }
 
+    /**
+     * Revalidates one opaque ID from the immediately prior turn.  This is not
+     * a bypass: the same character, cutoff, source, belief and validity checks
+     * still decide whether the claim can be reused.
+     */
+    fun retrieveByClaimIdSafely(
+        characterId: String,
+        claimId: String,
+        storyCutoff: String,
+    ): V2KnowledgeRetrieval = try {
+        val cutoff = document.cutoffs[storyCutoff] ?: error("Unknown V2 story cutoff: $storyCutoff")
+        val claim = document.claims.firstOrNull { it.claimId == claimId }
+            ?: return V2KnowledgeRetrieval(
+                KnowledgeStoreStatus.READY,
+                emptyList(),
+                listOf(KnowledgeDecision(claimId, KnowledgeDisposition.DROPPED, KnowledgeDecisionReason.NO_LEXICAL_MATCH)),
+            )
+        val edge = document.edgesByCharacterAndClaim[characterId to claimId].orEmpty()
+            .filter { it.acquiredSequence <= cutoff }
+            .maxByOrNull { it.acquiredSequence }
+        val rejection = when {
+            document.edgesByCharacterAndClaim[characterId to claimId].orEmpty().isEmpty() -> KnowledgeDecisionReason.NO_CHARACTER_KNOWLEDGE_EDGE
+            edge == null -> KnowledgeDecisionReason.ACQUIRED_AFTER_CUTOFF
+            claim.scope != "story" -> KnowledgeDecisionReason.PROFILE_CLAIM
+            claim.sourceTier != "curated" || claim.canonStatus != "accepted" || claim.verificationStatus != "verified_curated" -> KnowledgeDecisionReason.UNVERIFIED_SOURCE
+            edge.beliefStatus != "believed" -> KnowledgeDecisionReason.UNSUPPORTED_BELIEF_STATUS
+            claim.validFromSequence > cutoff || (claim.validToSequence != null && claim.validToSequence < cutoff) -> KnowledgeDecisionReason.NOT_VALID_AT_CUTOFF
+            else -> null
+        }
+        if (rejection != null) {
+            V2KnowledgeRetrieval(KnowledgeStoreStatus.READY, emptyList(), listOf(KnowledgeDecision(claimId, KnowledgeDisposition.DROPPED, rejection)))
+        } else {
+            V2KnowledgeRetrieval(
+                KnowledgeStoreStatus.READY,
+                listOf(
+                    V2KnowledgeFact(
+                        claimId = claimId,
+                        statement = claim.statement,
+                        eventId = claim.eventId,
+                        matchedTerms = emptyList(),
+                        acquisitionMethod = edge!!.acquisitionMethod,
+                        acquiredSequence = edge.acquiredSequence,
+                        confidence = minOf(claim.confidence, edge.confidence),
+                        score = 1.0,
+                    ),
+                ),
+                listOf(KnowledgeDecision(claimId, KnowledgeDisposition.SELECTED, KnowledgeDecisionReason.SELECTED, 1.0)),
+            )
+        }
+    } catch (_: Exception) {
+        V2KnowledgeRetrieval(KnowledgeStoreStatus.UNAVAILABLE, emptyList(), emptyList(), "v2_store_unavailable")
+    }
+
     private fun loadDocument(): V2KnowledgeDocument {
         require(fallbackFile.isFile) { "Missing V2 fallback export: ${fallbackFile.absolutePath}" }
         val root = SimpleJsonParser(fallbackFile.readText(Charsets.UTF_8)).parse().asJsonObject("V2 fallback export")
@@ -116,10 +176,19 @@ class V2EpistemicKnowledgeStore(
         }
         val claims = root["claims"].asJsonArray("claims").map { raw -> parseClaim(raw.asJsonObject("claim")) }
         val edges = root["knowledge_edges"].asJsonArray("knowledge_edges").map { raw -> parseEdge(raw.asJsonObject("knowledge edge")) }
+        val termsByClaimId = claims.associate { claim ->
+            claim.claimId to terms(claim.statement + claim.keywords.joinToString(""))
+        }
+        val claimIdsByTerm = mutableMapOf<String, MutableSet<String>>()
+        termsByClaimId.forEach { (claimId, terms) ->
+            terms.forEach { term -> claimIdsByTerm.getOrPut(term) { linkedSetOf() } += claimId }
+        }
         return V2KnowledgeDocument(
             cutoffs = cutoffs,
             claims = claims,
             edgesByCharacterAndClaim = edges.groupBy { it.characterId to it.claimId },
+            termsByClaimId = termsByClaimId,
+            claimIdsByTerm = claimIdsByTerm,
         )
     }
 
@@ -172,6 +241,9 @@ class V2EpistemicKnowledgeStore(
         val cutoffs: Map<String, Long>,
         val claims: List<V2Claim>,
         val edgesByCharacterAndClaim: Map<Pair<String, String>, List<V2KnowledgeEdge>>,
+        /** Build-once local inverted index; SQLite FTS is intentionally not used on Android. */
+        val termsByClaimId: Map<String, Set<String>>,
+        val claimIdsByTerm: Map<String, Set<String>>,
     )
 
     private data class V2Claim(

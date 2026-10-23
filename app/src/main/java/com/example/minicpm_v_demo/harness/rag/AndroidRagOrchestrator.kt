@@ -3,6 +3,7 @@ package com.example.minicpm_v_demo.harness.rag
 import android.content.Context
 import com.example.minicpm_v_demo.harness.HarnessModelFamily
 import com.example.minicpm_v_demo.harness.character.CharacterCard
+import com.example.minicpm_v_demo.harness.character.CharacterFollowUpTarget
 import com.example.minicpm_v_demo.harness.character.CharacterPromptCompiler
 import com.example.minicpm_v_demo.harness.character.RuntimeContext
 import com.example.minicpm_v_demo.harness.chat.ChatTemplateRenderer
@@ -23,6 +24,8 @@ data class CompiledAndroidPrompt(
     val characterDebug: Any? = null,
     val mode: RagMode,
     val contextDecisions: List<RagContextDecision> = emptyList(),
+    /** Content-free evidence-selection record for this compiled turn. */
+    val turnTrace: RagTurnTrace,
 )
 
 class AndroidRagOrchestrator(
@@ -30,6 +33,9 @@ class AndroidRagOrchestrator(
     private val characterCompiler: CharacterPromptCompiler,
     private val promptBuilder: PromptBuilder = PromptBuilder(),
     private val characterRagPromptBuilder: CharacterRagPromptBuilder = CharacterRagPromptBuilder(),
+    private val alwaysOnVectorRetrievalService: AlwaysOnVectorRetrievalService =
+        AlwaysOnVectorRetrievalService(ragSearchService),
+    private val vectorRetrievalFeatureFlags: VectorRetrievalFeatureFlags = VectorRetrievalFeatureFlags(),
 ) {
     fun availableCharacters(): List<CharacterCard> = characterCompiler.availableCharacters()
 
@@ -42,19 +48,52 @@ class AndroidRagOrchestrator(
         maxCharacterChars: Int = 900,
         conversationSummary: String = "",
         knowledgeGraphEnabled: Boolean = true,
+        followUpTarget: CharacterFollowUpTarget? = null,
         modelFamily: HarnessModelFamily = HarnessModelFamily.MINICPM_TEXT,
     ): CompiledAndroidPrompt {
         if (mode == RagMode.OFF) {
+            val vectorRetrieval = if (vectorRetrievalFeatureFlags.retrieveInOffMode) {
+                alwaysOnVectorRetrievalService.searchAlways(
+                    query = userInput,
+                    candidateLimit = topK,
+                    minScore = GENERAL_RAG_MIN_SCORE,
+                )
+            } else {
+                AlwaysOnVectorRetrievalResult(VectorRetrievalAttempt.notRequested("off_mode"), emptyList())
+            }
             val messages = listOf(
                 com.example.minicpm_v_demo.harness.character.HarnessChatMessage("system", "你是一个本地助手。"),
                 com.example.minicpm_v_demo.harness.character.HarnessChatMessage("user", userInput),
             )
             val rendered = ChatTemplateRenderer.forModelFamily(modelFamily).render(messages)
-            return CompiledAndroidPrompt(rendered.renderedSinglePrompt, rendered, emptyList(), "", null, mode)
+            return CompiledAndroidPrompt(
+                renderedPrompt = rendered.renderedSinglePrompt,
+                rendered = rendered,
+                sources = emptyList(),
+                contextText = "",
+                mode = mode,
+                turnTrace = RagTurnTrace.create(
+                    mode = mode,
+                    userInput = userInput,
+                    modelFamily = modelFamily,
+                    rendered = rendered,
+                    contextText = "",
+                    vectorRetrieval = vectorRetrieval.attempt,
+                    externalInjectionRequested = false,
+                    sources = emptyList(),
+                    contextDecisions = emptyList(),
+                    characterDebug = null,
+                ),
+            )
         }
         val renderer = ChatTemplateRenderer.forModelFamily(modelFamily)
         return if (mode == RagMode.RAG) {
-            val results = ragSearchService.search(userInput, topK, minScore = GENERAL_RAG_MIN_SCORE)
+            val vectorRetrieval = retrieveForActiveRagTurn(
+                userInput = userInput,
+                candidateLimit = topK,
+                minScore = GENERAL_RAG_MIN_SCORE,
+            )
+            val results = vectorRetrieval.results
             val prompt = promptBuilder.build(userInput, results)
             val rendered = renderer.render(prompt.messages)
             CompiledAndroidPrompt(
@@ -64,14 +103,32 @@ class AndroidRagOrchestrator(
                 contextText = prompt.contextText,
                 contextDecisions = prompt.contextDecisions,
                 mode = mode,
+                turnTrace = RagTurnTrace.create(
+                    mode = mode,
+                    userInput = userInput,
+                    modelFamily = modelFamily,
+                    rendered = rendered,
+                    contextText = prompt.contextText,
+                    vectorRetrieval = vectorRetrieval.attempt,
+                    externalInjectionRequested = true,
+                    sources = prompt.sources,
+                    contextDecisions = prompt.contextDecisions,
+                    characterDebug = null,
+                ),
             )
         } else {
-            val results = if (CharacterQueryRouter.requiresExternalKnowledge(userInput)) {
-                ragSearchService.search(
-                    query = userInput,
-                    topK = maxOf(topK * 8, 20),
-                    minScore = CHARACTER_EXTERNAL_RAG_MIN_SCORE,
-                ).filterNot { it.chunk.sourcePath.contains("/novel_test/") }
+            // Phase 0: every character turn queries the vector index.  The
+            // existing router still governs *injection* until the character
+            // vector collection and hybrid selector are introduced in later
+            // phases; this prevents unrelated external text changing answers.
+            val vectorRetrieval = retrieveForActiveRagTurn(
+                userInput = userInput,
+                candidateLimit = maxOf(topK * 8, 20),
+                minScore = CHARACTER_EXTERNAL_RAG_MIN_SCORE,
+            )
+            val externalInjectionRequested = CharacterQueryRouter.requiresExternalKnowledge(userInput)
+            val results = if (externalInjectionRequested) {
+                vectorRetrieval.results.filterNot { it.chunk.sourcePath.contains("/novel_test/") }
                     .take(topK)
             } else {
                 emptyList()
@@ -84,6 +141,7 @@ class AndroidRagOrchestrator(
                     maxChars = maxCharacterChars,
                     conversationSummary = conversationSummary,
                     knowledgeGraphEnabled = knowledgeGraphEnabled,
+                    followUpTarget = followUpTarget,
                 ),
             )
             val prompt = characterRagPromptBuilder.build(
@@ -101,8 +159,34 @@ class AndroidRagOrchestrator(
                 characterDebug = prompt.characterDebug,
                 mode = mode,
                 contextDecisions = prompt.contextDecisions,
+                turnTrace = RagTurnTrace.create(
+                    mode = mode,
+                    userInput = userInput,
+                    modelFamily = modelFamily,
+                    rendered = rendered,
+                    contextText = prompt.contextText,
+                    vectorRetrieval = vectorRetrieval.attempt,
+                    externalInjectionRequested = externalInjectionRequested,
+                    sources = prompt.sources,
+                    contextDecisions = prompt.contextDecisions,
+                    characterDebug = prompt.characterDebug,
+                ),
             )
         }
+    }
+
+    private fun retrieveForActiveRagTurn(
+        userInput: String,
+        candidateLimit: Int,
+        minScore: Double,
+    ): AlwaysOnVectorRetrievalResult {
+        if (!vectorRetrievalFeatureFlags.alwaysOnVectorRetrieval) {
+            return AlwaysOnVectorRetrievalResult(
+                attempt = VectorRetrievalAttempt.notRequested("disabled_by_flag"),
+                results = emptyList(),
+            )
+        }
+        return alwaysOnVectorRetrievalService.searchAlways(userInput, candidateLimit, minScore)
     }
 
     companion object {
@@ -114,6 +198,7 @@ class AndroidRagOrchestrator(
             return AndroidRagOrchestrator(
                 ragSearchService = RagSearchService.fromPaths(paths),
                 characterCompiler = CharacterPromptCompiler.fromPaths(paths),
+                vectorRetrievalFeatureFlags = VectorRetrievalFeatureFlags.from(context.applicationContext),
             )
         }
     }

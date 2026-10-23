@@ -10,6 +10,7 @@ data class HarnessDataPaths(val rootDir: File) {
     val charactersRootDir: File get() = File(rootDir, "characters")
     val charactersDir: File get() = File(charactersRootDir, "characters")
     val storyEventsFile: File get() = File(charactersRootDir, "story/story_events.jsonl")
+    val characterStateDir: File get() = File(charactersRootDir, "state")
     val promptsDir: File get() = File(charactersRootDir, "prompts")
     val characterKnowledgeDir: File get() = File(charactersRootDir, "knowledge")
     val v1CharacterKnowledgeDir: File get() = File(characterKnowledgeDir, "v1")
@@ -21,9 +22,12 @@ data class HarnessDataPaths(val rootDir: File) {
     val sessionsDir: File get() = File(rootDir, "sessions")
     val memoryDir: File get() = File(rootDir, "memory")
     val settingsDir: File get() = File(rootDir, "settings")
+    /** Developer-only, content-free RAG selection traces. */
+    val diagnosticsDir: File get() = File(rootDir, "diagnostics")
+    val ragTurnTraceFile: File get() = File(diagnosticsDir, "rag_turn_trace.jsonl")
 
     fun ensureRuntimeDirs() {
-        listOf(rootDir, sessionsDir, memoryDir, settingsDir).forEach { directory ->
+        listOf(rootDir, sessionsDir, memoryDir, settingsDir, diagnosticsDir).forEach { directory ->
             check(directory.isDirectory || directory.mkdirs()) {
                 "Failed to create Harness directory: ${directory.absolutePath}"
             }

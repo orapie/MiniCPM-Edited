@@ -9,8 +9,8 @@
 ```text
 稳定角色核（身份、语气、通用输出规则）
 + relevant_profile（已实现：来历、动机、立场、性格、行为准则）
-+ relevant_state（下一步：当前场景、目标、任务状态）
-+ relevant_possessions（下一步：当前可确认的随身物品）
++ relevant_state（已实现：按问题选取当前场景、目标或任务状态）
++ relevant_possessions（已实现：仅当前有效 state 中的 `carried` 项）
 + relevant_relationships（已实现：当前角色发出的 V1 关系边）
 + authorized_story_facts（已实现：V2 / V1 claim / legacy 回退）
 + conversation_summary（已有：只用于承接）
@@ -61,8 +61,8 @@ MainActivity.compilePromptForHarness()
 | --- | --- | --- |
 | “你从哪里来？” | 已可从 `relevant_profile` 注入来历 | 需继续扩大问法测试和 UI 回归，但不是待建能力 |
 | “你为何这样做/你在乎什么？” | 已可按 profile 类别信号选择动机/原则 | profile 选择没有独立 audit reason，需要补可观测性 |
-| “你现在在哪里/在做什么？” | 只有稳定 `dynamic_state` 的场景和情绪摘要 | `questState`、`currentGoal` 没有按问题进入专门区块 |
-| “你手里有什么？” | 没有可靠的当前持有物数据 | 历史剧情出现物品不等于当前持有；不能让模型猜测 |
+| “你现在在哪里/在做什么？” | 已从 `DynamicState` 按问题选取 `scene`、`questState` 或 `currentGoal`，情绪仍稳定保留 | 尚需真实 UI 回归验证 prompt 查看页可见变化 |
+| “你手里有什么？” | 仅从当前有效 state 的 `carried` 项注入；无记录时明确未记录 | 仍需逐角色补充有原文证据的 state 资产与 UI 回归 |
 | “那把剑从哪里来？” | 可能命中剧情，也可能无命中 | 需要把“物品身份/来源”和“当前是否持有”分开建模 |
 | 代词续问“他为何这样做？” | 主要依赖 conversation summary 与模型理解 | 尚无基于前一轮已选实体/事实的确定性查询改写或消歧 |
 
@@ -172,15 +172,20 @@ app/src/main/assets/harness/characters/
 
 预算结果：初版直接固定两条原始 `hardConstraints` 会挤掉 900 字符 prompt 中的 V2 事实；最终保留短稳定边界，并将语气示例从 4 条收为 3 条，为当前轮的 profile/剧情证据腾出空间。定向 JVM 回归已验证 profile、V2、V1/legacy 回退和编排器路径均仍通过。
 
-### Phase 7B：先用已有 `DynamicState` 做查询感知状态
+### Phase 7B：先用已有 `DynamicState` 做查询感知状态（已完成）
 
 目的：不等新物品数据，先使已有 `scene`、`questState`、`currentGoal` 服务于“此刻/正在做什么/打算如何”的问题。
 
-1. 在 `RuntimeContext` 增加 `stateTopK=1`、`stateMaxChars`；总 900 字符上限不变。
-2. 扩展 `planKnowledgeQuery()`，增加 `retrieveState`；仅对“此刻/现在/在哪里/正在/打算/下一步/目标/任务”等明确问题启用。
-3. 新增私有 `stateCandidates(dynamicState, userInput)`，从当前已有 `DynamicState` 选取 `scene`、`questState`、`currentGoal`；情绪继续留在已有稳定的 `dynamic_state` 摘要中，避免同义重复。
-4. 在模板增加 `{{relevant_state}}`，空值为“无额外当前状态记录。”。
-5. 扩展 `sectionLines`、`SelectedPromptItem`、`DroppedPromptItem` 和 debug 字段，沿用当前 profile/关系/事实的预算选择方式；不要提前抽象一个全新通用预算器。
+已实现内容：
+
+1. `RuntimeContext` 新增 `stateTopK=1`、`stateMaxChars=96`，并校验均不可为负数；总 system 上限仍由既有 `maxChars`（Android 默认 900）硬限制。
+2. `planKnowledgeQuery()` 对“此刻/现在/在哪里/正在/打算/下一步/目标/任务”等状态信号启用 `retrieveState`，并让该路径不再同时引入无关的 profile 或剧情事实。
+3. `stateCandidates()` 仅从当前角色已有的 `DynamicState.scene`、`questState`、`currentGoal` 选取最多一项；情绪保留在稳定的 `dynamic_state` 摘要，场景不再无条件重复。
+4. 模板已增加 `{{relevant_state}}`；未命中时安全地渲染为“无”。
+5. `CharacterPromptDebug` 与 `MainActivity` 的无正文 Logcat 已记录 state 路由、候选数/ID、选中数/ID、预预算淘汰数和注入字符数；选项仍复用现有 `sectionLines` 与预算选择流程。
+6. `CharacterPromptCompilerTest` 已覆盖场景、下一步目标、来历问题不注入状态、状态预算淘汰以及玩家原始问题保持为 user message。
+
+为给动态状态保留 900 字符内的空间，语气示例从 3 条缩为 2 条；角色身份边界、情绪摘要和模板末尾的通用安全规则仍稳定保留。
 
 验收：
 
@@ -189,16 +194,18 @@ app/src/main/assets/harness/characters/
 - 总 system 字符数仍不超过 `maxCharacterChars=900`；预算无法容纳时有无正文理由。
 - `CHARACTER_RAG` 的 user message 仍严格等于玩家原始问题（无外部 RAG 时）。
 
-### Phase 7C：结构化当前物品/状态资产
+### Phase 7C：结构化当前物品/状态资产（已完成）
 
 目的：解决“手里有什么”不能从历史事实猜测的问题。
 
-1. 新增第 4.2 节的 `state/` schema、`CharacterStateLoader` 和数据类；先为一个证据充分角色建立最小 fixture，再扩展全角色。
-2. 使用现有事件时间序和 `storyCutoff` 验证 `valid_from`/`valid_to`，拒绝未知 cutoff、重复 state ID、无效区间、未知角色和重复/矛盾 item ID。
-3. 编译器优先选“当前 cutoff 下最后一个有效 state”；仅 `carried` 物品可进入 `relevant_possessions`。
-4. 为“物品来源”与“当前持有”建立两条不同路径：前者可由 V2/V1 story claim 支撑，后者必须由 state asset 支撑。
-5. 模板增加 `{{relevant_possessions}}`：空值文案必须是“当前资料未记录可确认的随身物品”，而不是“没有物品”。
-6. 不要在本阶段把未知物品转为固定拒答；让模型在已知角色资料约束下简短说明记录不足即可。
+已实现内容：
+
+1. 新增 `characters/state/`、`character_state_schema.json`、`CharacterStateLoader` 和独立数据类；首个角色资产只记录由原文明确支持的“未随身携带”结论，不因历史出现过仙器而杜撰当前持有。
+2. loader 按既有事件时间序校验 `valid_from`/`valid_to`，拒绝未知 cutoff、重复 state ID、无效/重叠区间、角色 ID 不匹配和同 state 的重复物品 ID。
+3. 编译器只读取当前 cutoff 命中的 state，且仅 `carried` 项可进入 `relevant_possessions`；`not_carried` 与 `unknown` 永不进入该区块。
+4. 物品来源仍由既有 V2/V1/legacy 剧情路径处理；当前持有只由 state asset 处理，两条路径不互相推断。
+5. 模板已增加 `{{relevant_possessions}}`。用户明确询问随身物时，如无有效 `carried` 记录，system 明示“当前资料未记录可确认的随身物品”。
+6. runtime/debug 记录 possession 路由、候选数、选中数、预算淘汰和注入字符数，不记录物品正文或内部 ID。
 
 验收：
 
@@ -207,24 +214,30 @@ app/src/main/assets/harness/characters/
 - 曾出现但 `not_carried` 的物品不会被说成当前手持。
 - 无记录时最终 prompt 明确“未记录”，不会注入任意历史剑/法器。
 
-### Phase 7D：可观测性和真实 UI 验收
+### Phase 7D：可观测性和真实 UI 验收（工程已完成；真机执行待完成）
 
 目的：证明用户在 App 的“final prompt”视图中能看到按问题变化的动态区块，而非只通过 JVM 断言。
 
-1. 在 `MainActivity.compilePromptForHarness()` 的现有无正文日志中增加：
+已实现的工程部分：
+
+1. `MainActivity.compilePromptForHarness()` 的无正文日志现已包含：
    - `profileRoute/status/chars`；
    - `stateRoute/status/chars`；
    - `possessionRoute/status/chars`；
    - 预算淘汰数量；
    - V2、V1 claim、V1 relation、legacy 状态。
-2. Debug APK 使用已有 prompt 查看入口，逐题人工比较 system prompt；release 不显示内部 ID、证据、完整资料或玩家问题。
-3. 新增/扩展 Android instrumentation：
+2. 新增/扩展 Android instrumentation：
    - 资产从真实 `filesDir/harness` 加载 state asset；
    - cutoff 前后物品差异；
    - query-aware state/profile 进入 system；
    - 外部资料仍只在 user；
    - future guard 对 state/possession 路径不误触发。
-4. 在已有 `CharacterProfileNativeInferenceTest` 风格上新增一个固定状态题和一个物品题。真机必须使用已安装模型、固定角色/cutoff/模型/`predictLength`，并清空 native context；不要以 JVM prompt 断言替代真实生成。
+3. `CharacterProfileNativeInferenceTest` 已增加固定状态题和物品未记录题；每题在推理前清空 native context，并使用固定模型、角色、cutoff 和 `predictLength`。
+
+仍需在真实设备完成的验收：
+
+1. Debug APK 使用已有 prompt 查看入口，逐题人工比较 system prompt；release 不显示内部 ID、证据、完整资料或玩家问题。
+2. 执行上述 instrumentation/native 用例并记录实际可见回答、system/user token、prefill、TTFT 和完整生成时间；JVM 断言与 instrumentation 源码编译不能替代这一步。
 
 建议真机矩阵：
 
@@ -242,13 +255,16 @@ app/src/main/assets/harness/characters/
 
 每题至少记录功能结果、system/user token 数、system prefill、TTFT、完整生成时间和最终可见回答。不同问题的上下文不相同，这些只能用于功能与成本观察，不能构成性能 A/B。
 
-### Phase 7E：续问消歧（独立后续阶段）
+### Phase 7E：续问消歧（已完成）
 
-仅当 7A-R 至 7D 稳定后再做。当前 `conversationSummary` 只帮助模型理解代词，不能保证“他/那把剑”对应上轮实体。
+当前 `conversationSummary` 仍只帮助模型理解代词；确定性消歧改为保存上一轮**已选的无正文 ID 和类别**，不保存或重放原始 RAG 文本。
 
-建议最小实现：保存上一轮**已选的无正文 ID 和类别**，不保存/重复注入原始 RAG 文本；当新问题包含明确代词且没有新实体时，向现有查询函数补充一个受限的 `followUpTargetId`。若摘要、角色/cutoff 或目标类别不一致，则不消歧，回到现有保守行为。
+已实现内容：
 
-验收：代词续问只复用上一轮同角色、同 cutoff、已授权的事实/物品；切换角色、清空会话、外部资料轮次或不明确代词时不复用。
+1. `ChatTurn` 只持久化允许类别的 opaque target（授权剧情事实、关系、当前 `carried` 物品），并保持旧会话兼容。
+2. `CharacterFollowUpResolver` 仅接受紧邻的同角色、同 cutoff、无外部资料轮次中的单一 target；问题必须含明确代词且不得重新点名已知角色，否则回到常规检索。
+3. V2/V1 claim、V1 关系与 state possession 在注入前重新检查当前角色、cutoff、审核/认知边界与当前有效期；续问 ID 不是绕过授权的后门。
+4. JVM 回归覆盖已授权 V2 续问、较早 cutoff 拒绝、物品续问、会话持久化、角色切换和显式实体回退。
 
 ## 7. 必需测试
 
@@ -258,9 +274,9 @@ app/src/main/assets/harness/characters/
    - profile 类别选择、稳定 hard constraint、state 路由、state/possession 预算、混合问题。
    - 任意 `maxChars=900` 下没有未解析模板标记。
    - profile/state/possession 只在 system，普通 user 问题保持原文。
-2. 新增 `CharacterStateLoaderTest`
+2. `CharacterStateLoaderTest`
    - schema、角色 ID、cutoff、重复 ID、重叠区间、未知 status、无物品记录。
-3. 新增 `CharacterStateSelectionTest`
+3. `CharacterPromptCompilerTest`
    - cutoff 前后、`carried/not_carried/unknown`、场景/目标问题、无状态回退。
 4. 既有 V2/V1 回归
    - V2 命中时 V1 claim 为 `skipped_v2_authoritative`；V1 claim 只在 V2 无授权事实时使用；未来事实仍被拒绝；当前 NPC 关系边不反向注入。

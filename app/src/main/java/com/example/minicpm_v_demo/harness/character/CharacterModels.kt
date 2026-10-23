@@ -19,6 +19,14 @@ data class RuntimeContext(
     /** Query-aware facts from the current character card, never graph profile claims. */
     val profileTopK: Int = 2,
     val profileMaxChars: Int = 180,
+    /** Query-aware current-state evidence from the current character card. */
+    val stateTopK: Int = 1,
+    val stateMaxChars: Int = 96,
+    /** Query-aware, time-bounded possessions; historical facts never supply this. */
+    val possessionTopK: Int = 2,
+    val possessionMaxChars: Int = 160,
+    /** A prior, authorized internal target; never contains source text or player text. */
+    val followUpTarget: CharacterFollowUpTarget? = null,
 )
 
 data class CompiledCharacterPrompt(
@@ -39,6 +47,8 @@ data class CharacterPromptDebug(
     val estimatedPromptTokens: Int = 0,
     val estimatedMandatoryTokens: Int = 0,
     val conversationSummaryChars: Int = 0,
+    /** Budget held back from conversation history so current-turn evidence can be injected. */
+    val reservedDynamicEvidenceChars: Int = 0,
     val estimatedUserTokens: Int = 0,
     val knowledgeGraphStatus: String = "not_configured",
     val knowledgeGraphFallbackReason: String? = null,
@@ -59,16 +69,47 @@ data class CharacterPromptDebug(
     val profileSelectedIds: List<String> = emptyList(),
     val profileBudgetDroppedCount: Int = 0,
     val profileInjectedChars: Int = 0,
+    /** Content-free audit fields for the current DynamicState retrieval path. */
+    val stateRoute: String = "not_requested",
+    val stateCandidateCount: Int = 0,
+    val stateCandidateIds: List<String> = emptyList(),
+    val stateSelectedIds: List<String> = emptyList(),
+    val stateBudgetDroppedCount: Int = 0,
+    val stateInjectedChars: Int = 0,
+    /** Content-free audit fields for time-bounded current possessions. */
+    val possessionRoute: String = "not_requested",
+    val possessionCandidateCount: Int = 0,
+    val possessionSelectedCount: Int = 0,
+    val possessionBudgetDroppedCount: Int = 0,
+    val possessionInjectedChars: Int = 0,
+    /** Whether this turn accepted a same-character, same-cutoff follow-up target. */
+    val followUpRoute: String = "not_requested",
     /** Stable, content-free routing label for runtime A/B measurements. */
     val knowledgeQueryIntent: String = "unknown",
+    /** Phase 1 query analysis, represented as stable enum names only. */
+    val queryIntents: List<String> = emptyList(),
+    val requestedKnowledgeSurfaces: List<String> = emptyList(),
+    val queryExplanationCodes: List<String> = emptyList(),
     val legacyStoryRetrievalExecuted: Boolean = false,
     val legacyMemoryRetrievalExecuted: Boolean = false,
+    /** Hash of the fixed template/base sections before per-turn evidence is selected. */
+    val basePromptFingerprint: String = "none",
+    /** Hash of only the selected per-turn evidence sections; `none` means no evidence was injected. */
+    val dynamicEvidenceFingerprint: String = "none",
+    /** Hash of selected section/ID pairs, independent from their source text. */
+    val selectedItemsFingerprint: String = "none",
 )
 
 data class SelectedPromptItem(
     val kind: String,
     val id: String,
     val priority: Double,
+)
+
+/** Persisted as an opaque ID plus section only; raw RAG text is never retained here. */
+data class CharacterFollowUpTarget(
+    val kind: String,
+    val id: String,
 )
 
 data class DroppedPromptItem(
@@ -87,6 +128,8 @@ data class RetrievalDecision(
 data class CharacterCard(
     val npcId: String,
     val identity: IdentityCore,
+    /** Evidence references for atomized profile records, keyed by source card path. */
+    val profileEvidenceRefs: Map<String, List<String>> = emptyMap(),
     val relationships: List<CharacterRelationship>,
     val knowledgeScope: KnowledgeScope,
     val dynamicState: DynamicState,
@@ -125,6 +168,45 @@ data class DynamicState(
     val currentGoal: String,
     val affinity: Int,
 )
+
+/** Time-bounded, evidence-backed state kept separate from the stable character card. */
+data class CharacterStateDocument(
+    val characterId: String,
+    val states: List<TimedCharacterState>,
+)
+
+data class TimedCharacterState(
+    val stateId: String,
+    val validFrom: String,
+    val validTo: String?,
+    val scene: String,
+    val questState: String,
+    val currentGoal: String,
+    val possessions: List<CurrentPossession>,
+)
+
+data class CurrentPossession(
+    val itemId: String,
+    val name: String,
+    val status: PossessionStatus,
+    val description: String,
+    val keywords: List<String>,
+)
+
+enum class PossessionStatus {
+    CARRIED,
+    NOT_CARRIED,
+    UNKNOWN;
+
+    companion object {
+        fun fromWire(value: String): PossessionStatus = when (value) {
+            "carried" -> CARRIED
+            "not_carried" -> NOT_CARRIED
+            "unknown" -> UNKNOWN
+            else -> error("Unsupported possession status: $value")
+        }
+    }
+}
 
 data class EmotionState(
     val label: String,

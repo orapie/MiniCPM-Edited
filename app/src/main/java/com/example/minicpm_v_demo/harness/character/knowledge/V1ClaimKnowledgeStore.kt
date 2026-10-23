@@ -32,13 +32,66 @@ class V1ClaimKnowledgeStore(
         }
     }
 
+    /** Revalidates, rather than blindly replays, one prior authorized claim ID. */
+    fun retrieveByClaimIdSafely(
+        characterId: String,
+        claimId: String,
+        storyCutoff: String,
+    ): V1ClaimRetrieval = try {
+        val cutoff = document.cutoffs[storyCutoff] ?: error("Unknown V1 story cutoff: $storyCutoff")
+        val claim = document.claims.firstOrNull { it.claimId == claimId }
+            ?: return V1ClaimRetrieval(
+                KnowledgeStoreStatus.READY,
+                emptyList(),
+                listOf(KnowledgeDecision(claimId, KnowledgeDisposition.DROPPED, KnowledgeDecisionReason.NO_LEXICAL_MATCH)),
+            )
+        val knownByCharacter = claim.knownBy[characterId]
+        val acquiredSequence = knownByCharacter?.availableAfter?.let(document.cutoffs::get)
+        val rejection = when {
+            knownByCharacter == null -> KnowledgeDecisionReason.NO_CHARACTER_KNOWLEDGE_EDGE
+            claim.claimType != "story_event" -> KnowledgeDecisionReason.PROFILE_CLAIM
+            acquiredSequence == null || acquiredSequence > cutoff -> KnowledgeDecisionReason.ACQUIRED_AFTER_CUTOFF
+            claim.sourceTier !in AllowedSourceTiers || claim.canonStatus !in AllowedCanonStatuses || knownByCharacter.source !in AllowedAcquisitionMethods -> KnowledgeDecisionReason.UNVERIFIED_SOURCE
+            else -> null
+        }
+        if (rejection != null) {
+            V1ClaimRetrieval(KnowledgeStoreStatus.READY, emptyList(), listOf(KnowledgeDecision(claimId, KnowledgeDisposition.DROPPED, rejection)))
+        } else {
+            V1ClaimRetrieval(
+                KnowledgeStoreStatus.READY,
+                listOf(
+                    V1KnowledgeFact(
+                        claimId = claimId,
+                        statement = claim.statement,
+                        eventId = claimId.removePrefix("event-").takeIf { claimId.startsWith("event-") },
+                        matchedTerms = emptyList(),
+                        acquisitionMethod = knownByCharacter!!.source,
+                        acquiredSequence = acquiredSequence!!,
+                        confidence = minOf(claim.confidence, knownByCharacter.confidence),
+                        score = 1.0,
+                    ),
+                ),
+                listOf(KnowledgeDecision(claimId, KnowledgeDisposition.SELECTED, KnowledgeDecisionReason.SELECTED, 1.0)),
+            )
+        }
+    } catch (_: Exception) {
+        V1ClaimRetrieval(KnowledgeStoreStatus.UNAVAILABLE, emptyList(), emptyList(), "v1_claim_store_unavailable")
+    }
+
     private fun retrieveAudited(request: V1ClaimQuery): V1ClaimRetrieval {
         val cutoff = document.cutoffs[request.storyCutoff]
             ?: error("Unknown V1 story cutoff: ${request.storyCutoff}")
         val queryTerms = terms(request.query)
+        val matchedClaimIds = queryTerms.flatMapTo(linkedSetOf()) { term ->
+            document.claimIdsByTerm[term].orEmpty()
+        }
         val selected = mutableListOf<V1KnowledgeFact>()
         val decisions = document.claims.map { claim ->
-            val matchedTerms = queryTerms.intersect(terms(claim.statement + claim.keywords.joinToString("")))
+            val matchedTerms = if (claim.claimId in matchedClaimIds) {
+                queryTerms.intersect(document.termsByClaimId.getValue(claim.claimId))
+            } else {
+                emptySet()
+            }
             val knownByCharacter = claim.knownBy[request.characterId]
             val acquiredSequence = knownByCharacter?.availableAfter?.let(document.cutoffs::get)
             when {
@@ -117,7 +170,14 @@ class V1ClaimKnowledgeStore(
                 knownBy = knownBy,
             )
         }
-        return V1ClaimDocument(cutoffs, claims)
+        val termsByClaimId = claims.associate { claim ->
+            claim.claimId to terms(claim.statement + claim.keywords.joinToString(""))
+        }
+        val claimIdsByTerm = mutableMapOf<String, MutableSet<String>>()
+        termsByClaimId.forEach { (claimId, terms) ->
+            terms.forEach { term -> claimIdsByTerm.getOrPut(term) { linkedSetOf() } += claimId }
+        }
+        return V1ClaimDocument(cutoffs, claims, termsByClaimId, claimIdsByTerm)
     }
 
     private fun terms(text: String): Set<String> {
@@ -135,7 +195,13 @@ class V1ClaimKnowledgeStore(
 
     private fun round5(value: Double): Double = round(value * 100000.0) / 100000.0
 
-    private data class V1ClaimDocument(val cutoffs: Map<String, Long>, val claims: List<V1Claim>)
+    private data class V1ClaimDocument(
+        val cutoffs: Map<String, Long>,
+        val claims: List<V1Claim>,
+        /** Build-once local inverted index, used when V2 safely falls back to V1. */
+        val termsByClaimId: Map<String, Set<String>>,
+        val claimIdsByTerm: Map<String, Set<String>>,
+    )
     private data class V1Claim(
         val claimId: String,
         val claimType: String,

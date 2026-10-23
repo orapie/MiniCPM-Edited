@@ -1,5 +1,6 @@
 package com.example.minicpm_v_demo.harness.character
 
+import com.example.minicpm_v_demo.harness.ContentFingerprint
 import com.example.minicpm_v_demo.harness.context.ContextController
 import com.example.minicpm_v_demo.harness.character.knowledge.KnowledgeStoreStatus
 import com.example.minicpm_v_demo.harness.character.knowledge.V1ClaimKnowledgeStore
@@ -21,6 +22,9 @@ class CharacterPromptCompiler(
     private val v2KnowledgeStore: V2EpistemicKnowledgeStore? = null,
     private val v1KnowledgeStore: V1GraphKnowledgeStore? = null,
     private val v1ClaimKnowledgeStore: V1ClaimKnowledgeStore? = null,
+    private val stateLoader: CharacterStateLoader? = null,
+    private val queryAnalyzer: CharacterQueryAnalyzer = CharacterQueryAnalyzer(),
+    private val profileStore: CharacterProfileStore = CharacterProfileStore(),
 ) {
     private val events: List<StoryEvent> by lazy { loader.loadEvents() }
     private val eventsById: Map<String, StoryEvent> by lazy { events.associateBy { it.eventId } }
@@ -41,19 +45,28 @@ class CharacterPromptCompiler(
         require(runtimeContext.knowledgeGraphRelationMaxChars >= 0) { "knowledgeGraphRelationMaxChars must not be negative" }
         require(runtimeContext.profileTopK >= 0) { "profileTopK must not be negative" }
         require(runtimeContext.profileMaxChars >= 0) { "profileMaxChars must not be negative" }
+        require(runtimeContext.stateTopK >= 0) { "stateTopK must not be negative" }
+        require(runtimeContext.stateMaxChars >= 0) { "stateMaxChars must not be negative" }
+        require(runtimeContext.possessionTopK >= 0) { "possessionTopK must not be negative" }
+        require(runtimeContext.possessionMaxChars >= 0) { "possessionMaxChars must not be negative" }
         val npc = loader.loadCharacter(npcId)
         val cutoff = runtimeContext.storyCutoff ?: npc.knowledgeScope.storyCutoff
         require(eventsById.containsKey(cutoff)) { "unknown story cutoff: $cutoff" }
-        val queryPlan = planKnowledgeQuery(userInput, runtimeContext)
+        val followUpTarget = runtimeContext.followUpTarget
+        val queryPlan = planKnowledgeQuery(userInput, runtimeContext, followUpTarget)
         val graphRetrieval = if (queryPlan.retrieveFacts && runtimeContext.knowledgeGraphEnabled && v2KnowledgeStore != null) {
-            v2KnowledgeStore.retrieveSafely(
-                V2KnowledgeQuery(
-                    characterId = npc.npcId,
-                    query = userInput,
-                    storyCutoff = cutoff,
-                    limit = queryPlan.factLimit,
-                ),
-            )
+            if (followUpTarget?.kind == "authorized_story_facts") {
+                v2KnowledgeStore.retrieveByClaimIdSafely(npc.npcId, followUpTarget.id, cutoff)
+            } else {
+                v2KnowledgeStore.retrieveSafely(
+                    V2KnowledgeQuery(
+                        characterId = npc.npcId,
+                        query = userInput,
+                        storyCutoff = cutoff,
+                        limit = queryPlan.factLimit,
+                    ),
+                )
+            }
         } else {
             null
         }
@@ -65,14 +78,18 @@ class CharacterPromptCompiler(
         val v1ClaimRetrieval = if (queryPlan.retrieveFacts && graphFacts.isEmpty() &&
             runtimeContext.knowledgeGraphEnabled && v1ClaimKnowledgeStore != null
         ) {
-            v1ClaimKnowledgeStore.retrieveSafely(
-                V1ClaimQuery(
-                    characterId = npc.npcId,
-                    query = userInput,
-                    storyCutoff = cutoff,
-                    limit = queryPlan.factLimit,
-                ),
-            )
+            if (followUpTarget?.kind == "authorized_story_facts") {
+                v1ClaimKnowledgeStore.retrieveByClaimIdSafely(npc.npcId, followUpTarget.id, cutoff)
+            } else {
+                v1ClaimKnowledgeStore.retrieveSafely(
+                    V1ClaimQuery(
+                        characterId = npc.npcId,
+                        query = userInput,
+                        storyCutoff = cutoff,
+                        limit = queryPlan.factLimit,
+                    ),
+                )
+            }
         } else {
             null
         }
@@ -86,6 +103,7 @@ class CharacterPromptCompiler(
                     storyCutoff = cutoff,
                     targetNames = relationshipTargetNames(),
                     limit = queryPlan.relationLimit,
+                    preferredRelationId = followUpTarget?.takeIf { it.kind == "relevant_relationships" }?.id,
                 ),
             )
         } else {
@@ -98,7 +116,15 @@ class CharacterPromptCompiler(
         // intentionally handled by identity/relationship context alone.
         val useLegacyStoryFallback = queryPlan.retrieveFacts && graphFacts.isEmpty() && v1ClaimFacts.isEmpty()
         val candidates = if (useLegacyStoryFallback) {
-            retriever.retrieve(userInput, events, limit = maxOf(runtimeContext.topK * 2, 12))
+            val directEvent = followUpTarget
+                ?.takeIf { it.kind == "authorized_story_facts" }
+                ?.id
+                ?.let(eventsById::get)
+            if (directEvent != null) {
+                listOf(RetrievedEvent(directEvent, score = 1.0, matchedTerms = emptyList()))
+            } else {
+                retriever.retrieve(userInput, events, limit = maxOf(runtimeContext.topK * 2, 12))
+            }
         } else {
             emptyList()
         }
@@ -128,13 +154,14 @@ class CharacterPromptCompiler(
         } else {
             selectRelationships(npc, userInput)
         }
-        val definitionIntent = isDefinitionQuery(userInput)
+        val definitionIntent = "definition_signal" in queryPlan.analysis.explanationCodes
         val primaryDefinitionEventId = if (definitionIntent) {
             authorized.firstOrNull()?.event?.eventId
         } else {
             null
         }
         val dynamicState = runtimeContext.dynamicState ?: npc.dynamicState
+        val timedState = stateLoader?.currentState(npcId, cutoff)
 
         val mandatoryBase = linkedMapOf(
             "global_summary" to compileGlobalSummary(npc, cutoff),
@@ -144,6 +171,8 @@ class CharacterPromptCompiler(
             "dynamic_state" to compileDynamicState(dynamicState),
             "role_constraints" to compileRoleConstraints(npc),
             "relevant_profile" to "无。",
+            "relevant_state" to "无。",
+            "relevant_possessions" to if (queryPlan.retrievePossessions) "当前资料未记录可确认的随身物品。" else "无。",
             "relevant_relationships" to "无。",
             "authorized_story_facts" to "无；不得自行补全。",
             "retrieved_memories" to "无。",
@@ -151,11 +180,27 @@ class CharacterPromptCompiler(
         )
 
         val mandatoryBaseChars = render(mandatoryBase).length
+        val basePromptFingerprint = ContentFingerprint.sha256Short(render(mandatoryBase))
         require(mandatoryBaseChars <= runtimeContext.maxChars) {
             "mandatory character prompt exceeds maxChars without summary: " +
                 "$mandatoryBaseChars > ${runtimeContext.maxChars}"
         }
-        val summaryBudgetChars = runtimeContext.maxChars - mandatoryBaseChars
+        val remainingAfterBaseChars = runtimeContext.maxChars - mandatoryBaseChars
+        // Conversation history is helpful for resolving a pronoun, but it must
+        // never consume all of the space needed by evidence chosen for the
+        // player's current question.  The old allocation did exactly that on
+        // multi-turn chats: summary compression filled the whole remainder and
+        // every optional profile/state/fact item then failed the final budget
+        // check.  Reserve before compressing history so the current turn wins.
+        val reservedDynamicEvidenceChars = if (
+            queryPlan.retrieveProfile || queryPlan.retrieveState || queryPlan.retrievePossessions ||
+                queryPlan.retrieveRelations || queryPlan.retrieveFacts
+        ) {
+            minOf(DYNAMIC_EVIDENCE_RESERVE_CHARS, remainingAfterBaseChars)
+        } else {
+            0
+        }
+        val summaryBudgetChars = remainingAfterBaseChars - reservedDynamicEvidenceChars
         val summary = runtimeContext.conversationSummary.trim()
         val selectedSummary = if (summary.isBlank() || summaryBudgetChars <= 0) {
             "无。"
@@ -174,14 +219,16 @@ class CharacterPromptCompiler(
         val graphPreDropped = mutableListOf<DroppedPromptItem>()
         var profileChars = 0
         val profileCandidates = if (queryPlan.retrieveProfile) {
-            profileCandidates(npc, userInput, queryPlan.profileLimit)
+            profileCandidates(npc, userInput, queryPlan.profileLimit, queryPlan.analysis, followUpTarget)
         } else {
             emptyList()
         }
         val profileRoute = when {
-            !queryPlan.retrieveProfile -> "skipped_greeting"
+            !queryPlan.retrieveProfile && queryPlan.analysis.isGreeting -> "skipped_greeting"
+            !queryPlan.retrieveProfile -> "not_requested"
+            followUpTarget?.kind == "relevant_profile" -> "follow_up"
             profileCandidates.isEmpty() -> "no_candidates"
-            ProfileSignals.any { it in userInput } -> "explicit"
+            queryPlan.analysis.explanationCodes.any { it.endsWith("_signal") || it == "exact_identity" } -> "explicit"
             else -> "contextual"
         }
         profileCandidates.forEach { item ->
@@ -189,6 +236,45 @@ class CharacterPromptCompiler(
                 graphPreDropped += DroppedPromptItem("relevant_profile", item.id, "character_profile_budget")
             } else {
                 profileChars += item.text.length
+                optionalItems += item
+            }
+        }
+        var stateChars = 0
+        val stateCandidates = if (queryPlan.retrieveState) {
+            stateCandidates(dynamicState, userInput, queryPlan.stateLimit, queryPlan.analysis)
+        } else {
+            emptyList()
+        }
+        val stateRoute = when {
+            !queryPlan.retrieveState -> "not_requested"
+            stateCandidates.isEmpty() -> "no_candidates"
+            else -> "explicit"
+        }
+        stateCandidates.forEach { item ->
+            if (stateChars + item.text.length > queryPlan.stateCharBudget) {
+                graphPreDropped += DroppedPromptItem("relevant_state", item.id, "character_state_budget")
+            } else {
+                stateChars += item.text.length
+                optionalItems += item
+            }
+        }
+        var possessionChars = 0
+        val possessionCandidates = if (queryPlan.retrievePossessions && timedState != null) {
+            possessionCandidates(timedState, userInput, queryPlan.possessionLimit, followUpTarget)
+        } else {
+            emptyList()
+        }
+        val possessionRoute = when {
+            !queryPlan.retrievePossessions -> "not_requested"
+            timedState == null -> "no_current_state"
+            possessionCandidates.isEmpty() -> "no_carried_items"
+            else -> "explicit"
+        }
+        possessionCandidates.forEach { item ->
+            if (possessionChars + item.text.length > queryPlan.possessionCharBudget) {
+                graphPreDropped += DroppedPromptItem("relevant_possessions", item.id, "character_possession_budget")
+            } else {
+                possessionChars += item.text.length
                 optionalItems += item
             }
         }
@@ -272,6 +358,8 @@ class CharacterPromptCompiler(
         val dropped = graphPreDropped
         val sectionLines = mutableMapOf(
             "relevant_profile" to mutableListOf<String>(),
+            "relevant_state" to mutableListOf<String>(),
+            "relevant_possessions" to mutableListOf<String>(),
             "relevant_relationships" to mutableListOf<String>(),
             "authorized_story_facts" to mutableListOf<String>(),
             "retrieved_memories" to mutableListOf<String>(),
@@ -299,6 +387,19 @@ class CharacterPromptCompiler(
         }
 
         val mandatorySize = render(mandatory).length
+        val dynamicEvidence = sectionLines.toSortedMap()
+            .entries
+            .filter { (_, lines) -> lines.isNotEmpty() }
+            .joinToString("\n") { (section, lines) -> "$section=${lines.joinToString("\n")}" }
+        val dynamicEvidenceFingerprint = dynamicEvidence
+            .takeIf { it.isNotBlank() }
+            ?.let(ContentFingerprint::sha256Short)
+            ?: "none"
+        val selectedItemsFingerprint = selected
+            .joinToString("\n") { item -> "${item.kind}:${item.id}" }
+            .takeIf { it.isNotBlank() }
+            ?.let(ContentFingerprint::sha256Short)
+            ?: "none"
         return CompiledCharacterPrompt(
             messages = listOf(
                 HarnessChatMessage("system", content),
@@ -317,6 +418,7 @@ class CharacterPromptCompiler(
                 estimatedPromptTokens = ContextController.estimateTokens(content),
                 estimatedMandatoryTokens = ContextController.estimateTokens(render(mandatory)),
                 conversationSummaryChars = selectedSummary.length,
+                reservedDynamicEvidenceChars = reservedDynamicEvidenceChars,
                 estimatedUserTokens = ContextController.estimateTokens(userInput),
                 knowledgeGraphStatus = graphRetrieval?.status?.name?.lowercase()
                     ?: when {
@@ -360,9 +462,33 @@ class CharacterPromptCompiler(
                     it.kind == "relevant_profile" && it.reason == "character_profile_budget"
                 },
                 profileInjectedChars = sectionLines.getValue("relevant_profile").sumOf(String::length),
+                stateRoute = stateRoute,
+                stateCandidateCount = stateCandidates.size,
+                stateCandidateIds = stateCandidates.map { it.id },
+                stateSelectedIds = selected.filter { it.kind == "relevant_state" }.map { it.id },
+                stateBudgetDroppedCount = dropped.count {
+                    it.kind == "relevant_state" && it.reason == "character_state_budget"
+                },
+                stateInjectedChars = sectionLines.getValue("relevant_state").sumOf(String::length),
+                possessionRoute = possessionRoute,
+                possessionCandidateCount = possessionCandidates.size,
+                possessionSelectedCount = selected.count { it.kind == "relevant_possessions" },
+                possessionBudgetDroppedCount = dropped.count {
+                    it.kind == "relevant_possessions" && it.reason == "character_possession_budget"
+                },
+                possessionInjectedChars = sectionLines.getValue("relevant_possessions").sumOf(String::length),
+                followUpRoute = if (followUpTarget == null) "not_requested" else "accepted",
                 knowledgeQueryIntent = queryPlan.intent,
+                queryIntents = queryPlan.analysis.intents.map(CharacterQueryIntent::name).sorted(),
+                requestedKnowledgeSurfaces = queryPlan.analysis.requestedSurfaces
+                    .map(CharacterKnowledgeSurface::name)
+                    .sorted(),
+                queryExplanationCodes = queryPlan.analysis.explanationCodes.sorted(),
                 legacyStoryRetrievalExecuted = useLegacyStoryFallback,
                 legacyMemoryRetrievalExecuted = useLegacyStoryFallback,
+                basePromptFingerprint = basePromptFingerprint,
+                dynamicEvidenceFingerprint = dynamicEvidenceFingerprint,
+                selectedItemsFingerprint = selectedItemsFingerprint,
             ),
         )
     }
@@ -392,15 +518,15 @@ class CharacterPromptCompiler(
 
     private fun compileSpeechExamples(npc: CharacterCard): String {
         // Reserve enough of the fixed 900-character Android budget for
-        // per-turn evidence after adding stable role-boundary context.
-        return npc.identity.speechExamples.take(3)
+        // per-turn evidence after adding stable role-boundary and state context.
+        return npc.identity.speechExamples.take(2)
             .joinToString("\n") { "“${it.take(54)}”" }
             .ifBlank { "“此事我知道多少，便只说多少。”" }
     }
 
     private fun compileDynamicState(state: DynamicState): String {
         val emotion = state.emotion
-        return "${state.scene.take(46)}；你此刻${emotion.label}。"
+        return "你此刻${emotion.label}。"
     }
 
     /**
@@ -417,44 +543,106 @@ class CharacterPromptCompiler(
      * from V2 profile claims so this broader answer surface cannot weaken
      * story cutoff or character-to-character epistemic filtering.
      */
-    private fun profileCandidates(npc: CharacterCard, userInput: String, limit: Int): List<PromptCandidate> {
-        val identity = npc.identity
+    private fun profileCandidates(
+        npc: CharacterCard,
+        userInput: String,
+        limit: Int,
+        analysis: CharacterQueryAnalysis,
+        followUpTarget: CharacterFollowUpTarget?,
+    ): List<PromptCandidate> = profileStore.retrieve(
+        card = npc,
+        userInput = userInput,
+        analysis = analysis,
+        limit = limit,
+        preferredRecordId = followUpTarget?.takeIf { it.kind == "relevant_profile" }?.id,
+    ).matches
+        .map { match ->
+            PromptCandidate(
+                section = "relevant_profile",
+                id = match.record.id,
+                text = "${match.record.label}：${match.record.statement.take(110)}",
+                priority = match.score,
+            )
+        }
+
+    /**
+     * DynamicState is trusted, current character-card context.  It deliberately
+     * selects one answer-shaped field instead of always attaching scene, task
+     * and goal, so the system prompt changes with the user's present question.
+     */
+    private fun stateCandidates(
+        state: DynamicState,
+        userInput: String,
+        limit: Int,
+        analysis: CharacterQueryAnalysis,
+    ): List<PromptCandidate> {
         val candidates = listOf(
-            "profile_background" to profileLine("你的来历", identity.background, 2, 110),
-            "profile_motivation" to profileLine("你的动机与目标", identity.coreMotivations, 2, 110),
-            "profile_values" to profileLine("你的立场与原则", identity.values, 2, 110),
-            "profile_traits" to profileLine("你的性情与习惯", identity.psychologicalTraits, 2, 110),
-            "profile_behavior" to profileLine("你的行事准则", identity.behaviorRules, 2, 110),
+            "state_scene" to stateLine("你当前处境", state.scene),
+            "state_quest" to stateLine("你当前任务状态", state.questState),
+            "state_goal" to stateLine("你当前目标", state.currentGoal),
         ).filter { (_, text) -> text.isNotBlank() }
         return candidates.map { (id, text) ->
             PromptCandidate(
-                section = "relevant_profile",
+                section = "relevant_state",
                 id = id,
                 text = text,
-                priority = profilePriority(id, userInput, text),
+                priority = statePriority(id, userInput, text, analysis),
             )
         }.sortedWith(compareByDescending<PromptCandidate> { it.priority }.thenBy { it.id })
             .take(limit)
     }
 
-    private fun profileLine(label: String, values: List<String>, limit: Int, itemChars: Int): String =
-        values.take(limit).joinToString("；") { it.take(itemChars) }
+    private fun stateLine(label: String, value: String): String =
+        value.trim().take(110)
             .takeIf { it.isNotBlank() }
             ?.let { "$label：$it" }
             .orEmpty()
 
-    private fun profilePriority(id: String, userInput: String, text: String): Double {
+    private fun statePriority(
+        id: String,
+        userInput: String,
+        text: String,
+        analysis: CharacterQueryAnalysis,
+    ): Double {
         val categorySignals = when (id) {
-            "profile_background" -> listOf("来历", "出身", "从哪里", "从何", "来自", "哪里", "过去", "前世", "身份", "是谁")
-            "profile_motivation" -> listOf("目的", "动机", "想要", "为何", "为什么", "打算", "计划")
-            "profile_values" -> listOf("原则", "立场", "在乎", "选择", "同意", "拒绝")
-            "profile_traits" -> listOf("性格", "害怕", "喜欢", "讨厌", "习惯", "怎样的人")
-            "profile_behavior" -> listOf("会怎么", "如何做", "怎么办", "行事", "判断", "应对")
+            "state_scene" -> listOf("此刻", "现在", "在哪里", "何处", "位置", "身在", "场景")
+            "state_quest" -> listOf("正在", "做什么", "在做", "任务", "进展", "状态")
+            "state_goal" -> listOf("接下来", "打算", "下一步", "目标", "计划", "准备", "想做", "要做")
             else -> emptyList()
         }
-        val signalBoost = if (categorySignals.any { it in userInput }) 2.0 else 0.0
-        return 0.25 + signalBoost + ContextController.queryBoost(userInput, text)
+        val signalBoost = categorySignals.count { it in userInput } * 3.0
+        val intentBoost = when (id) {
+            "state_scene" -> if (analysis.hasIntent(CharacterQueryIntent.STATE_SCENE)) 3.0 else 0.0
+            "state_quest" -> if (analysis.hasIntent(CharacterQueryIntent.STATE_QUEST)) 3.0 else 0.0
+            "state_goal" -> if (analysis.hasIntent(CharacterQueryIntent.STATE_GOAL)) 3.0 else 0.0
+            else -> 0.0
+        }
+        return 0.5 + signalBoost + intentBoost + ContextController.queryBoost(userInput, text)
     }
+
+    /** Only carried entries from the active, time-bounded state are eligible. */
+    private fun possessionCandidates(
+        state: TimedCharacterState,
+        userInput: String,
+        limit: Int,
+        followUpTarget: CharacterFollowUpTarget?,
+    ): List<PromptCandidate> = state.possessions
+        .filter { it.status == PossessionStatus.CARRIED }
+        .filter { possession ->
+            followUpTarget?.takeIf { it.kind == "relevant_possessions" }?.id
+                ?.let { it == possession.itemId }
+                ?: true
+        }
+        .map { possession ->
+            PromptCandidate(
+                section = "relevant_possessions",
+                id = possession.itemId,
+                text = "当前可确认随身物品：${possession.name}；${possession.description.take(86)}",
+                priority = 3.5 + ContextController.queryBoost(userInput, possession.name + " " + possession.description + " " + possession.keywords.joinToString(" ")),
+            )
+        }
+        .sortedWith(compareByDescending<PromptCandidate> { it.priority }.thenBy { it.id })
+        .take(limit)
 
     private fun formatCutoff(cutoff: String): String {
         val event = eventsById.getValue(cutoff)
@@ -500,42 +688,42 @@ class CharacterPromptCompiler(
         character.npcId to (listOf(character.identity.name) + character.identity.aliases).distinct()
     }
 
-    private fun planKnowledgeQuery(userInput: String, runtimeContext: RuntimeContext): KnowledgeQueryPlan {
-        val normalized = normalizeQuery(userInput)
-        val targets = relationshipTargetNames().values.flatten()
-        val hasNamedTarget = targets.any { name -> normalizeQuery(name).isNotBlank() && normalizeQuery(name) in normalized }
-        val definitionIntent = isDefinitionQuery(userInput)
-        val relationshipIntent = !definitionIntent &&
-            (RelationshipSignals.any { signal -> signal in userInput } || (hasNamedTarget && AttitudeSignals.any { signal -> signal in userInput }))
-        val casualOrIdentity = CasualOrIdentityQueries.any { it == normalized }
-        val retrieveProfile = normalized !in CasualGreetings
-        val storyIntent = definitionIntent || StorySignals.any { signal -> signal in userInput }
-        val retrieveRelations = !casualOrIdentity && relationshipIntent
-        val retrieveFacts = !casualOrIdentity && (!relationshipIntent || storyIntent)
-        val explicitRelationship = retrieveRelations && hasNamedTarget
+    private fun planKnowledgeQuery(
+        userInput: String,
+        runtimeContext: RuntimeContext,
+        followUpTarget: CharacterFollowUpTarget?,
+    ): KnowledgeQueryPlan {
+        val analysis = queryAnalyzer.analyze(
+            userInput = userInput,
+            knownCharacterNames = relationshipTargetNames().values.flatten(),
+            followUpTarget = followUpTarget,
+        )
+        val retrieveState = analysis.requests(CharacterKnowledgeSurface.STATE)
+        val retrievePossessions = analysis.requests(CharacterKnowledgeSurface.POSSESSION)
+        val retrieveProfile = !analysis.isGreeting && analysis.requests(CharacterKnowledgeSurface.PROFILE)
+        val retrieveRelations = analysis.requests(CharacterKnowledgeSurface.RELATIONSHIP)
+        val retrieveFacts = analysis.requests(CharacterKnowledgeSurface.STORY_FACT)
+        val explicitRelationship = retrieveRelations && analysis.hasNamedTarget
         return KnowledgeQueryPlan(
-            intent = when {
-                casualOrIdentity -> "identity_or_chitchat"
-                retrieveFacts && retrieveRelations -> "mixed_story_and_relationship"
-                retrieveRelations -> "relationship"
-                else -> "story"
-            },
+            intent = analysis.stableIntentLabel(),
+            analysis = analysis,
             retrieveFacts = retrieveFacts,
             retrieveRelations = retrieveRelations,
             retrieveProfile = retrieveProfile,
+            retrieveState = retrieveState,
+            retrievePossessions = retrievePossessions,
             factLimit = minOf(runtimeContext.graphFactTopK, 2),
             factCharBudget = minOf(runtimeContext.knowledgeGraphMaxChars, 180),
             profileLimit = minOf(runtimeContext.profileTopK, 2),
             profileCharBudget = minOf(runtimeContext.profileMaxChars, 180),
+            stateLimit = minOf(runtimeContext.stateTopK, 1),
+            stateCharBudget = minOf(runtimeContext.stateMaxChars, 96),
+            possessionLimit = minOf(runtimeContext.possessionTopK, 2),
+            possessionCharBudget = minOf(runtimeContext.possessionMaxChars, 160),
             relationLimit = minOf(runtimeContext.graphRelationTopK, if (explicitRelationship) 1 else 2),
             relationCharBudget = minOf(runtimeContext.knowledgeGraphRelationMaxChars, if (explicitRelationship) 96 else 160),
         )
     }
-
-    private fun normalizeQuery(value: String): String = value.lowercase()
-        .replace(Regex("[\\s，。！？、：；“”‘’（）《》【】,.!?;:'\\\"()\\[\\]]"), "")
-
-    private fun isDefinitionQuery(query: String): Boolean = DefinitionSignals.any { it in query }
 
     private fun definitionBoost(eventId: String, primaryEventId: String?): Double =
         if (eventId == primaryEventId) 1.5 else 0.0
@@ -561,50 +749,46 @@ class CharacterPromptCompiler(
 
     private data class KnowledgeQueryPlan(
         val intent: String,
+        val analysis: CharacterQueryAnalysis,
         val retrieveFacts: Boolean,
         val retrieveRelations: Boolean,
         val retrieveProfile: Boolean,
+        val retrieveState: Boolean,
+        val retrievePossessions: Boolean,
         val factLimit: Int,
         val factCharBudget: Int,
         val profileLimit: Int,
         val profileCharBudget: Int,
+        val stateLimit: Int,
+        val stateCharBudget: Int,
+        val possessionLimit: Int,
+        val possessionCharBudget: Int,
         val relationLimit: Int,
         val relationCharBudget: Int,
     )
 
     companion object {
+        /** Minimum protected slice for prompt evidence when the Android cap is 900 characters. */
+        private const val DYNAMIC_EVIDENCE_RESERVE_CHARS = 220
         private val KnowledgeLeadIns = mapOf(
             "direct" to "你亲历并确认：",
             "witnessed" to "你亲眼见到：",
             "reported" to "你听人提及：",
             "inferred" to "你据现有线索推断：",
         )
-        private val DefinitionSignals = listOf(
-            "是什么", "究竟是什么", "到底是什么", "是谁", "何人", "何物",
-            "什么关系", "有何关系", "有什么关系", "指什么",
-        )
-        private val CasualOrIdentityQueries = setOf(
-            "你好", "您好", "嗨", "哈喽", "在吗", "谢谢", "再见", "晚安", "早上好",
-            "你是谁", "你都知道什么", "你知道什么", "你能做什么",
-        )
-        private val CasualGreetings = setOf("你好", "您好", "嗨", "哈喽", "在吗", "谢谢", "再见", "晚安", "早上好")
-        private val RelationshipSignals = listOf("关系", "怎么看", "如何看", "态度")
-        private val AttitudeSignals = listOf("看法", "想法", "评价", "信任", "讨厌", "喜欢", "恨", "怕")
-        private val StorySignals = listOf("发生", "做过", "为何", "为什么", "原因", "真相", "计划", "事件", "经历", "过去", "后来", "何时", "哪里", "最后")
-        private val ProfileSignals = listOf("来历", "出身", "从哪里", "从何", "来自", "哪里", "目的", "动机", "性格", "原则", "立场", "喜欢", "讨厌", "害怕", "底线")
-
         private fun List<String>.takeJoined(limit: Int, itemChars: Int): String =
             take(limit)
                 .joinToString("；") { it.take(itemChars) }
                 .ifBlank { "无" }
 
         fun fromPaths(paths: HarnessDataPaths): CharacterPromptCompiler {
+            val loader = CharacterJsonLoader(
+                charactersDir = paths.charactersDir,
+                storyEventsFile = paths.storyEventsFile,
+                promptTemplateFile = java.io.File(paths.promptsDir, "roleplay_system.prompt"),
+            )
             return CharacterPromptCompiler(
-                CharacterJsonLoader(
-                    charactersDir = paths.charactersDir,
-                    storyEventsFile = paths.storyEventsFile,
-                    promptTemplateFile = java.io.File(paths.promptsDir, "roleplay_system.prompt"),
-                ),
+                loader = loader,
                 v2KnowledgeStore = V2EpistemicKnowledgeStore(
                     fallbackFile = paths.v2CharacterKnowledgeFallbackFile,
                     sourceDatabaseFile = paths.v2CharacterKnowledgeDatabaseFile,
@@ -616,6 +800,11 @@ class CharacterPromptCompiler(
                 v1ClaimKnowledgeStore = V1ClaimKnowledgeStore(
                     manifestFile = paths.v1CharacterKnowledgeManifestFile,
                     claimsFile = java.io.File(paths.v1CharacterKnowledgeDir, "claims.jsonl"),
+                ),
+                stateLoader = CharacterStateLoader(
+                    stateDir = paths.characterStateDir,
+                    events = loader.loadEvents(),
+                    knownCharacterIds = loader.listCharacters().map(CharacterCard::npcId).toSet(),
                 ),
             )
         }

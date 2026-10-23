@@ -43,9 +43,11 @@ class V1GraphKnowledgeStore(
                     KnowledgeDecision(relation.relationId, KnowledgeDisposition.DROPPED, KnowledgeDecisionReason.RELATION_NOT_FROM_CHARACTER)
                 relation.sourceTier !in AllowedSourceTiers || relation.canonStatus !in AllowedCanonStatuses ->
                     KnowledgeDecision(relation.relationId, KnowledgeDisposition.DROPPED, KnowledgeDecisionReason.UNVERIFIED_SOURCE)
+                request.preferredRelationId != null && relation.relationId != request.preferredRelationId ->
+                    KnowledgeDecision(relation.relationId, KnowledgeDisposition.DROPPED, KnowledgeDecisionReason.RELATION_NOT_RELEVANT)
                 explicitTargetIds.isNotEmpty() && relation.targetId !in explicitTargetIds ->
                     KnowledgeDecision(relation.relationId, KnowledgeDisposition.DROPPED, KnowledgeDecisionReason.RELATION_NOT_RELEVANT)
-                explicitTargetIds.isEmpty() && !relationIntent ->
+                explicitTargetIds.isEmpty() && !relationIntent && request.preferredRelationId == null ->
                     KnowledgeDecision(relation.relationId, KnowledgeDisposition.DROPPED, KnowledgeDecisionReason.RELATION_NOT_RELEVANT)
                 else -> {
                     val targetName = request.targetNames[relation.targetId]?.firstOrNull().orEmpty()
@@ -131,5 +133,6 @@ data class V1RelationshipQuery(
     val storyCutoff: String,
     /** canonical name first, followed by safe aliases, indexed by target id. */
     val targetNames: Map<String, List<String>>,
+    val preferredRelationId: String? = null,
     val limit: Int = 2,
 )

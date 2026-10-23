@@ -11,6 +11,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+import java.nio.file.Files
 
 class CharacterPromptCompilerTest {
     @Test
@@ -40,7 +41,7 @@ class CharacterPromptCompilerTest {
         assertEquals("user", compiled.messages[1].role)
         assertEquals("玄谙究竟是什么？", compiled.messages[1].content)
         assertTrue(compiled.messages[0].content.contains("你就是陆江仙"))
-        assertTrue(compiled.messages[0].content.contains("此前对话只用于理解代词或明确承接"))
+        assertTrue(compiled.messages[0].content.contains("前面的对话只能帮你听懂代词或明确承接"))
         assertTrue(compiled.messages[0].content.contains("玄谙"))
         assertTrue(compiled.messages[0].content.length <= compiled.debug.maxChars)
         assertFalse(compiled.debug.budgetExceededByMandatory)
@@ -116,9 +117,70 @@ class CharacterPromptCompilerTest {
         assertTrue(compiled.messages[0].content.contains("你的来历：初入此世时曾长期藏于鉴身"))
         assertTrue(compiled.debug.selectedItems.any { it.kind == "relevant_profile" })
         assertEquals("explicit", compiled.debug.profileRoute)
-        assertTrue(compiled.debug.profileCandidateIds.contains("profile_background"))
-        assertTrue(compiled.debug.profileSelectedIds.contains("profile_background"))
+        assertTrue(compiled.debug.profileCandidateIds.contains("profile_background_0"))
+        assertTrue(compiled.debug.profileSelectedIds.contains("profile_background_0"))
         assertTrue(compiled.debug.profileInjectedChars > 0)
+    }
+
+    @Test
+    fun compilerUsesNaturalEvidencePhrasesInsteadOfInternalFieldHeadings() {
+        val compiled = testCompiler().buildNpcPrompt(
+            npcId = "lu_jiangxian",
+            userInput = "你从哪里来？",
+            runtimeContext = RuntimeContext(storyCutoff = "evt-010", maxChars = 900),
+        )
+
+        val system = compiled.messages[0].content
+        assertTrue(system.contains("若玩家问起你自己，你自然记得："))
+        assertTrue(system.contains("你的来历：初入此世时曾长期藏于鉴身"))
+        assertTrue(system.contains("你只按这些已知范围说话："))
+        assertFalse(system.contains("不可逾越的角色边界"))
+        assertFalse(system.contains("与自身有关的背景、动机、性格、原则或倾向可依据"))
+        assertFalse(system.contains("回答剧情问题的唯一依据"))
+        assertTrue(system.length <= 900)
+    }
+
+    @Test
+    fun longTermDestinationQuestionSelectsMotivationProfileInsteadOfStoryOrCurrentState() {
+        val compiled = testCompiler().buildNpcPrompt(
+            npcId = "lu_jiangxian",
+            userInput = "你最想去哪里？",
+            runtimeContext = RuntimeContext(storyCutoff = "evt-010", maxChars = 900),
+        )
+
+        assertEquals("profile", compiled.debug.knowledgeQueryIntent)
+        assertTrue(compiled.debug.queryIntents.contains("PREFERENCE"))
+        assertEquals(listOf("PROFILE"), compiled.debug.requestedKnowledgeSurfaces)
+        assertTrue(compiled.debug.queryExplanationCodes.contains("preference_signal"))
+        assertTrue(compiled.debug.profileSelectedIds.contains("profile_motivation_0"))
+        assertEquals("not_requested", compiled.debug.stateRoute)
+        assertTrue(compiled.debug.selectedItems.none { it.kind == "authorized_story_facts" })
+    }
+
+    @Test
+    fun profileContinuationRetrievesASiblingAtomicRecordInsteadOfUsingConversationSummary() {
+        val first = testCompiler().buildNpcPrompt(
+            npcId = "lu_jiangxian",
+            userInput = "你从哪里来？",
+            runtimeContext = RuntimeContext(storyCutoff = "evt-010", maxChars = 900),
+        )
+        val selectedId = first.debug.profileSelectedIds.first()
+        val continued = testCompiler().buildNpcPrompt(
+            npcId = "lu_jiangxian",
+            userInput = "其他的还有吗？",
+            runtimeContext = RuntimeContext(
+                storyCutoff = "evt-010",
+                maxChars = 900,
+                followUpTarget = CharacterFollowUpTarget("relevant_profile", selectedId),
+                conversationSummary = "玩家：进一步说明你的来历",
+            ),
+        )
+
+        assertEquals("follow_up", continued.debug.profileRoute)
+        assertTrue(continued.debug.queryExplanationCodes.contains("follow_up_profile"))
+        assertTrue(continued.debug.profileSelectedIds.isNotEmpty())
+        assertTrue(continued.debug.profileSelectedIds.first() != selectedId)
+        assertTrue(continued.messages[0].content.contains("你的来历："))
     }
 
     @Test
@@ -132,7 +194,7 @@ class CharacterPromptCompilerTest {
         assertEquals("skipped_greeting", compiled.debug.profileRoute)
         assertEquals(0, compiled.debug.profileCandidateCount)
         assertTrue(compiled.debug.profileSelectedIds.isEmpty())
-        assertTrue(compiled.messages[0].content.contains("不可逾越的角色边界：保持陆江仙的身份与当前知识边界"))
+        assertTrue(compiled.messages[0].content.contains("你只按这些已知范围说话：保持陆江仙的身份与当前知识边界"))
         assertTrue(compiled.messages[0].content.length <= 900)
     }
 
@@ -153,6 +215,223 @@ class CharacterPromptCompilerTest {
         assertTrue(compiled.debug.profileBudgetDroppedCount > 0)
         assertTrue(compiled.debug.profileSelectedIds.isEmpty())
         assertEquals(0, compiled.debug.profileInjectedChars)
+    }
+
+    @Test
+    fun conversationSummaryCannotEvictCurrentOriginEvidence() {
+        val compiled = testCompiler().buildNpcPrompt(
+            npcId = "lu_jiangxian",
+            userInput = "你从哪里来？",
+            runtimeContext = RuntimeContext(
+                storyCutoff = "evt-010",
+                maxChars = 900,
+                conversationSummary = "此前闲聊内容。".repeat(200),
+            ),
+        )
+
+        assertTrue(compiled.debug.reservedDynamicEvidenceChars > 0)
+        assertTrue(compiled.debug.profileSelectedIds.contains("profile_background_0"))
+        assertTrue(compiled.messages[0].content.contains("你的来历：初入此世时曾长期藏于鉴身"))
+        assertTrue(compiled.messages[0].content.length <= 900)
+    }
+
+    @Test
+    fun currentLocationSelectsOnlyTheRelevantStateScene() {
+        val query = "你现在在哪里？"
+        val compiled = testCompiler().buildNpcPrompt(
+            npcId = "lu_jiangxian",
+            userInput = query,
+            runtimeContext = RuntimeContext(storyCutoff = "evt-010", maxChars = 900),
+        )
+
+        assertEquals(query, compiled.messages[1].content)
+        assertEquals("explicit", compiled.debug.stateRoute)
+        assertEquals("not_requested", compiled.debug.profileRoute)
+        assertTrue(compiled.debug.stateCandidateIds.contains("state_scene"))
+        assertEquals(listOf("state_scene"), compiled.debug.stateSelectedIds)
+        assertTrue(compiled.messages[0].content.contains("你当前处境：洞华天青铜门外的星辰天地"))
+        assertTrue(compiled.debug.stateInjectedChars > 0)
+        assertTrue(compiled.messages[0].content.length <= 900)
+    }
+
+    @Test
+    fun nextStepSelectsTheRelevantCurrentGoal() {
+        val compiled = testCompiler().buildNpcPrompt(
+            npcId = "lu_jiangxian",
+            userInput = "你接下来打算做什么？",
+            runtimeContext = RuntimeContext(storyCutoff = "evt-010", maxChars = 900),
+        )
+
+        assertEquals("explicit", compiled.debug.stateRoute)
+        assertEquals(listOf("state_goal"), compiled.debug.stateSelectedIds)
+        assertTrue(compiled.messages[0].content.contains("你当前目标：维持洞华天内的权柄平衡"))
+        assertTrue(compiled.messages[0].content.length <= 900)
+    }
+
+    @Test
+    fun originQuestionDoesNotInjectCurrentState() {
+        val compiled = testCompiler().buildNpcPrompt(
+            npcId = "lu_jiangxian",
+            userInput = "你从何而来？",
+            runtimeContext = RuntimeContext(storyCutoff = "evt-010", maxChars = 900),
+        )
+
+        assertEquals("not_requested", compiled.debug.stateRoute)
+        assertEquals(0, compiled.debug.stateCandidateCount)
+        assertTrue(compiled.debug.stateSelectedIds.isEmpty())
+        assertEquals(0, compiled.debug.stateInjectedChars)
+        assertFalse(compiled.messages[0].content.contains("你当前任务状态："))
+        assertFalse(compiled.messages[0].content.contains("你当前目标："))
+    }
+
+    @Test
+    fun stateBudgetDropIsAuditableWithoutLeakingStateText() {
+        val compiled = testCompiler().buildNpcPrompt(
+            npcId = "lu_jiangxian",
+            userInput = "你现在在哪里？",
+            runtimeContext = RuntimeContext(
+                storyCutoff = "evt-010",
+                maxChars = 900,
+                stateMaxChars = 1,
+            ),
+        )
+
+        assertEquals("explicit", compiled.debug.stateRoute)
+        assertTrue(compiled.debug.stateCandidateCount > 0)
+        assertTrue(compiled.debug.stateBudgetDroppedCount > 0)
+        assertTrue(compiled.debug.stateSelectedIds.isEmpty())
+        assertEquals(0, compiled.debug.stateInjectedChars)
+    }
+
+    @Test
+    fun futureStateCannotClaimACurrentPossessionBeforeItsCutoff() {
+        val compiled = testCompilerWithBundledState().buildNpcPrompt(
+            npcId = "lu_jiangxian",
+            userInput = "你手里有什么？",
+            runtimeContext = RuntimeContext(storyCutoff = "evt-010", maxChars = 900),
+        )
+
+        assertEquals("no_current_state", compiled.debug.possessionRoute)
+        assertEquals(0, compiled.debug.possessionCandidateCount)
+        assertEquals(0, compiled.debug.possessionInjectedChars)
+        assertTrue(compiled.messages[0].content.contains("当前资料未记录可确认的随身物品。"))
+    }
+
+    @Test
+    fun notCarriedHistoricalItemIsNotInjectedAsAHandheldPossession() {
+        val compiled = testCompilerWithBundledState().buildNpcPrompt(
+            npcId = "lu_jiangxian",
+            userInput = "你手里有什么？",
+            runtimeContext = RuntimeContext(storyCutoff = "evt-018", maxChars = 900),
+        )
+
+        assertEquals("no_carried_items", compiled.debug.possessionRoute)
+        assertTrue(compiled.debug.selectedItems.none { it.kind == "relevant_possessions" })
+        assertFalse(compiled.messages[0].content.contains("青诣元心仪；仍与太阴余位"))
+        assertTrue(compiled.messages[0].content.contains("当前资料未记录可确认的随身物品。"))
+    }
+
+    @Test
+    fun carriedPossessionIsInjectedOnlyFromTheActiveStateAsset() {
+        val query = "你手里有什么？"
+        val compiled = testCompilerWithState(
+            """
+            {"schema_version":"1.0","character_id":"lu_jiangxian","states":[
+              {"state_id":"fixture-018","valid_from":"evt-018","valid_to":null,
+               "scene":"洞华天青铜门外。","quest_state":"正在收束局势。","current_goal":"守住明阳。",
+               "evidence_refs":["fixture:L1"],"possessions":[
+                 {"item_id":"fixture-token","name":"验收令牌","status":"carried","description":"当前可确认由你随身持有。","keywords":["手里","令牌"],"evidence_refs":["fixture:L2"]}
+               ]}
+            ]}
+            """.trimIndent(),
+        ).buildNpcPrompt(
+            npcId = "lu_jiangxian",
+            userInput = query,
+            runtimeContext = RuntimeContext(storyCutoff = "evt-018", maxChars = 900),
+        )
+
+        assertEquals(query, compiled.messages[1].content)
+        assertEquals("explicit", compiled.debug.possessionRoute)
+        assertEquals(1, compiled.debug.possessionCandidateCount)
+        assertEquals(1, compiled.debug.possessionSelectedCount)
+        assertTrue(compiled.messages[0].content.contains("当前可确认随身物品：验收令牌"))
+        assertTrue(compiled.debug.possessionInjectedChars > 0)
+    }
+
+    @Test
+    fun possessionBudgetDropIsAuditableWithoutLeakingPossessionText() {
+        val compiled = testCompilerWithState(
+            possessionFixtureJson(),
+        ).buildNpcPrompt(
+            npcId = "lu_jiangxian",
+            userInput = "你手里有什么？",
+            runtimeContext = RuntimeContext(
+                storyCutoff = "evt-018",
+                maxChars = 900,
+                possessionMaxChars = 1,
+            ),
+        )
+
+        assertEquals("explicit", compiled.debug.possessionRoute)
+        assertEquals(1, compiled.debug.possessionCandidateCount)
+        assertEquals(0, compiled.debug.possessionSelectedCount)
+        assertTrue(compiled.debug.possessionBudgetDroppedCount > 0)
+        assertEquals(0, compiled.debug.possessionInjectedChars)
+    }
+
+    @Test
+    fun pronounFollowUpRevalidatesAndReusesThePriorAuthorizedV2Fact() {
+        val query = "他为何这样做？"
+        val compiled = testCompilerWithGraph().buildNpcPrompt(
+            npcId = "lu_jiangxian",
+            userInput = query,
+            runtimeContext = RuntimeContext(
+                storyCutoff = "evt-018",
+                maxChars = 900,
+                followUpTarget = CharacterFollowUpTarget("authorized_story_facts", "v2-claim-evt-012"),
+            ),
+        )
+
+        assertEquals(query, compiled.messages[1].content)
+        assertEquals("accepted", compiled.debug.followUpRoute)
+        assertTrue(compiled.debug.selectedItems.any { it.id == "v2-claim-evt-012" })
+        assertTrue(compiled.messages[0].content.contains("拒绝玄谙以生存和能力为理由的取代方案"))
+    }
+
+    @Test
+    fun followUpFactIsStillRejectedAtAnEarlierCutoff() {
+        val compiled = testCompilerWithGraph().buildNpcPrompt(
+            npcId = "lu_jiangxian",
+            userInput = "他为何这样做？",
+            runtimeContext = RuntimeContext(
+                storyCutoff = "evt-010",
+                maxChars = 900,
+                followUpTarget = CharacterFollowUpTarget("authorized_story_facts", "v2-claim-evt-012"),
+            ),
+        )
+
+        assertTrue(compiled.debug.selectedItems.none { it.id == "v2-claim-evt-012" })
+        assertTrue(compiled.debug.knowledgeGraphDecisions.any {
+            it.claimId == "v2-claim-evt-012" && it.reason.name == "ACQUIRED_AFTER_CUTOFF"
+        })
+        assertTrue(RoleplayAnswerabilityGate.evaluate(compiled.debug) is RoleplayAnswerabilityDecision.BlockFutureFact)
+    }
+
+    @Test
+    fun possessionFollowUpUsesOnlyThePriorCarriedItemId() {
+        val compiled = testCompilerWithState(possessionFixtureJson()).buildNpcPrompt(
+            npcId = "lu_jiangxian",
+            userInput = "那件呢？",
+            runtimeContext = RuntimeContext(
+                storyCutoff = "evt-018",
+                maxChars = 900,
+                followUpTarget = CharacterFollowUpTarget("relevant_possessions", "fixture-token"),
+            ),
+        )
+
+        assertEquals("accepted", compiled.debug.followUpRoute)
+        assertEquals("explicit", compiled.debug.possessionRoute)
+        assertTrue(compiled.messages[0].content.contains("当前可确认随身物品：验收令牌"))
     }
 
     @Test
@@ -424,6 +703,36 @@ class CharacterPromptCompilerTest {
     }
 
     private fun testCompiler(): CharacterPromptCompiler = CharacterPromptCompiler(testLoader())
+
+    private fun testCompilerWithBundledState(): CharacterPromptCompiler {
+        val root = harnessAssetsDir()
+        val loader = testLoader()
+        return CharacterPromptCompiler(
+            loader = loader,
+            stateLoader = CharacterStateLoader(File(root, "characters/state"), loader.loadEvents()),
+        )
+    }
+
+    private fun testCompilerWithState(stateJson: String): CharacterPromptCompiler {
+        val stateDirectory = Files.createTempDirectory("character-state-fixture").toFile()
+        File(stateDirectory, "lu_jiangxian.json").writeText(stateJson, Charsets.UTF_8)
+        stateDirectory.deleteOnExit()
+        val loader = testLoader()
+        return CharacterPromptCompiler(
+            loader = loader,
+            stateLoader = CharacterStateLoader(stateDirectory, loader.loadEvents()),
+        )
+    }
+
+    private fun possessionFixtureJson(): String = """
+        {"schema_version":"1.0","character_id":"lu_jiangxian","states":[
+          {"state_id":"fixture-018","valid_from":"evt-018","valid_to":null,
+           "scene":"洞华天青铜门外。","quest_state":"正在收束局势。","current_goal":"守住明阳。",
+           "evidence_refs":["fixture:L1"],"possessions":[
+             {"item_id":"fixture-token","name":"验收令牌","status":"carried","description":"当前可确认由你随身持有。","keywords":["手里","令牌"],"evidence_refs":["fixture:L2"]}
+           ]}
+        ]}
+    """.trimIndent()
 
     private fun testCompilerWithGraph(): CharacterPromptCompiler {
         val root = harnessAssetsDir()

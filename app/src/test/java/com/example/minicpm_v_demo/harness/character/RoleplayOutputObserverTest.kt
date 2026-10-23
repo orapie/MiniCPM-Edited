@@ -68,6 +68,37 @@ class RoleplayOutputObserverTest {
     }
 
     @Test
+    fun observationClassifiesInternalFieldLabelsAndTemplateTokensAsHighSeverity() {
+        val observation = RoleplayOutputObserver.observe(
+            context = context,
+            rawOutput = "角色身份：陆江仙。可依据：{{relevant_profile}}。<system>",
+            visibleOutput = "角色身份：陆江仙。可依据：{{relevant_profile}}。<system>",
+            completion = "completed",
+            includeRawText = false,
+        )
+
+        assertEquals(
+            listOf("internal_field_label", "template_token"),
+            observation.signals.map { it.ruleId },
+        )
+        assertTrue(observation.signals.all { it.severity == RoleplayLeakSeverity.HIGH })
+        assertFalse(observation.toLogLine(includeRawText = false).contains("角色身份"))
+    }
+
+    @Test
+    fun normalFirstPersonIdentityAnswerIsNotAnInternalFieldLeak() {
+        val observation = RoleplayOutputObserver.observe(
+            context = context,
+            rawOutput = "我是陆江仙，族中人都这样叫我。",
+            visibleOutput = "我是陆江仙，族中人都这样叫我。",
+            completion = "completed",
+            includeRawText = false,
+        )
+
+        assertTrue(observation.signals.isEmpty())
+    }
+
+    @Test
     fun mentionOfAnotherCharacterDoesNotTriggerSelfNarrationSignal() {
         val observation = RoleplayOutputObserver.observe(
             context = context,

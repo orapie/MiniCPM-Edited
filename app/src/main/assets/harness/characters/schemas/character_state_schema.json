@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.example/schemas/character_state_schema.json",
+  "title": "Time-bounded Character State",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "character_id", "states"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "character_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]{2,63}$"},
+    "states": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["state_id", "valid_from", "valid_to", "scene", "quest_state", "current_goal", "evidence_refs", "possessions"],
+        "properties": {
+          "state_id": {"type": "string", "minLength": 1},
+          "valid_from": {"type": "string", "pattern": "^evt-[0-9]{3}$"},
+          "valid_to": {"type": ["string", "null"], "pattern": "^evt-[0-9]{3}$"},
+          "scene": {"type": "string", "minLength": 1},
+          "quest_state": {"type": "string", "minLength": 1},
+          "current_goal": {"type": "string", "minLength": 1},
+          "evidence_refs": {"type": "array", "items": {"type": "string", "minLength": 1}},
+          "possessions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["item_id", "name", "status", "description", "keywords", "evidence_refs"],
+              "properties": {
+                "item_id": {"type": "string", "minLength": 1},
+                "name": {"type": "string", "minLength": 1},
+                "status": {"enum": ["carried", "not_carried", "unknown"]},
+                "description": {"type": "string", "minLength": 1},
+                "keywords": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+                "evidence_refs": {"type": "array", "items": {"type": "string", "minLength": 1}}
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

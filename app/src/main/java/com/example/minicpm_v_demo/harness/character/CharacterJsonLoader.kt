@@ -41,6 +41,11 @@ class CharacterJsonLoader(
     private fun parseCharacter(root: Map<String, Any?>): CharacterCard {
         val identity = root["identity_core"].asJsonObject("identity_core")
         val knowledgeScope = root["knowledge_scope"].asJsonObject("knowledge_scope")
+        val evidenceRefs = root["evidence_refs"].asJsonObject("evidence_refs").mapValues { (key, raw) ->
+            raw.asJsonArray("evidence_refs.$key").map { value ->
+                value as? String ?: error("evidence_refs.$key must contain strings")
+            }
+        }
         return CharacterCard(
             npcId = root.stringValue("npc_id"),
             identity = IdentityCore(
@@ -56,6 +61,7 @@ class CharacterJsonLoader(
                 behaviorRules = identity.stringList("behavior_rules"),
                 hardConstraints = identity.stringList("hard_constraints"),
             ),
+            profileEvidenceRefs = evidenceRefs.filterKeys { key -> key.startsWith("identity_core.") },
             relationships = root["relationships"].asJsonArray("relationships").map { raw ->
                 val relation = raw.asJsonObject("relationship")
                 CharacterRelationship(

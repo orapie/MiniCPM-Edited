@@ -5,6 +5,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.example.minicpm_v_demo.harness.character.CharacterPromptCompiler
 import com.example.minicpm_v_demo.harness.character.CharacterJsonLoader
+import com.example.minicpm_v_demo.harness.character.RoleplayAnswerabilityDecision
+import com.example.minicpm_v_demo.harness.character.RoleplayAnswerabilityGate
 import com.example.minicpm_v_demo.harness.character.RuntimeContext
 import com.example.minicpm_v_demo.harness.data.AssetBootstrapper
 import org.junit.Assert.assertEquals
@@ -58,6 +60,38 @@ class CharacterGraphRuntimeAcceptanceTest {
         assertTrue(relation.messages.first { it.role == "system" }.content.contains("玄谙是你的长期上位者与差遣者"))
         assertTrue(relation.debug.v1RelationshipGraphInjectedChars > 0)
 
+        val profile = compiler.buildNpcPrompt(
+            npcId = "lu_jiangxian",
+            userInput = "你从何而来？",
+            runtimeContext = RuntimeContext(storyCutoff = "evt-010", maxChars = 900),
+        )
+        assertEquals("explicit", profile.debug.profileRoute)
+        assertTrue(profile.debug.profileInjectedChars > 0)
+
+        val state = compiler.buildNpcPrompt(
+            npcId = "lu_jiangxian",
+            userInput = "你现在在哪里？",
+            runtimeContext = RuntimeContext(storyCutoff = "evt-018", maxChars = 900),
+        )
+        assertEquals("explicit", state.debug.stateRoute)
+        assertTrue(state.debug.stateInjectedChars > 0)
+
+        val possessionBefore = compiler.buildNpcPrompt(
+            npcId = "lu_jiangxian",
+            userInput = "你手里有什么？",
+            runtimeContext = RuntimeContext(storyCutoff = "evt-010", maxChars = 900),
+        )
+        assertEquals("no_current_state", possessionBefore.debug.possessionRoute)
+
+        val possessionAtCutoff = compiler.buildNpcPrompt(
+            npcId = "lu_jiangxian",
+            userInput = "你手里有什么？",
+            runtimeContext = RuntimeContext(storyCutoff = "evt-018", maxChars = 900),
+        )
+        assertEquals("no_carried_items", possessionAtCutoff.debug.possessionRoute)
+        assertEquals(0, possessionAtCutoff.debug.possessionInjectedChars)
+        assertTrue(RoleplayAnswerabilityGate.evaluate(possessionAtCutoff.debug) is RoleplayAnswerabilityDecision.Allow)
+
         val v1FallbackCompiler = CharacterPromptCompiler(
             loader = CharacterJsonLoader(
                 charactersDir = paths.charactersDir,
@@ -86,7 +120,9 @@ class CharacterGraphRuntimeAcceptanceTest {
             "Character graph runtime acceptance: status=${known.debug.knowledgeGraphStatus}, " +
                 "systemChars=${known.debug.promptChars}, graphChars=${known.debug.knowledgeGraphInjectedChars}, " +
                 "futureFactBlocked=true, v1Relations=${relation.debug.v1RelationshipGraphInjectedChars}, " +
-                "v1ClaimsFallback=${v1Fallback.debug.v1ClaimGraphInjectedChars}",
+                    "v1ClaimsFallback=${v1Fallback.debug.v1ClaimGraphInjectedChars}, " +
+                    "profile=${profile.debug.profileInjectedChars}, state=${state.debug.stateInjectedChars}, " +
+                    "possession=${possessionAtCutoff.debug.possessionRoute}",
         )
     }
 

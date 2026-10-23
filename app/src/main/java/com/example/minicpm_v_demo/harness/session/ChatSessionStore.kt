@@ -1,6 +1,7 @@
 package com.example.minicpm_v_demo.harness.session
 
 import com.example.minicpm_v_demo.harness.data.HarnessDataPaths
+import com.example.minicpm_v_demo.harness.character.CharacterFollowUpTarget
 import com.example.minicpm_v_demo.harness.rag.RagSource
 import com.example.minicpm_v_demo.harness.rag.SimpleJsonParser
 import com.example.minicpm_v_demo.harness.rag.asJsonObject
@@ -86,6 +87,9 @@ class ChatSessionStore(
                     "score" to it.score,
                 )
             },
+            "character_context_targets" to turn.characterContextTargets.map {
+                mapOf("kind" to it.kind, "id" to it.id)
+            },
             "rendered_prompt" to turn.renderedPrompt,
             "character_id" to turn.characterId,
             "model_id" to turn.modelId,
@@ -117,6 +121,13 @@ class ChatSessionStore(
             ragMode = value.optionalString("rag_mode").orEmpty(),
             sources = (value["sources"] as? List<*>).orEmpty().mapNotNull { raw ->
                 (raw as? Map<*, *>)?.entries?.associate { it.key.toString() to it.value }?.let(::parseSource)
+            },
+            characterContextTargets = (value["character_context_targets"] as? List<*>).orEmpty().mapNotNull { raw ->
+                (raw as? Map<*, *>)?.entries?.associate { it.key.toString() to it.value }?.let { target ->
+                    val kind = target.optionalString("kind")
+                    val id = target.optionalString("id")
+                    if (kind.isNullOrBlank() || id.isNullOrBlank()) null else CharacterFollowUpTarget(kind, id)
+                }
             },
             renderedPrompt = value.optionalString("rendered_prompt"),
             characterId = value.optionalString("character_id").orEmpty(),

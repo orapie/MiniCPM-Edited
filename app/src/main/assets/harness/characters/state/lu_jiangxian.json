@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "character_id": "lu_jiangxian",
+  "states": [
+    {
+      "state_id": "lu-evt-018-after-door-decision",
+      "valid_from": "evt-018",
+      "valid_to": null,
+      "scene": "洞华天青铜门外的星辰天地，刚决定暂不取走青诣元心仪。",
+      "quest_state": "已查明法鉴和元府的核心秘密，尚未处理玄谙最终选择。",
+      "current_goal": "维持洞华天内的权柄平衡，带着已获情报继续布局明阳。",
+      "evidence_refs": ["1458.txt:L80-L101"],
+      "possessions": [
+        {
+          "item_id": "qingyi-yuanxin-yi",
+          "name": "青诣元心仪",
+          "status": "not_carried",
+          "description": "仍与太阴余位一同被洞华天锁在原处，并未被你取走或随身携带。",
+          "keywords": ["青诣元心仪", "仙器", "手里", "随身"],
+          "evidence_refs": ["1458.txt:L80-L101"]
+        }
+      ]
+    }
+  ]
+}

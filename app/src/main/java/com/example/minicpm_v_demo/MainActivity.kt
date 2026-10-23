@@ -29,14 +29,21 @@ import com.example.minicpm_v_demo.harness.HarnessChatRequest
 import com.example.minicpm_v_demo.harness.HarnessFacade
 import com.example.minicpm_v_demo.harness.character.CharacterCard
 import com.example.minicpm_v_demo.harness.character.CharacterPromptDebug
+import com.example.minicpm_v_demo.harness.character.CharacterFollowUpResolver
 import com.example.minicpm_v_demo.harness.character.RoleplayObservationContext
 import com.example.minicpm_v_demo.harness.character.RoleplayAnswerabilityDecision
 import com.example.minicpm_v_demo.harness.character.RoleplayAnswerabilityGate
 import com.example.minicpm_v_demo.harness.character.RoleplayOutputObserver
+import com.example.minicpm_v_demo.harness.character.RoleplayLeakDiagnostics
+import com.example.minicpm_v_demo.harness.character.RoleplayGenerationAction
+import com.example.minicpm_v_demo.harness.character.RoleplayGenerationCoordinator
+import com.example.minicpm_v_demo.harness.character.RoleplayOutputDecision
+import com.example.minicpm_v_demo.harness.character.RoleplayVisibleText
 import com.example.minicpm_v_demo.harness.rag.AndroidRagOrchestrator
 import com.example.minicpm_v_demo.harness.rag.CompiledAndroidPrompt
 import com.example.minicpm_v_demo.harness.rag.RagMode
 import com.example.minicpm_v_demo.harness.rag.RagSource
+import com.example.minicpm_v_demo.harness.rag.RagTurnTraceWriter
 import com.example.minicpm_v_demo.harness.data.HarnessDataPaths
 import com.example.minicpm_v_demo.harness.session.ChatSession
 import com.example.minicpm_v_demo.harness.session.ChatSessionStore
@@ -44,9 +51,10 @@ import com.example.minicpm_v_demo.harness.session.ChatTurn
 import com.example.minicpm_v_demo.harness.session.MemoryStore
 import io.noties.markwon.Markwon
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import java.util.UUID
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -72,6 +80,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var sessionStore: ChatSessionStore
     private lateinit var memoryStore: MemoryStore
     private var ragOrchestrator: AndroidRagOrchestrator? = null
+    private var ragTurnTraceWriter: RagTurnTraceWriter? = null
     private var currentSession: ChatSession? = null
     private var currentRagMode: RagMode = RagMode.OFF
     /** Session-only developer A/B switch; it never changes character data. */
@@ -95,6 +104,9 @@ class MainActivity : AppCompatActivity() {
         harness = HarnessFacade.getInstance(applicationContext)
         val harnessPaths = HarnessDataPaths.from(applicationContext)
         harnessPaths.ensureRuntimeDirs()
+        if (isDebuggableBuild()) {
+            ragTurnTraceWriter = RagTurnTraceWriter(harnessPaths.ragTurnTraceFile)
+        }
         sessionStore = ChatSessionStore(harnessPaths)
         memoryStore = MemoryStore(harnessPaths)
         currentSession = sessionStore.loadRecentSession()
@@ -166,7 +178,7 @@ class MainActivity : AppCompatActivity() {
             showSourcesDialog(message.sources)
         }
         chatAdapter.setOnPromptClick { message ->
-            showPromptDialog(message.debugPrompt.orEmpty())
+            showPromptDialog(message.debugPrompt.orEmpty(), message.debugTrace)
         }
         chatAdapter.setOnSuggestionClick { suggestion ->
             if (isModelReady && !isProcessingVideo) {
@@ -693,79 +705,185 @@ class MainActivity : AppCompatActivity() {
         }
 
         generationJob = lifecycleScope.launch(Dispatchers.Default) {
-            val fullResponse = StringBuilder()
             val promptInput = compilePromptForHarness(userMsg)
-            val responseFlow = promptInput.fixedResponse?.let(::flowOf) ?: harness.sendChatPrompt(
-                request = promptInput.request,
-                predictLength = promptInput.predictLength,
-            )
-            responseFlow
-                .onCompletion { cause ->
-                    promptInput.roleplayObservationContext?.let { observationContext ->
-                        val visibleOutput = fullResponse.toString().visibleAssistantText()
-                        val observation = RoleplayOutputObserver.observe(
-                            context = observationContext,
-                            rawOutput = fullResponse.toString(),
-                            visibleOutput = visibleOutput,
-                            completion = if (cause == null) "completed" else "failed",
-                            includeRawText = isDebuggableBuild(),
-                        )
-                        Log.i(TAG, observation.toLogLine(includeRawText = isDebuggableBuild()))
-                    }
-                    val finalText = when {
-                        cause != null -> {
-                            Log.e(TAG, "Generation failed", cause)
-                            getString(R.string.generation_failed, cause.message ?: cause::class.java.simpleName)
-                        }
-                        fullResponse.hasVisibleAssistantText() -> fullResponse.toString()
-                        else -> getString(R.string.generation_empty_response)
-                    }
-                    if (cause == null && fullResponse.hasVisibleAssistantText()) {
-                        saveCompletedHarnessTurn(
-                            userMsg = userMsg,
-                            assistantText = fullResponse.toString(),
-                            promptInput = promptInput,
-                            aiMsgId = aiMsgId,
-                        )
-                    }
-                    withContext(Dispatchers.Main) {
-                        val index = messages.indexOfFirst { it.id == aiMsgId }
-                        if (index >= 0) {
-                            messages[index] = (messages[index] as ChatMessage.AiMessage).copy(
-                                text = finalText,
-                                isGenerating = false,
-                                ragMode = promptInput.compiled?.mode,
-                                sources = promptInput.compiled?.sources.orEmpty(),
-                                debugPrompt = promptInput.debugPrompt,
-                            )
-                        }
-                        chatAdapter.setGeneratingDone(aiMsgId)
-                        chatAdapter.clearActiveAiMessage()
-                        chatAdapter.submitList(messages.toList())
-                        enableInput(true)
-                        scrollToBottom()
-                    }
+            val outcome = if (promptInput.isCharacterRoleplay) {
+                generateBufferedRoleplay(promptInput, userMsg)
+            } else {
+                generateStreamingResponse(promptInput, aiMsgId)
+            }
+            if (outcome.persistedAssistantText != null) {
+                saveCompletedHarnessTurn(
+                    userMsg = userMsg,
+                    assistantText = outcome.persistedAssistantText,
+                    promptInput = promptInput,
+                    aiMsgId = aiMsgId,
+                )
+            }
+            withContext(Dispatchers.Main) {
+                val index = messages.indexOfFirst { it.id == aiMsgId }
+                if (index >= 0) {
+                    messages[index] = (messages[index] as ChatMessage.AiMessage).copy(
+                        text = outcome.visibleText,
+                        isGenerating = false,
+                        ragMode = promptInput.compiled?.mode,
+                        sources = promptInput.compiled?.sources.orEmpty(),
+                        debugPrompt = promptInput.debugPrompt,
+                        debugTrace = promptInput.debugTrace,
+                    )
                 }
-                .collect { token ->
-                    fullResponse.append(token)
-                    withContext(Dispatchers.Main) {
-                        val currentText = fullResponse.toString()
-                        val index = messages.indexOfFirst { it.id == aiMsgId }
-                        if (index >= 0) {
-                            messages[index] = ChatMessage.AiMessage(
-                                id = aiMsgId,
-                                text = currentText,
-                                isGenerating = true,
-                                ragMode = promptInput.compiled?.mode,
-                                sources = promptInput.compiled?.sources.orEmpty(),
-                                debugPrompt = promptInput.debugPrompt,
-                            )
-                        }
-                        chatAdapter.updateStreamingText(aiMsgId, currentText)
-                        scrollToBottom()
-                    }
-                }
+                chatAdapter.setGeneratingDone(aiMsgId)
+                chatAdapter.clearActiveAiMessage()
+                chatAdapter.submitList(messages.toList())
+                enableInput(true)
+                scrollToBottom()
+            }
         }
+    }
+
+    /** CHARACTER_RAG never streams raw model tokens into the UI before the guard accepts them. */
+    private suspend fun generateBufferedRoleplay(
+        promptInput: HarnessPromptInput,
+        userMsg: String,
+    ): GenerationOutcome {
+        val coordinator = RoleplayGenerationCoordinator()
+        var request = promptInput.request
+        var useFixedResponse = promptInput.fixedResponse != null
+        val characterName = promptInput.roleplayCharacterName ?: currentCharacterId
+        for (attempt in 0..RoleplayGenerationCoordinator.MAX_REPAIR_ATTEMPTS) {
+            when (val rawResult = collectRawResponse(request, promptInput.predictLength, promptInput.fixedResponse, useFixedResponse)) {
+                is RawGenerationResult.Failed -> {
+                    observeRoleplayAttempt(promptInput, rawResult.partialOutput, attempt, null, "failed")
+                    Log.e(TAG, "Roleplay generation failed", rawResult.error)
+                    return GenerationOutcome(
+                        visibleText = getString(
+                            R.string.generation_failed,
+                            rawResult.error.message ?: rawResult.error::class.java.simpleName,
+                        ),
+                    )
+                }
+                is RawGenerationResult.Completed -> {
+                    val action = coordinator.resolve(attempt, rawResult.rawOutput, characterName, userMsg)
+                    observeRoleplayAttempt(promptInput, rawResult.rawOutput, attempt, action, "completed")
+                    when (action) {
+                        is RoleplayGenerationAction.Deliver -> return GenerationOutcome(
+                            visibleText = action.visibleText,
+                            persistedAssistantText = action.visibleText.takeIf { action.persistVisibleText },
+                        )
+                        is RoleplayGenerationAction.Fallback -> return GenerationOutcome(
+                            visibleText = action.visibleText,
+                        )
+                        is RoleplayGenerationAction.Retry -> {
+                            // Do not include the rejected output in this request.  The native
+                            // backend starts a fresh context for each structured prompt.
+                            request = request.withRoleplayRepairInstruction()
+                            useFixedResponse = false
+                            Log.i(TAG, "Retrying roleplay generation after rules=${action.ruleIds.joinToString(",")}")
+                        }
+                    }
+                }
+            }
+        }
+        return GenerationOutcome(visibleText = RoleplayGenerationCoordinator.DEFAULT_SAFE_FALLBACK)
+    }
+
+    private suspend fun generateStreamingResponse(
+        promptInput: HarnessPromptInput,
+        aiMsgId: Long,
+    ): GenerationOutcome {
+        val rawResult = collectRawResponse(
+            request = promptInput.request,
+            predictLength = promptInput.predictLength,
+            fixedResponse = promptInput.fixedResponse,
+            useFixedResponse = promptInput.fixedResponse != null,
+        ) { currentText ->
+            withContext(Dispatchers.Main) {
+                val index = messages.indexOfFirst { it.id == aiMsgId }
+                if (index >= 0) {
+                    messages[index] = ChatMessage.AiMessage(
+                        id = aiMsgId,
+                        text = currentText,
+                        isGenerating = true,
+                        ragMode = promptInput.compiled?.mode,
+                        sources = promptInput.compiled?.sources.orEmpty(),
+                        debugPrompt = promptInput.debugPrompt,
+                        debugTrace = promptInput.debugTrace,
+                    )
+                }
+                chatAdapter.updateStreamingText(aiMsgId, currentText)
+                scrollToBottom()
+            }
+        }
+        return when (rawResult) {
+            is RawGenerationResult.Failed -> {
+                Log.e(TAG, "Generation failed", rawResult.error)
+                GenerationOutcome(
+                    visibleText = getString(
+                        R.string.generation_failed,
+                        rawResult.error.message ?: rawResult.error::class.java.simpleName,
+                    ),
+                )
+            }
+            is RawGenerationResult.Completed -> {
+                val visible = RoleplayVisibleText.extract(rawResult.rawOutput).visibleText
+                if (visible.isBlank()) {
+                    GenerationOutcome(visibleText = getString(R.string.generation_empty_response))
+                } else {
+                    GenerationOutcome(
+                        visibleText = rawResult.rawOutput,
+                        persistedAssistantText = rawResult.rawOutput,
+                    )
+                }
+            }
+        }
+    }
+
+    private suspend fun collectRawResponse(
+        request: HarnessChatRequest,
+        predictLength: Int,
+        fixedResponse: String?,
+        useFixedResponse: Boolean,
+        onCurrentText: suspend (String) -> Unit = {},
+    ): RawGenerationResult {
+        val rawResponse = StringBuilder()
+        val responseFlow: Flow<String> = if (useFixedResponse && fixedResponse != null) {
+            flowOf(fixedResponse)
+        } else {
+            harness.sendChatPrompt(request, predictLength)
+        }
+        return try {
+            responseFlow.collect { token ->
+                rawResponse.append(token)
+                onCurrentText(rawResponse.toString())
+            }
+            RawGenerationResult.Completed(rawResponse.toString())
+        } catch (error: Throwable) {
+            if (error is CancellationException) throw error
+            RawGenerationResult.Failed(error, rawResponse.toString())
+        }
+    }
+
+    private fun observeRoleplayAttempt(
+        promptInput: HarnessPromptInput,
+        rawOutput: String,
+        attempt: Int,
+        action: RoleplayGenerationAction?,
+        completion: String,
+    ) {
+        val observationContext = promptInput.roleplayObservationContext ?: return
+        val visibleOutput = RoleplayVisibleText.extract(rawOutput).visibleText
+        val decision = action?.toGuardDecision()
+        val includeRawRoleplayOutput = RoleplayLeakDiagnostics
+            .isRawOutputLoggingEnabled(applicationContext)
+        val observation = RoleplayOutputObserver.observe(
+            context = observationContext,
+            rawOutput = rawOutput,
+            visibleOutput = visibleOutput,
+            completion = completion,
+            includeRawText = includeRawRoleplayOutput,
+            attempt = attempt,
+            decision = decision,
+        )
+        Log.i(TAG, observation.toLogLine(includeRawText = includeRawRoleplayOutput))
     }
 
     private fun compilePromptForHarness(userMsg: String): HarnessPromptInput {
@@ -775,6 +893,15 @@ class MainActivity : AppCompatActivity() {
         val orchestrator = ragOrchestrator
             ?: return HarnessPromptInput(HarnessChatRequest(userPrompt = userMsg), null)
         val compiled = runCatching {
+            val followUpTarget = CharacterFollowUpResolver.resolve(
+                session = currentSession,
+                userInput = userMsg,
+                characterId = currentCharacterId,
+                storyCutoff = currentStoryCutoff,
+                knownCharacterNames = orchestrator.availableCharacters().flatMap { character ->
+                    listOf(character.identity.name) + character.identity.aliases
+                },
+            )
             val compiled = orchestrator.compile(
                 userInput = userMsg,
                 mode = currentRagMode,
@@ -782,6 +909,7 @@ class MainActivity : AppCompatActivity() {
                 storyCutoff = currentStoryCutoff,
                 conversationSummary = currentSession?.conversationSummary.orEmpty(),
                 knowledgeGraphEnabled = characterKnowledgeGraphEnabled,
+                followUpTarget = followUpTarget,
                 modelFamily = harness.getSelectedModelSpec().family,
             )
             val characterDebug = compiled.characterDebug as? CharacterPromptDebug
@@ -793,34 +921,48 @@ class MainActivity : AppCompatActivity() {
                     "userChars=${compiled.rendered.splitPrompt.userPrompt.length}, " +
                     "graphEnabled=$characterKnowledgeGraphEnabled, " +
                     "knowledgeIntent=${characterDebug?.knowledgeQueryIntent}, " +
+                    "followUp=${characterDebug?.followUpRoute}, " +
                     "v2=${characterDebug?.knowledgeGraphStatus}/${characterDebug?.knowledgeGraphInjectedChars}, " +
                     "v1Claims=${characterDebug?.v1ClaimGraphStatus}/${characterDebug?.v1ClaimGraphInjectedChars}, " +
                     "v1Relations=${characterDebug?.v1RelationshipGraphStatus}/${characterDebug?.v1RelationshipGraphInjectedChars}, " +
                     "profile=${characterDebug?.profileRoute}/${characterDebug?.profileCandidateCount}/" +
                         "${characterDebug?.profileSelectedIds?.size}/${characterDebug?.profileBudgetDroppedCount}/" +
                         "${characterDebug?.profileInjectedChars}, " +
+                    "state=${characterDebug?.stateRoute}/${characterDebug?.stateCandidateCount}/" +
+                        "${characterDebug?.stateSelectedIds?.size}/${characterDebug?.stateBudgetDroppedCount}/" +
+                        "${characterDebug?.stateInjectedChars}, " +
+                    "possession=${characterDebug?.possessionRoute}/${characterDebug?.possessionCandidateCount}/" +
+                        "${characterDebug?.possessionSelectedCount}/${characterDebug?.possessionBudgetDroppedCount}/" +
+                        "${characterDebug?.possessionInjectedChars}, " +
                     "legacyStory=${characterDebug?.legacyStoryRetrievalExecuted}, " +
                     "legacyMemory=${characterDebug?.legacyMemoryRetrievalExecuted}, " +
                     "estimatedSystemTokens=${characterDebug?.estimatedPromptTokens}, " +
                     "estimatedUserTokens=${characterDebug?.estimatedUserTokens}",
             )
+            Log.d(TAG, compiled.turnTrace.toLogLine())
+            runCatching { ragTurnTraceWriter?.append(compiled.turnTrace) }
+                .onFailure { error -> Log.w(TAG, "Failed to append content-free RAG trace", error) }
             compiled
         }.getOrElse { error ->
             Log.e(TAG, "Failed to compile RAG prompt; falling back to raw user input", error)
             return HarnessPromptInput(HarnessChatRequest(userPrompt = userMsg), null)
         }
+        val roleplayCharacterName = if (compiled.mode == RagMode.CHARACTER_RAG) {
+            orchestrator.availableCharacters()
+                .firstOrNull { it.npcId == currentCharacterId }
+                ?.identity
+                ?.name
+                ?: currentCharacterId
+        } else {
+            null
+        }
         val roleplayObservationContext = if (compiled.mode == RagMode.CHARACTER_RAG) {
             runCatching {
                 val characterDebug = compiled.characterDebug as? CharacterPromptDebug
-                val characterName = orchestrator.availableCharacters()
-                    .firstOrNull { it.npcId == currentCharacterId }
-                    ?.identity
-                    ?.name
-                    ?: currentCharacterId
                 RoleplayOutputObserver.createContext(
                     observationId = UUID.randomUUID().toString(),
                     characterId = currentCharacterId,
-                    characterName = characterName,
+                    characterName = roleplayCharacterName ?: currentCharacterId,
                     storyCutoff = currentStoryCutoff,
                     modelId = harness.getSelectedModel().id,
                     ragMode = compiled.mode.name,
@@ -831,7 +973,7 @@ class MainActivity : AppCompatActivity() {
                     estimatedUserTokens = characterDebug?.estimatedUserTokens,
                     contextChars = compiled.contextText.length,
                     sourceCount = compiled.sources.size,
-                    predictLength = CHARACTER_RESPONSE_TOKEN_LIMIT,
+                    predictLength = LlamaEngine.UNLIMITED_PREDICT_LENGTH,
                 )
             }.onFailure { error ->
                 Log.w(TAG, "Failed to create roleplay observation; continuing generation", error)
@@ -857,23 +999,29 @@ class MainActivity : AppCompatActivity() {
             ),
             compiled = compiled,
             roleplayObservationContext = roleplayObservationContext,
+            roleplayCharacterName = roleplayCharacterName,
             fixedResponse = fixedResponse,
+            debugTrace = if (isDebuggableBuild()) compiled.turnTrace.toDiagnosticText() else null,
         )
     }
-
-    private fun StringBuilder.hasVisibleAssistantText(): Boolean =
-        toString().visibleAssistantText().isNotBlank()
 
     private fun isDebuggableBuild(): Boolean =
         applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
 
-    private fun String.visibleAssistantText(): String {
-        val start = indexOf("<think>")
-        if (start < 0) return trim()
-        val afterStart = substring(start + "<think>".length)
-        val end = afterStart.indexOf("</think>")
-        if (end < 0) return ""
-        return afterStart.substring(end + "</think>".length).trim()
+    private fun HarnessChatRequest.withRoleplayRepairInstruction(): HarnessChatRequest {
+        val repairedSystemPrompt = listOfNotNull(systemPrompt?.trim()?.takeIf(String::isNotEmpty))
+            .plus(RoleplayGenerationCoordinator.REPAIR_INSTRUCTION)
+            .joinToString("\n\n")
+        return copy(
+            systemPrompt = repairedSystemPrompt,
+            observationId = observationId?.let { "$it-retry" },
+        )
+    }
+
+    private fun RoleplayGenerationAction.toGuardDecision(): RoleplayOutputDecision = when (this) {
+        is RoleplayGenerationAction.Deliver -> RoleplayOutputDecision.Accept(visibleText)
+        is RoleplayGenerationAction.Retry -> RoleplayOutputDecision.RetryWithRepair(ruleIds)
+        is RoleplayGenerationAction.Fallback -> RoleplayOutputDecision.SafeFallback(ruleIds)
     }
 
     private fun saveCompletedHarnessTurn(
@@ -895,6 +1043,9 @@ class MainActivity : AppCompatActivity() {
                 assistantText = assistantText,
                 ragMode = promptInput.compiled?.mode?.name ?: RagMode.OFF.name,
                 sources = promptInput.compiled?.sources.orEmpty(),
+                characterContextTargets = CharacterFollowUpResolver.persistableTargets(
+                    promptInput.compiled?.characterDebug as? CharacterPromptDebug,
+                ),
                 renderedPrompt = promptInput.debugPrompt,
                 characterId = session.characterId,
                 modelId = modelId,
@@ -1044,10 +1195,11 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun showPromptDialog(prompt: String) {
+    private fun showPromptDialog(prompt: String, trace: String?) {
+        val content = if (trace.isNullOrBlank()) prompt else "$prompt\n\n---\n$trace"
         AlertDialog.Builder(this)
             .setTitle(R.string.rag_prompt_title)
-            .setMessage(prompt)
+            .setMessage(content)
             .setPositiveButton(R.string.confirm, null)
             .show()
     }
@@ -1064,18 +1216,30 @@ class MainActivity : AppCompatActivity() {
         val request: HarnessChatRequest,
         val compiled: CompiledAndroidPrompt?,
         val roleplayObservationContext: RoleplayObservationContext? = null,
+        val roleplayCharacterName: String? = null,
         /** Non-null only for a matched graph fact unavailable at this cutoff. */
         val fixedResponse: String? = null,
+        val debugTrace: String? = null,
     ) {
         val predictLength: Int
-            get() = if (compiled?.mode == RagMode.CHARACTER_RAG) {
-                CHARACTER_RESPONSE_TOKEN_LIMIT
-            } else {
-                LlamaEngine.DEFAULT_PREDICT_LENGTH
-            }
+            get() = LlamaEngine.UNLIMITED_PREDICT_LENGTH
 
         val debugPrompt: String?
             get() = compiled?.renderedPrompt
+
+        val isCharacterRoleplay: Boolean
+            get() = compiled?.mode == RagMode.CHARACTER_RAG
+    }
+
+    private data class GenerationOutcome(
+        val visibleText: String,
+        /** Null means this rendered text must not affect sessions, summaries, or memory. */
+        val persistedAssistantText: String? = null,
+    )
+
+    private sealed interface RawGenerationResult {
+        data class Completed(val rawOutput: String) : RawGenerationResult
+        data class Failed(val error: Throwable, val partialOutput: String) : RawGenerationResult
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
@@ -1155,6 +1319,5 @@ class MainActivity : AppCompatActivity() {
         private val TAG = MainActivity::class.java.simpleName
         private const val DEFAULT_CHARACTER_ID = "lu_jiangxian"
         private const val DEFAULT_STORY_CUTOFF = "evt-010"
-        private const val CHARACTER_RESPONSE_TOKEN_LIMIT = 128
     }
 }

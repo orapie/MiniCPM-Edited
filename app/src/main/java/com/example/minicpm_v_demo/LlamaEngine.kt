@@ -55,12 +55,18 @@ class LlamaEngine private constructor(
         @Volatile
         private var instance: LlamaEngine? = null
 
-        // Per-turn token budget. iOS demo (MTMDParams.swift) uses 100 because
-        // ANE makes generation fast enough that the cap is rarely hit; on
-        // Android is CPU-only in this demo path. Keep the default answer
-        // budget modest so VLM/RAG turns return quickly on emulator and
-        // mid-range devices; longer-form answers should opt in explicitly.
-        const val DEFAULT_PREDICT_LENGTH = 128
+        /**
+         * Sentinel forwarded to JNI for generation that stops only at the
+         * model's EOG token or when the user presses Stop.  Native generation
+         * shifts the KV cache as needed, so this is not limited by one
+         * context-window's remaining tokens.
+         */
+        const val UNLIMITED_PREDICT_LENGTH = -1
+
+        // Do not silently truncate ordinary or character-RAG answers.  A
+        // positive value passed explicitly to sendUserPrompt still provides a
+        // caller-selected token cap (useful for short benchmark trials).
+        const val DEFAULT_PREDICT_LENGTH = UNLIMITED_PREDICT_LENGTH
 
         const val MODEL_SUBDIR = "models"
 

@@ -27,13 +27,10 @@ data class RoleplayObservationContext(
     val predictLength: Int,
 )
 
-data class RoleplayOutputSignal(
-    val ruleId: String,
-    val evidence: String,
-)
-
 data class RoleplayOutputObservation(
     val context: RoleplayObservationContext,
+    val attempt: Int,
+    val decision: String,
     val completion: String,
     val rawOutputChars: Int,
     val visibleOutputChars: Int,
@@ -47,6 +44,8 @@ data class RoleplayOutputObservation(
 ) {
     fun toLogLine(includeRawText: Boolean): String = buildString {
         append("roleplay_observation id=").append(context.observationId)
+        append(" attempt=").append(attempt)
+        append(" decision=").append(decision)
         append(" completion=").append(completion)
         append(" character=").append(context.characterId)
         append(" cutoff=").append(context.storyCutoff ?: "n/a")
@@ -111,24 +110,14 @@ object RoleplayOutputObserver {
         visibleOutput: String,
         completion: String,
         includeRawText: Boolean,
+        attempt: Int = 0,
+        decision: RoleplayOutputDecision? = null,
     ): RoleplayOutputObservation {
-        val signals = buildList {
-            if (visibleOutput.isBlank()) add(RoleplayOutputSignal("empty_visible_output", "visible output is blank"))
-            if (rawOutput.contains("<think>") && !rawOutput.contains("</think>")) {
-                add(RoleplayOutputSignal("unclosed_think_block", "<think> has no closing tag"))
-            }
-            if (assistantIdentityPattern.containsMatchIn(visibleOutput)) {
-                add(RoleplayOutputSignal("assistant_identity", "assistant identity phrase"))
-            }
-            if (metaPromptPattern.containsMatchIn(visibleOutput)) {
-                add(RoleplayOutputSignal("meta_prompt_reference", "role-card or prompt reference"))
-            }
-            if (selfNarrationPattern(context.characterName).containsMatchIn(visibleOutput)) {
-                add(RoleplayOutputSignal("possible_self_narration", "character-name narration pattern"))
-            }
-        }
+        val signals = RoleplayLeakClassifier.classify(rawOutput, visibleOutput, context.characterName)
         return RoleplayOutputObservation(
             context = context,
+            attempt = attempt,
+            decision = decision?.auditLabel() ?: "observed",
             completion = completion,
             rawOutputChars = rawOutput.length,
             visibleOutputChars = visibleOutput.length,
@@ -140,17 +129,16 @@ object RoleplayOutputObserver {
         )
     }
 
-    private val assistantIdentityPattern = Regex("作为(?:一个)?(?:AI|人工智能|语言模型|通用助手|助手)")
-    private val metaPromptPattern = Regex("角色卡|系统提示|提示词|\\bprompt\\b", RegexOption.IGNORE_CASE)
-
-    private fun selfNarrationPattern(characterName: String): Regex = Regex(
-        "${Regex.escape(characterName)}[，、 ]*(?:沉默|转身|抬眼|皱眉|心想|说道|说|答道|开口)",
-    )
-
     private fun sha256(text: String): String = MessageDigest.getInstance("SHA-256")
         .digest(text.toByteArray(Charsets.UTF_8))
         .joinToString("") { byte -> "%02x".format(byte.toInt() and 0xff) }
 
+}
+
+private fun RoleplayOutputDecision.auditLabel(): String = when (this) {
+    is RoleplayOutputDecision.Accept -> "accept"
+    is RoleplayOutputDecision.RetryWithRepair -> "retry_with_repair"
+    is RoleplayOutputDecision.SafeFallback -> "safe_fallback"
 }
 
 private fun String.singleLineForLog(): String = replace('\n', ' ').replace('\r', ' ').trim()

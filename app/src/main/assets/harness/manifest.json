@@ -47,6 +47,7 @@
     "rag_documents": "rag/documents",
     "rag_documents_manifest": "rag/documents_manifest.json",
     "characters": "characters/characters",
+    "character_state": "characters/state",
     "story": "characters/story/story_events.jsonl",
     "prompts": "characters/prompts",
     "schemas": "characters/schemas",

@@ -1,6 +1,7 @@
 package com.example.minicpm_v_demo.harness.session
 
 import com.example.minicpm_v_demo.harness.rag.RagSource
+import com.example.minicpm_v_demo.harness.character.CharacterFollowUpTarget
 
 data class ChatSession(
     val sessionId: String,
@@ -20,6 +21,8 @@ data class ChatTurn(
     val assistantText: String,
     val ragMode: String,
     val sources: List<RagSource> = emptyList(),
+    /** Opaque internal IDs selected for this turn; no fact or prompt body is stored. */
+    val characterContextTargets: List<CharacterFollowUpTarget> = emptyList(),
     val renderedPrompt: String? = null,
     val characterId: String,
     val modelId: String,

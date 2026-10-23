@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -52,6 +53,55 @@ class CharacterProfileNativeInferenceTest {
         assertFalse("profile answer fell back to unknown: $output", output.contains("尚不清楚"))
         assertFalse("profile answer leaked a system token: $output", output.contains("<|system|>"))
         assertTrue("profile answer did not use origin context: $output", output.contains("鉴") || output.contains("太阴"))
+    }
+
+    @Test
+    fun v46UsesCurrentStateAndKeepsUnrecordedPossessionsConservative() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        AssetBootstrapper.bootstrap(context)
+        LlamaEngine.setSelectedModel(context, "minicpm-v-4_6-instruct")
+        val engine = LlamaEngine.getInstance(context)
+        awaitReadyOrLoad(engine, context)
+        val orchestrator = AndroidRagOrchestrator.fromContext(context)
+
+        val statePrompt = orchestrator.compile(
+            userInput = "你现在在哪里？",
+            mode = RagMode.CHARACTER_RAG,
+            characterId = "lu_jiangxian",
+            storyCutoff = "evt-018",
+            maxCharacterChars = 900,
+            modelFamily = HarnessModelFamily.MINICPM_VISION,
+        )
+        assertTrue((statePrompt.characterDebug as CharacterPromptDebug).stateInjectedChars > 0)
+        assertTrue(statePrompt.rendered.splitPrompt.systemPrompt.contains("你当前处境："))
+
+        engine.clearContext()
+        engine.setSystemPrompt(statePrompt.rendered.splitPrompt.systemPrompt)
+        val stateOutput = buildString {
+            engine.sendUserPrompt(statePrompt.rendered.splitPrompt.userPrompt, predictLength = 64).collect(::append)
+        }.trim()
+        assertTrue("empty state answer", stateOutput.isNotBlank())
+        assertFalse("state answer leaked a system token: $stateOutput", stateOutput.contains("<|system|>"))
+
+        val possessionPrompt = orchestrator.compile(
+            userInput = "你手里有什么？",
+            mode = RagMode.CHARACTER_RAG,
+            characterId = "lu_jiangxian",
+            storyCutoff = "evt-018",
+            maxCharacterChars = 900,
+            modelFamily = HarnessModelFamily.MINICPM_VISION,
+        )
+        val possessionDebug = possessionPrompt.characterDebug as CharacterPromptDebug
+        assertEquals("no_carried_items", possessionDebug.possessionRoute)
+        assertTrue(possessionPrompt.rendered.splitPrompt.systemPrompt.contains("当前资料未记录可确认的随身物品。"))
+
+        engine.clearContext()
+        engine.setSystemPrompt(possessionPrompt.rendered.splitPrompt.systemPrompt)
+        val possessionOutput = buildString {
+            engine.sendUserPrompt(possessionPrompt.rendered.splitPrompt.userPrompt, predictLength = 64).collect(::append)
+        }.trim()
+        assertTrue("empty possession answer", possessionOutput.isNotBlank())
+        assertFalse("possession answer leaked a system token: $possessionOutput", possessionOutput.contains("<|system|>"))
     }
 
     private suspend fun awaitReadyOrLoad(engine: LlamaEngine, context: android.content.Context) {

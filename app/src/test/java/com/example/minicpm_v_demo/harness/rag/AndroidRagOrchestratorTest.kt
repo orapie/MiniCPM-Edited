@@ -205,6 +205,12 @@ class AndroidRagOrchestratorTest {
             assertEquals(query, compiled.rendered.splitPrompt.userPrompt)
             assertEquals(emptyList<RagSource>(), compiled.sources)
             assertEquals("", compiled.contextText)
+            val v2Stage = compiled.stageLogs.first { it.stage == RagPromptStage.CHARACTER_AFTER_V2 }
+            assertEquals(RagPromptStageStatus.EMITTED, v2Stage.status)
+            assertTrue(v2Stage.snapshot?.systemPrompt?.contains("拒绝玄谙以生存和能力为理由的取代方案") == true)
+            val v2Retrieval = compiled.stageLogs.first { it.stage == RagPromptStage.V2_RETRIEVAL_RESULT }
+            assertTrue(v2Retrieval.snapshot?.retrievalText?.contains("authorizedCandidateCount=") == true)
+            assertTrue(v2Retrieval.snapshot?.retrievalText?.contains("拒绝玄谙以生存和能力为理由的取代方案") == true)
         } finally {
             tempRoot.deleteRecursively()
         }
@@ -290,6 +296,63 @@ class AndroidRagOrchestratorTest {
         assertTrue(line.contains("\"selectedItemIds\""))
         assertTrue(!line.contains(query))
         assertTrue(!line.contains("你的来历"))
+    }
+
+    @Test
+    fun rawPromptStageLogsKeepRagContextAndFinalRequestInMemoryOnly() {
+        val query = "世界杯决赛有什么争议？"
+        val compiled = testOrchestrator().compile(
+            userInput = query,
+            mode = RagMode.RAG,
+            modelFamily = HarnessModelFamily.QWEN,
+        )
+
+        assertEquals(
+            listOf(
+                RagPromptStage.RAG_CONTEXT_COMPILED,
+                RagPromptStage.FINAL_RENDERED,
+                RagPromptStage.BACKEND_REQUEST,
+            ),
+            compiled.stageLogs.map { it.stage },
+        )
+        val context = compiled.stageLogs.first().snapshot?.displayText().orEmpty()
+        val finalRendered = compiled.stageLogs[1].snapshot?.renderedPrompt
+        val backend = requireNotNull(compiled.stageLogs[2].snapshot)
+        assertTrue(context.contains("<检索资料>"))
+        assertEquals(compiled.renderedPrompt, finalRendered)
+        assertEquals(compiled.rendered.splitPrompt.systemPrompt, backend.systemPrompt)
+        assertEquals(compiled.rendered.splitPrompt.userPrompt, backend.userPrompt)
+        assertTrue(!compiled.turnTrace.toJsonLine().contains(query))
+        assertTrue(!compiled.turnTrace.toJsonLine().contains("<检索资料>"))
+    }
+
+    @Test
+    fun characterStageLogsDistinguishSkippedGraphFromFinalPrompt() {
+        val compiled = testOrchestrator().compile(
+            userInput = "你是谁",
+            mode = RagMode.CHARACTER_RAG,
+            characterId = "lu_jiangxian",
+            storyCutoff = "evt-010",
+        )
+
+        assertEquals(RagPromptStage.CHARACTER_BASE, compiled.stageLogs.first().stage)
+        assertTrue(
+            compiled.stageLogs.any { log ->
+                log.stage == RagPromptStage.CHARACTER_AFTER_V2 &&
+                    log.status == RagPromptStageStatus.SKIPPED &&
+                    log.snapshot == null
+            },
+        )
+        val v2Retrieval = compiled.stageLogs.first { it.stage == RagPromptStage.V2_RETRIEVAL_RESULT }
+        assertEquals(RagPromptStageStatus.EMITTED, v2Retrieval.status)
+        assertTrue(v2Retrieval.snapshot?.retrievalText?.contains("authorizedCandidateCount=0") == true)
+        assertTrue(
+            compiled.stageLogs.any { log ->
+                log.stage == RagPromptStage.CHARACTER_PROMPT_COMPILED &&
+                    log.snapshot?.systemPrompt == compiled.rendered.splitPrompt.systemPrompt
+            },
+        )
+        assertEquals(RagPromptStage.BACKEND_REQUEST, compiled.stageLogs.last().stage)
     }
 
     private fun testOrchestrator(): AndroidRagOrchestrator {

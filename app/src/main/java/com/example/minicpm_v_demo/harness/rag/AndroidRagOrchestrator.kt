@@ -24,6 +24,8 @@ data class CompiledAndroidPrompt(
     val characterDebug: Any? = null,
     val mode: RagMode,
     val contextDecisions: List<RagContextDecision> = emptyList(),
+    /** Raw-text, in-memory only Debug Logcat snapshots. Never persist these. */
+    val stageLogs: List<RagPromptStageLog> = emptyList(),
     /** Content-free evidence-selection record for this compiled turn. */
     val turnTrace: RagTurnTrace,
 )
@@ -72,6 +74,7 @@ class AndroidRagOrchestrator(
                 sources = emptyList(),
                 contextText = "",
                 mode = mode,
+                stageLogs = emptyList(),
                 turnTrace = RagTurnTrace.create(
                     mode = mode,
                     userInput = userInput,
@@ -96,6 +99,18 @@ class AndroidRagOrchestrator(
             val results = vectorRetrieval.results
             val prompt = promptBuilder.build(userInput, results)
             val rendered = renderer.render(prompt.messages)
+            val stageLogs = finalStageLogs(
+                initial = listOf(
+                    RagPromptStageLog.emitted(
+                        RagPromptStage.RAG_CONTEXT_COMPILED,
+                        RagPromptSnapshot(
+                            systemPrompt = prompt.messages[0].content,
+                            userPrompt = prompt.messages[1].content,
+                        ),
+                    ),
+                ),
+                rendered = rendered,
+            )
             CompiledAndroidPrompt(
                 renderedPrompt = rendered.renderedSinglePrompt,
                 rendered = rendered,
@@ -103,6 +118,7 @@ class AndroidRagOrchestrator(
                 contextText = prompt.contextText,
                 contextDecisions = prompt.contextDecisions,
                 mode = mode,
+                stageLogs = stageLogs,
                 turnTrace = RagTurnTrace.create(
                     mode = mode,
                     userInput = userInput,
@@ -151,6 +167,21 @@ class AndroidRagOrchestrator(
                 characterDebug = characterPrompt.debug,
             )
             val rendered = renderer.render(prompt.messages)
+            val externalStage = if (results.isEmpty()) {
+                RagPromptStageLog.skipped(
+                    RagPromptStage.EXTERNAL_CONTEXT_COMPILED,
+                    if (externalInjectionRequested) "no_external_results" else "external_injection_not_requested",
+                )
+            } else {
+                RagPromptStageLog.emitted(
+                    RagPromptStage.EXTERNAL_CONTEXT_COMPILED,
+                    RagPromptSnapshot(
+                        systemPrompt = prompt.messages[0].content,
+                        userPrompt = prompt.messages[1].content,
+                    ),
+                )
+            }
+            val stageLogs = finalStageLogs(characterPrompt.stageLogs + externalStage, rendered)
             CompiledAndroidPrompt(
                 renderedPrompt = rendered.renderedSinglePrompt,
                 rendered = rendered,
@@ -159,6 +190,7 @@ class AndroidRagOrchestrator(
                 characterDebug = prompt.characterDebug,
                 mode = mode,
                 contextDecisions = prompt.contextDecisions,
+                stageLogs = stageLogs,
                 turnTrace = RagTurnTrace.create(
                     mode = mode,
                     userInput = userInput,
@@ -188,6 +220,23 @@ class AndroidRagOrchestrator(
         }
         return alwaysOnVectorRetrievalService.searchAlways(userInput, candidateLimit, minScore)
     }
+
+    private fun finalStageLogs(
+        initial: List<RagPromptStageLog>,
+        rendered: RenderedChatPrompt,
+    ): List<RagPromptStageLog> = initial + listOf(
+        RagPromptStageLog.emitted(
+            RagPromptStage.FINAL_RENDERED,
+            RagPromptSnapshot(renderedPrompt = rendered.renderedSinglePrompt),
+        ),
+        RagPromptStageLog.emitted(
+            RagPromptStage.BACKEND_REQUEST,
+            RagPromptSnapshot(
+                systemPrompt = rendered.splitPrompt.systemPrompt,
+                userPrompt = rendered.splitPrompt.userPrompt,
+            ),
+        ),
+    )
 
     companion object {
         private const val GENERAL_RAG_MIN_SCORE = 0.10

@@ -42,6 +42,7 @@ import com.example.minicpm_v_demo.harness.character.RoleplayVisibleText
 import com.example.minicpm_v_demo.harness.rag.AndroidRagOrchestrator
 import com.example.minicpm_v_demo.harness.rag.CompiledAndroidPrompt
 import com.example.minicpm_v_demo.harness.rag.RagMode
+import com.example.minicpm_v_demo.harness.rag.RagPromptLogcatPrinter
 import com.example.minicpm_v_demo.harness.rag.RagSource
 import com.example.minicpm_v_demo.harness.rag.RagTurnTraceWriter
 import com.example.minicpm_v_demo.harness.data.HarnessDataPaths
@@ -940,6 +941,14 @@ class MainActivity : AppCompatActivity() {
                     "estimatedUserTokens=${characterDebug?.estimatedUserTokens}",
             )
             Log.d(TAG, compiled.turnTrace.toLogLine())
+            if (isDebuggableBuild() && compiled.stageLogs.isNotEmpty()) {
+                runCatching {
+                    RagPromptLogcatPrinter.print(UUID.randomUUID().toString(), compiled.stageLogs)
+                }.onFailure { error ->
+                    // Raw prompt diagnostics must never change compile or generation behavior.
+                    Log.w(TAG, "Failed to print transient RAG prompt diagnostics", error)
+                }
+            }
             runCatching { ragTurnTraceWriter?.append(compiled.turnTrace) }
                 .onFailure { error -> Log.w(TAG, "Failed to append content-free RAG trace", error) }
             compiled

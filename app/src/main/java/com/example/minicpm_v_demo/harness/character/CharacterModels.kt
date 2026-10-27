@@ -1,5 +1,7 @@
 package com.example.minicpm_v_demo.harness.character
 
+import com.example.minicpm_v_demo.harness.rag.RagPromptStageLog
+
 data class HarnessChatMessage(
     val role: String,
     val content: String,
@@ -32,6 +34,8 @@ data class RuntimeContext(
 data class CompiledCharacterPrompt(
     val messages: List<HarnessChatMessage>,
     val debug: CharacterPromptDebug,
+    /** Raw-text, in-memory only snapshots for Debug Logcat. Never persist these. */
+    val stageLogs: List<RagPromptStageLog> = emptyList(),
 )
 
 data class CharacterPromptDebug(

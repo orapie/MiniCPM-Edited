@@ -13,6 +13,9 @@ import com.example.minicpm_v_demo.harness.character.knowledge.V2EpistemicKnowled
 import com.example.minicpm_v_demo.harness.character.knowledge.V2KnowledgeFact
 import com.example.minicpm_v_demo.harness.character.knowledge.V2KnowledgeQuery
 import com.example.minicpm_v_demo.harness.data.HarnessDataPaths
+import com.example.minicpm_v_demo.harness.rag.RagPromptSnapshot
+import com.example.minicpm_v_demo.harness.rag.RagPromptStage
+import com.example.minicpm_v_demo.harness.rag.RagPromptStageLog
 
 class CharacterPromptCompiler(
     private val loader: CharacterJsonLoader,
@@ -400,6 +403,92 @@ class CharacterPromptCompiler(
             .takeIf { it.isNotBlank() }
             ?.let(ContentFingerprint::sha256Short)
             ?: "none"
+        val stageLogs = buildStageLogs(
+            mandatory = mandatory,
+            userInput = userInput,
+            maxChars = runtimeContext.maxChars,
+            finalContent = content,
+            graphFacts = graphFacts.map { fact ->
+                PromptCandidate(
+                    section = "authorized_story_facts",
+                    id = fact.claimId,
+                    text = formatGraphFact(fact, npc),
+                    priority = fact.score + 1.0,
+                )
+            }.withinChars(queryPlan.factCharBudget),
+            v1ClaimFacts = v1ClaimFacts.map { fact ->
+                PromptCandidate(
+                    section = "authorized_story_facts",
+                    id = fact.claimId,
+                    text = formatV1ClaimFact(fact, npc),
+                    priority = fact.score + 0.9,
+                )
+            }.withinChars(queryPlan.factCharBudget),
+            v1Relationships = graphRelationships.map { relation ->
+                PromptCandidate(
+                    section = "relevant_relationships",
+                    id = relation.relationId,
+                    text = formatGraphRelationship(relation),
+                    priority = relation.score + 1.0,
+                )
+            }.withinChars(queryPlan.relationCharBudget),
+            legacyFacts = factCandidates.map { item ->
+                PromptCandidate(
+                    section = "authorized_story_facts",
+                    id = item.event.eventId,
+                    text = formatFact(item, npc),
+                    priority = item.score + item.event.importance,
+                )
+            },
+            legacyMemories = memories.map { item ->
+                PromptCandidate(
+                    section = "retrieved_memories",
+                    id = item.event.eventId,
+                    text = formatMemory(item, npc),
+                    priority = item.score + 0.5,
+                )
+            },
+            v2RetrievalStatus = graphRetrieval?.status?.name?.lowercase() ?: when {
+                !queryPlan.retrieveFacts -> "not_requested"
+                !runtimeContext.knowledgeGraphEnabled -> "disabled"
+                else -> "not_configured"
+            },
+            v2SkipReason = graphRetrieval?.let { retrieval ->
+                if (graphFacts.isEmpty()) "${retrieval.status.name.lowercase()}_no_authorized_facts" else null
+            } ?: when {
+                !queryPlan.retrieveFacts -> "not_requested"
+                !runtimeContext.knowledgeGraphEnabled -> "disabled"
+                else -> "not_configured"
+            },
+            v1ClaimRetrievalStatus = v1ClaimRetrieval?.status?.name?.lowercase() ?: when {
+                graphFacts.isNotEmpty() -> "skipped_v2_authoritative"
+                !queryPlan.retrieveFacts -> "not_requested"
+                !runtimeContext.knowledgeGraphEnabled -> "disabled"
+                else -> "not_configured"
+            },
+            v1ClaimSkipReason = v1ClaimRetrieval?.let { retrieval ->
+                if (v1ClaimFacts.isEmpty()) "${retrieval.status.name.lowercase()}_no_authorized_facts" else null
+            } ?: when {
+                graphFacts.isNotEmpty() -> "skipped_v2_authoritative"
+                !queryPlan.retrieveFacts -> "not_requested"
+                !runtimeContext.knowledgeGraphEnabled -> "disabled"
+                else -> "not_configured"
+            },
+            v1RelationshipRetrievalStatus = relationRetrieval?.status?.name?.lowercase() ?: when {
+                !queryPlan.retrieveRelations -> "not_requested"
+                !runtimeContext.knowledgeGraphEnabled -> "disabled"
+                else -> "not_configured"
+            },
+            v1RelationshipSkipReason = relationRetrieval?.let { retrieval ->
+                if (graphRelationships.isEmpty()) "${retrieval.status.name.lowercase()}_no_authorized_relations" else null
+            } ?: when {
+                !queryPlan.retrieveRelations -> "not_requested"
+                !runtimeContext.knowledgeGraphEnabled -> "disabled"
+                else -> "not_configured"
+            },
+            legacyRetrievalStatus = if (useLegacyStoryFallback) "executed" else "not_needed",
+            legacySkipReason = if (!useLegacyStoryFallback) "not_needed_authorized_graph_facts_available" else null,
+        )
         return CompiledCharacterPrompt(
             messages = listOf(
                 HarnessChatMessage("system", content),
@@ -490,7 +579,119 @@ class CharacterPromptCompiler(
                 dynamicEvidenceFingerprint = dynamicEvidenceFingerprint,
                 selectedItemsFingerprint = selectedItemsFingerprint,
             ),
+            stageLogs = stageLogs,
         )
+    }
+
+    /**
+     * Produces source-local previews without rerunning retrieval or changing the
+     * final ranking. A preview includes only its source on top of the fixed
+     * character base, while CHARACTER_PROMPT_COMPILED is the exact final system
+     * prompt passed to the orchestrator.
+     */
+    private fun buildStageLogs(
+        mandatory: Map<String, String>,
+        userInput: String,
+        maxChars: Int,
+        finalContent: String,
+        graphFacts: List<PromptCandidate>,
+        v1ClaimFacts: List<PromptCandidate>,
+        v1Relationships: List<PromptCandidate>,
+        legacyFacts: List<PromptCandidate>,
+        legacyMemories: List<PromptCandidate>,
+        v2RetrievalStatus: String,
+        v2SkipReason: String?,
+        v1ClaimRetrievalStatus: String,
+        v1ClaimSkipReason: String?,
+        v1RelationshipRetrievalStatus: String,
+        v1RelationshipSkipReason: String?,
+        legacyRetrievalStatus: String,
+        legacySkipReason: String?,
+    ): List<RagPromptStageLog> {
+        fun snapshot(system: String) = RagPromptSnapshot(systemPrompt = system, userPrompt = userInput)
+        fun preview(candidates: List<PromptCandidate>): String? {
+            if (candidates.isEmpty()) return null
+            val linesBySection = mutableMapOf<String, MutableList<String>>()
+            var preview = render(mandatory)
+            candidates.forEach { candidate ->
+                val candidateLines = linesBySection.getOrPut(candidate.section) { mutableListOf() }
+                val proposedLines = candidateLines + candidate.text
+                val proposedValues = mandatory.toMutableMap().apply {
+                    linesBySection.forEach { (section, lines) ->
+                        this[section] = if (section == candidate.section) {
+                            proposedLines.joinToString("\n")
+                        } else {
+                            lines.joinToString("\n")
+                        }
+                    }
+                }
+                val proposed = render(proposedValues)
+                if (proposed.length <= maxChars) {
+                    candidateLines += candidate.text
+                    preview = proposed
+                }
+            }
+            return preview.takeIf { it != render(mandatory) }
+        }
+        fun sourceStage(
+            stage: RagPromptStage,
+            candidates: List<PromptCandidate>,
+            skipReason: String?,
+        ): RagPromptStageLog {
+            val sourcePreview = preview(candidates)
+            return if (sourcePreview == null) {
+                RagPromptStageLog.skipped(stage, skipReason ?: "all_candidates_evicted_by_character_budget")
+            } else {
+                RagPromptStageLog.emitted(stage, snapshot(sourcePreview))
+            }
+        }
+        fun retrievalStage(
+            stage: RagPromptStage,
+            source: String,
+            status: String,
+            candidates: List<PromptCandidate>,
+        ): RagPromptStageLog = RagPromptStageLog.emitted(
+            stage,
+            RagPromptSnapshot(
+                retrievalText = buildString {
+                    append("source=").append(source).append('\n')
+                    append("status=").append(status).append('\n')
+                    append("authorizedCandidateCount=").append(candidates.size)
+                    if (candidates.isEmpty()) {
+                        append("\n(no authorized candidates)")
+                    } else {
+                        candidates.forEachIndexed { index, candidate ->
+                            append("\n\n[").append(index + 1).append("] id=").append(candidate.id)
+                            append(" section=").append(candidate.section).append('\n')
+                            append(candidate.text)
+                        }
+                    }
+                },
+            ),
+        )
+
+        val base = render(mandatory)
+        return buildList {
+            add(RagPromptStageLog.emitted(RagPromptStage.CHARACTER_BASE, snapshot(base)))
+            add(retrievalStage(RagPromptStage.V2_RETRIEVAL_RESULT, "V2 authorized story facts", v2RetrievalStatus, graphFacts))
+            add(sourceStage(RagPromptStage.CHARACTER_AFTER_V2, graphFacts, v2SkipReason))
+            add(retrievalStage(RagPromptStage.V1_CLAIM_RETRIEVAL_RESULT, "V1 claim fallback", v1ClaimRetrievalStatus, v1ClaimFacts))
+            add(sourceStage(RagPromptStage.CHARACTER_AFTER_V1_CLAIM, v1ClaimFacts, v1ClaimSkipReason))
+            add(retrievalStage(RagPromptStage.V1_RELATIONSHIP_RETRIEVAL_RESULT, "V1 relationships", v1RelationshipRetrievalStatus, v1Relationships))
+            add(sourceStage(RagPromptStage.CHARACTER_AFTER_V1_RELATION, v1Relationships, v1RelationshipSkipReason))
+            add(retrievalStage(RagPromptStage.LEGACY_RETRIEVAL_RESULT, "legacy story and memory fallback", legacyRetrievalStatus, legacyFacts + legacyMemories))
+            add(sourceStage(RagPromptStage.CHARACTER_AFTER_LEGACY_FALLBACK, legacyFacts + legacyMemories, legacySkipReason))
+            add(RagPromptStageLog.emitted(RagPromptStage.CHARACTER_PROMPT_COMPILED, snapshot(finalContent)))
+        }
+    }
+
+    private fun List<PromptCandidate>.withinChars(maxChars: Int): List<PromptCandidate> {
+        var used = 0
+        return filter { candidate ->
+            val accepted = used + candidate.text.length <= maxChars
+            if (accepted) used += candidate.text.length
+            accepted
+        }
     }
 
     private fun render(values: Map<String, String>): String {

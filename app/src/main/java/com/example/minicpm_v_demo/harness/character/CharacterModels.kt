@@ -29,6 +29,7 @@ data class RuntimeContext(
     val possessionMaxChars: Int = 160,
     /** A prior, authorized internal target; never contains source text or player text. */
     val followUpTarget: CharacterFollowUpTarget? = null,
+    val vectorCandidateScores: Map<String, Double> = emptyMap(),
 )
 
 data class CompiledCharacterPrompt(
@@ -102,6 +103,7 @@ data class CharacterPromptDebug(
     val dynamicEvidenceFingerprint: String = "none",
     /** Hash of selected section/ID pairs, independent from their source text. */
     val selectedItemsFingerprint: String = "none",
+    val databaseCapabilities: List<String> = emptyList(),
 )
 
 data class SelectedPromptItem(

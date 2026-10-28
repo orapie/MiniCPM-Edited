@@ -1,6 +1,7 @@
 package com.example.minicpm_v_demo.harness.session
 
 import com.example.minicpm_v_demo.harness.data.HarnessDataPaths
+import com.example.minicpm_v_demo.harness.data.database.DatabaseIdentity
 import com.example.minicpm_v_demo.harness.rag.RagMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -9,6 +10,7 @@ import java.io.File
 import java.nio.file.Files
 
 class MemoryStoreTest {
+    private val identity = DatabaseIdentity("fixture", "a".repeat(64))
     @Test
     fun observeTurnWritesSearchableSessionMemory() {
         val tempRoot = Files.createTempDirectory("memory-store-test").toFile()
@@ -18,7 +20,9 @@ class MemoryStoreTest {
             val session = ChatSession(
                 sessionId = "s1",
                 characterId = "lu_jiangxian",
-                characterPackId = "character_system",
+                characterPackId = identity.datasetId,
+                datasetId = identity.datasetId,
+                datasetFingerprint = identity.fingerprint,
                 storyCutoff = "evt-010",
                 selectedModelId = "minicpm-test",
             )
@@ -33,7 +37,7 @@ class MemoryStoreTest {
 
             val record = store.observeTurn(session, turn)
 
-            val results = store.search("玄谙", sessionId = "s1", characterId = "lu_jiangxian")
+            val results = store.search("玄谙", identity, sessionId = "s1", characterId = "lu_jiangxian")
             assertEquals(record.memoryId, results.single().record.memoryId)
             assertEquals("session_memory", results.single().record.kind)
             assertEquals(false, results.single().record.promptSafe)
@@ -63,9 +67,11 @@ class MemoryStoreTest {
             kind = "summary_memory",
             text = "玩家偏好简短回答。",
             promptSafe = true,
+            datasetId = identity.datasetId,
+            datasetFingerprint = identity.fingerprint,
         )
 
-        val selected = selector.selectPromptSafeLongTerm(listOf(maliciousSessionMemory, safeLongTermMemory))
+        val selected = selector.selectPromptSafeLongTerm(listOf(maliciousSessionMemory, safeLongTermMemory), identity, "lu_jiangxian")
 
         assertEquals(listOf(safeLongTermMemory), selected)
     }

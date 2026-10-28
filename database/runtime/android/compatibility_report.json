@@ -1,0 +1,47 @@
+{
+  "android_runtime_connected": false,
+  "authorized_sample_ready": true,
+  "candidate_retrieval_ready": true,
+  "counts": {
+    "authorized_claims": 3,
+    "authorized_edges": 3,
+    "characters": 5,
+    "events": 125,
+    "source_claims": 125,
+    "source_edges": 229,
+    "source_evidence": 125,
+    "source_relations": 8
+  },
+  "dataset_id": "three_body_2",
+  "legacy_story_direct_edges_not_authorized": 229,
+  "policy": "Source span verification proves text, not character knowledge. Only explicit reviewed atomic facts are authorized.",
+  "remaining_work": [
+    "apk_installation",
+    "runtime_consumer_migration",
+    "full_character_epistemic_review",
+    "time_bounded_profile_and_state_review"
+  ],
+  "schema_version": "1.0",
+  "source_database_sha256": "3e15c91e2c54d802636b1d5ec8f94f3d371ac82b56ff55e165c9f788bc9758b4",
+  "source_statuses": {
+    "acquisition": {
+      "character_scene_relevance": 229
+    },
+    "belief": {
+      "available": 229
+    },
+    "tiers": {
+      "canon": 125
+    },
+    "verification": {
+      "source_span_verified": 125
+    }
+  },
+  "source_valid": true,
+  "statement_chars": {
+    "max": 2534,
+    "min": 431,
+    "over_180": 125
+  },
+  "vector_items": 128
+}

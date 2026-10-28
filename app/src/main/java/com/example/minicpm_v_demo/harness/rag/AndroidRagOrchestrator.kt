@@ -8,14 +8,17 @@ import com.example.minicpm_v_demo.harness.character.CharacterPromptCompiler
 import com.example.minicpm_v_demo.harness.character.RuntimeContext
 import com.example.minicpm_v_demo.harness.chat.ChatTemplateRenderer
 import com.example.minicpm_v_demo.harness.chat.RenderedChatPrompt
-import com.example.minicpm_v_demo.harness.data.HarnessDataPaths
+import com.example.minicpm_v_demo.harness.data.database.DatabaseRuntime
+import com.example.minicpm_v_demo.harness.data.database.DatabaseBundleHandle
+import com.example.minicpm_v_demo.harness.data.database.DatabaseBundleValidator
+import com.example.minicpm_v_demo.harness.data.database.DatabaseBundleManifest
+import java.io.File
 
 enum class RagMode {
     OFF,
     RAG,
     CHARACTER_RAG,
 }
-
 data class CompiledAndroidPrompt(
     val renderedPrompt: String,
     val rendered: RenderedChatPrompt,
@@ -38,14 +41,26 @@ class AndroidRagOrchestrator(
     private val alwaysOnVectorRetrievalService: AlwaysOnVectorRetrievalService =
         AlwaysOnVectorRetrievalService(ragSearchService),
     private val vectorRetrievalFeatureFlags: VectorRetrievalFeatureFlags = VectorRetrievalFeatureFlags(),
+    private val databaseBundle: DatabaseBundleHandle? = null,
 ) {
-    fun availableCharacters(): List<CharacterCard> = characterCompiler.availableCharacters()
+    fun availableCharacters(): List<CharacterCard> {
+        requireCurrentBundle()
+        return characterCompiler.availableCharacters()
+    }
+
+    private fun requireCurrentBundle() {
+        databaseBundle?.let { bundle ->
+            val current = DatabaseBundleManifest.parse(bundle.paths.manifestFile.readText(Charsets.UTF_8))
+            require(current.datasetFingerprint == bundle.manifest.datasetFingerprint &&
+                current.computeFingerprint() == current.datasetFingerprint) { "database_handle_stale" }
+        }
+    }
 
     fun compile(
         userInput: String,
         mode: RagMode = RagMode.OFF,
-        characterId: String = "lu_jiangxian",
-        storyCutoff: String? = "evt-010",
+        characterId: String = databaseBundle?.manifest?.defaultCharacterId ?: "lu_jiangxian",
+        storyCutoff: String? = null,
         topK: Int = 1,
         maxCharacterChars: Int = 900,
         conversationSummary: String = "",
@@ -53,6 +68,11 @@ class AndroidRagOrchestrator(
         followUpTarget: CharacterFollowUpTarget? = null,
         modelFamily: HarnessModelFamily = HarnessModelFamily.MINICPM_TEXT,
     ): CompiledAndroidPrompt {
+        requireCurrentBundle()
+        if (mode == RagMode.CHARACTER_RAG && databaseBundle != null) {
+            require(characterId in databaseBundle.validated.characterIds) { "database_unknown_character" }
+            require(storyCutoff == null || storyCutoff in databaseBundle.validated.cutoffs) { "database_unknown_cutoff" }
+        }
         if (mode == RagMode.OFF) {
             val vectorRetrieval = if (vectorRetrievalFeatureFlags.retrieveInOffMode) {
                 alwaysOnVectorRetrievalService.searchAlways(
@@ -86,6 +106,7 @@ class AndroidRagOrchestrator(
                     sources = emptyList(),
                     contextDecisions = emptyList(),
                     characterDebug = null,
+                    databaseManifest = databaseBundle?.manifest,
                 ),
             )
         }
@@ -130,25 +151,19 @@ class AndroidRagOrchestrator(
                     sources = prompt.sources,
                     contextDecisions = prompt.contextDecisions,
                     characterDebug = null,
+                    databaseManifest = databaseBundle?.manifest,
                 ),
             )
         } else {
-            // Phase 0: every character turn queries the vector index.  The
-            // existing router still governs *injection* until the character
-            // vector collection and hybrid selector are introduced in later
-            // phases; this prevents unrelated external text changing answers.
+            // Candidates are always from this index. Raw scenes never become
+            // character knowledge; only the compiler's authorization gate may
+            // promote a reviewed claim into the system prompt.
             val vectorRetrieval = retrieveForActiveRagTurn(
                 userInput = userInput,
                 candidateLimit = maxOf(topK * 8, 20),
-                minScore = CHARACTER_EXTERNAL_RAG_MIN_SCORE,
+                minScore = CHARACTER_RAG_MIN_SCORE,
             )
-            val externalInjectionRequested = CharacterQueryRouter.requiresExternalKnowledge(userInput)
-            val results = if (externalInjectionRequested) {
-                vectorRetrieval.results.filterNot { it.chunk.sourcePath.contains("/novel_test/") }
-                    .take(topK)
-            } else {
-                emptyList()
-            }
+            val externalInjectionRequested = false
             val characterPrompt = characterCompiler.buildNpcPrompt(
                 npcId = characterId,
                 userInput = userInput,
@@ -158,29 +173,22 @@ class AndroidRagOrchestrator(
                     conversationSummary = conversationSummary,
                     knowledgeGraphEnabled = knowledgeGraphEnabled,
                     followUpTarget = followUpTarget,
+                    vectorCandidateScores = vectorRetrieval.results
+                        .filter { it.chunk.metadata["record_kind"] == "reviewed_fact" }
+                        .associate { it.chunk.id to it.score },
                 ),
             )
             val prompt = characterRagPromptBuilder.build(
                 characterMessages = characterPrompt.messages,
                 userInput = userInput,
-                results = results,
+                results = emptyList(),
                 characterDebug = characterPrompt.debug,
             )
             val rendered = renderer.render(prompt.messages)
-            val externalStage = if (results.isEmpty()) {
-                RagPromptStageLog.skipped(
+            val externalStage = RagPromptStageLog.skipped(
                     RagPromptStage.EXTERNAL_CONTEXT_COMPILED,
-                    if (externalInjectionRequested) "no_external_results" else "external_injection_not_requested",
+                    "external_source_disabled",
                 )
-            } else {
-                RagPromptStageLog.emitted(
-                    RagPromptStage.EXTERNAL_CONTEXT_COMPILED,
-                    RagPromptSnapshot(
-                        systemPrompt = prompt.messages[0].content,
-                        userPrompt = prompt.messages[1].content,
-                    ),
-                )
-            }
             val stageLogs = finalStageLogs(characterPrompt.stageLogs + externalStage, rendered)
             CompiledAndroidPrompt(
                 renderedPrompt = rendered.renderedSinglePrompt,
@@ -202,6 +210,7 @@ class AndroidRagOrchestrator(
                     sources = prompt.sources,
                     contextDecisions = prompt.contextDecisions,
                     characterDebug = prompt.characterDebug,
+                    databaseManifest = databaseBundle?.manifest,
                 ),
             )
         }
@@ -240,24 +249,21 @@ class AndroidRagOrchestrator(
 
     companion object {
         private const val GENERAL_RAG_MIN_SCORE = 0.10
-        private const val CHARACTER_EXTERNAL_RAG_MIN_SCORE = 0.10
+        private const val CHARACTER_RAG_MIN_SCORE = 0.10
 
         fun fromContext(context: Context): AndroidRagOrchestrator {
-            val paths = HarnessDataPaths.from(context.applicationContext)
-            return AndroidRagOrchestrator(
-                ragSearchService = RagSearchService.fromPaths(paths),
-                characterCompiler = CharacterPromptCompiler.fromPaths(paths),
-                vectorRetrievalFeatureFlags = VectorRetrievalFeatureFlags.from(context.applicationContext),
-            )
+            return fromBundle(DatabaseRuntime.requireBundle(),
+                File(context.filesDir, "program/prompts/roleplay_system.prompt"),
+                VectorRetrievalFeatureFlags.from(context.applicationContext))
+        }
+
+        fun fromBundle(bundle: DatabaseBundleHandle, promptTemplate: File,
+            flags: VectorRetrievalFeatureFlags = VectorRetrievalFeatureFlags()): AndroidRagOrchestrator {
+            require(DatabaseBundleValidator.validate(bundle.paths).manifest.datasetFingerprint ==
+                bundle.manifest.datasetFingerprint) { "database_handle_identity_changed" }
+            return AndroidRagOrchestrator(RagSearchService.fromBundle(bundle),
+                CharacterPromptCompiler.fromBundle(bundle, promptTemplate),
+                vectorRetrievalFeatureFlags = flags, databaseBundle = bundle)
         }
     }
-}
-
-internal object CharacterQueryRouter {
-    private val externalKnowledgeSignals = listOf(
-        "外部资料", "文档", "文件", "新闻", "现实", "现实世界", "世界杯", "联网", "搜索",
-    )
-
-    fun requiresExternalKnowledge(query: String): Boolean =
-        externalKnowledgeSignals.any { signal -> signal in query }
 }

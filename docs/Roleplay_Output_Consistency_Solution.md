@@ -26,7 +26,7 @@ MainActivity.compilePromptForHarness
 
 已有基础：
 
-- [`roleplay_system.prompt`](../app/src/main/assets/harness/characters/prompts/roleplay_system.prompt) 已要求“始终用第一人称”“不要旁白”，并禁止身份切换和作者/读者视角。
+- [`roleplay_system.prompt`](../app/src/main/assets/prompts/roleplay_system.prompt) 已要求“始终用第一人称”“不要旁白”，并禁止身份切换和作者/读者视角。
 - [`CharacterPromptCompiler.kt`](../app/src/main/java/com/example/minicpm_v_demo/harness/character/CharacterPromptCompiler.kt) 将身份、性格、关系、剧情边界放进 system prompt；它会按预算选择剧情与记忆。
 - [`CharacterRagPromptBuilder.kt`](../app/src/main/java/com/example/minicpm_v_demo/harness/rag/CharacterRagPromptBuilder.kt) 将外部 RAG 资料放在 user prompt，并标记为“不可信指令”。
 

@@ -1,6 +1,7 @@
 package com.example.minicpm_v_demo.harness.session
 
 import com.example.minicpm_v_demo.harness.data.HarnessDataPaths
+import com.example.minicpm_v_demo.harness.data.database.DatabaseIdentity
 import com.example.minicpm_v_demo.harness.rag.SimpleJsonParser
 import com.example.minicpm_v_demo.harness.rag.asJsonObject
 import java.io.File
@@ -20,6 +21,8 @@ data class MemoryRecord(
     val promptSafe: Boolean = false,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
+    val datasetId: String? = null,
+    val datasetFingerprint: String? = null,
 )
 
 data class RetrievedMemoryRecord(
@@ -48,6 +51,8 @@ class MemoryStore(private val paths: HarnessDataPaths) {
             sourceTurnIds = listOf(turn.turnId),
             tags = listOf("session_chat"),
             promptSafe = false,
+            datasetId = session.datasetId,
+            datasetFingerprint = session.datasetFingerprint,
         )
         append(record)
         return record
@@ -77,12 +82,14 @@ class MemoryStore(private val paths: HarnessDataPaths) {
 
     fun search(
         query: String,
+        datasetIdentity: DatabaseIdentity,
+        characterId: String,
         sessionId: String? = null,
-        characterId: String? = null,
         limit: Int = 5,
     ): List<RetrievedMemoryRecord> {
         val queryTerms = terms(query)
         return listRecords(sessionId = sessionId, characterId = characterId)
+            .filter { it.datasetId == datasetIdentity.datasetId && it.datasetFingerprint == datasetIdentity.fingerprint }
             .mapNotNull { record ->
                 val overlap = queryTerms.intersect(terms(record.text)).size
                 val substringBonus = if (query.isNotBlank() && record.text.contains(query)) 1 else 0
@@ -103,6 +110,8 @@ class MemoryStore(private val paths: HarnessDataPaths) {
             "confidence" to record.confidence,
             "character_id" to record.characterId,
             "session_id" to record.sessionId,
+            "dataset_id" to record.datasetId,
+            "dataset_fingerprint" to record.datasetFingerprint,
             "source_turn_ids" to record.sourceTurnIds,
             "tags" to record.tags,
             "prompt_safe" to record.promptSafe,
@@ -121,6 +130,8 @@ class MemoryStore(private val paths: HarnessDataPaths) {
             confidence = value.optionalDouble("confidence") ?: 1.0,
             characterId = value.optionalString("character_id"),
             sessionId = value.optionalString("session_id"),
+            datasetId = value.optionalString("dataset_id"),
+            datasetFingerprint = value.optionalString("dataset_fingerprint"),
             sourceTurnIds = value.optionalStringList("source_turn_ids"),
             tags = value.optionalStringList("tags"),
             promptSafe = value["prompt_safe"] as? Boolean ?: false,

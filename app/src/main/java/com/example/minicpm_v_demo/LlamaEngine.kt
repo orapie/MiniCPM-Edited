@@ -962,6 +962,10 @@ class LlamaEngine private constructor(
 
                 Log.i(TAG, "Loading model... \n$pathToModel")
                 _readyForSystemPrompt = false
+                // The native version survives unload; clear it before loading a
+                // text model or a different projector, then set the new version
+                // only after that projector has loaded successfully.
+                setMinicpmvVersionNative(0)
                 _state.value = LlamaState.LoadingModel
                 load(pathToModel).let {
                     if (it != 0) throw RuntimeException("Failed to load model (code: $it)")

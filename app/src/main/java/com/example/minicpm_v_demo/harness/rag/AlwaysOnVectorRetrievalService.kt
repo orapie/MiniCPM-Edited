@@ -27,11 +27,11 @@ data class VectorRetrievalFeatureFlags(
 }
 
 /**
- * Phase 0 contract for the external-document vector index.
+ * Candidate retrieval against the explicitly injected collection.
  *
- * Callers use this for every non-OFF turn, even when policy later decides that
- * external text must not enter the prompt.  This makes "we queried the vector
- * index" independently auditable from "we injected external evidence".
+ * Callers use this for every active RAG turn unless the explicit diagnostic
+ * flag disables retrieval. Candidate recall and authorized prompt injection
+ * remain separately auditable.
  */
 class AlwaysOnVectorRetrievalService(
     private val ragSearchService: RagSearchService,
@@ -48,7 +48,7 @@ class AlwaysOnVectorRetrievalService(
             AlwaysOnVectorRetrievalResult(
                 attempt = VectorRetrievalAttempt(
                     executed = true,
-                    collection = EXTERNAL_UNTRUSTED_COLLECTION,
+                    collection = ragSearchService.collectionName,
                     candidateLimit = candidateLimit,
                     candidateIds = results.map { result -> result.chunk.stableId() },
                     elapsedMs = elapsedMs(startedAtNanos),
@@ -63,7 +63,7 @@ class AlwaysOnVectorRetrievalService(
             AlwaysOnVectorRetrievalResult(
                 attempt = VectorRetrievalAttempt(
                     executed = true,
-                    collection = EXTERNAL_UNTRUSTED_COLLECTION,
+                    collection = ragSearchService.collectionName,
                     candidateLimit = candidateLimit,
                     candidateIds = emptyList(),
                     elapsedMs = elapsedMs(startedAtNanos),
@@ -79,7 +79,6 @@ class AlwaysOnVectorRetrievalService(
         ((System.nanoTime() - startedAtNanos).coerceAtLeast(0L)) / NANOS_PER_MILLISECOND
 
     companion object {
-        const val EXTERNAL_UNTRUSTED_COLLECTION = "external_untrusted"
         private const val NANOS_PER_MILLISECOND = 1_000_000L
     }
 }
@@ -102,7 +101,7 @@ data class VectorRetrievalAttempt(
     companion object {
         fun notRequested(backend: String = "not_requested"): VectorRetrievalAttempt = VectorRetrievalAttempt(
             executed = false,
-            collection = AlwaysOnVectorRetrievalService.EXTERNAL_UNTRUSTED_COLLECTION,
+            collection = "not_requested",
             candidateLimit = 0,
             candidateIds = emptyList(),
             elapsedMs = 0L,
@@ -111,4 +110,4 @@ data class VectorRetrievalAttempt(
     }
 }
 
-private fun RagChunk.stableId(): String = "$sourcePath@$start:$end"
+private fun RagChunk.stableId(): String = id.ifBlank { "$sourcePath@$start:$end" }

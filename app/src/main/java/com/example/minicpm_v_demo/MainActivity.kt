@@ -27,6 +27,7 @@ import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.textfield.TextInputEditText
 import com.example.minicpm_v_demo.harness.HarnessChatRequest
 import com.example.minicpm_v_demo.harness.HarnessFacade
+import com.example.minicpm_v_demo.harness.HarnessModelFamily
 import com.example.minicpm_v_demo.harness.character.CharacterCard
 import com.example.minicpm_v_demo.harness.character.CharacterPromptDebug
 import com.example.minicpm_v_demo.harness.character.CharacterFollowUpResolver
@@ -46,6 +47,11 @@ import com.example.minicpm_v_demo.harness.rag.RagPromptLogcatPrinter
 import com.example.minicpm_v_demo.harness.rag.RagSource
 import com.example.minicpm_v_demo.harness.rag.RagTurnTraceWriter
 import com.example.minicpm_v_demo.harness.data.HarnessDataPaths
+import com.example.minicpm_v_demo.harness.data.database.DatabaseRuntime
+import com.example.minicpm_v_demo.harness.data.database.DatabaseInstallResult
+import com.example.minicpm_v_demo.harness.data.database.DatabaseIdentity
+import com.example.minicpm_v_demo.harness.data.database.DatabaseBundleHandle
+import com.example.minicpm_v_demo.harness.data.database.DatabaseTurnLease
 import com.example.minicpm_v_demo.harness.session.ChatSession
 import com.example.minicpm_v_demo.harness.session.ChatSessionStore
 import com.example.minicpm_v_demo.harness.session.ChatTurn
@@ -55,11 +61,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
 import java.util.UUID
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
+import java.io.File
 
 class MainActivity : AppCompatActivity() {
 
@@ -82,6 +90,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var memoryStore: MemoryStore
     private var ragOrchestrator: AndroidRagOrchestrator? = null
     private var ragTurnTraceWriter: RagTurnTraceWriter? = null
+    private var boundIdentity: DatabaseIdentity? = null
+    private var databaseRebinding = false
     private var currentSession: ChatSession? = null
     private var currentRagMode: RagMode = RagMode.OFF
     /** Session-only developer A/B switch; it never changes character data. */
@@ -96,8 +106,8 @@ class MainActivity : AppCompatActivity() {
     private val messages = mutableListOf<ChatMessage>()
     private var createdWithLocale: String? = null
     private var isLocaleRestart = false
-    private var currentCharacterId = DEFAULT_CHARACTER_ID
-    private var currentStoryCutoff: String? = DEFAULT_STORY_CUTOFF
+    private var currentCharacterId = ""
+    private var currentStoryCutoff: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -108,14 +118,23 @@ class MainActivity : AppCompatActivity() {
         if (isDebuggableBuild()) {
             ragTurnTraceWriter = RagTurnTraceWriter(harnessPaths.ragTurnTraceFile)
         }
-        sessionStore = ChatSessionStore(harnessPaths)
+        val initialBundle = (DatabaseRuntime.installation as? DatabaseInstallResult.Ready)?.bundle
+        boundIdentity = initialBundle?.let(DatabaseIdentity::from)
+        sessionStore = sessionStoreFor(initialBundle)
         memoryStore = MemoryStore(harnessPaths)
-        currentSession = sessionStore.loadRecentSession()
-        currentSession?.characterId?.takeIf { it.isNotBlank() }?.let { currentCharacterId = it }
-        currentStoryCutoff = currentSession?.storyCutoff ?: DEFAULT_STORY_CUTOFF
+        currentSession = if (initialBundle != null) sessionStore.loadRecentSession() else null
+        initialBundle?.manifest?.let { manifest ->
+            currentCharacterId = currentSession?.characterId ?: manifest.defaultCharacterId
+            currentStoryCutoff = currentSession?.storyCutoff ?: manifest.defaultStoryCutoff
+        }
         ragOrchestrator = runCatching { AndroidRagOrchestrator.fromContext(applicationContext) }
             .onFailure { Log.e(TAG, "Failed to initialize Android RAG orchestrator", it) }
             .getOrNull()
+        if (currentSession?.storyCutoff == null && currentSession != null) {
+            currentStoryCutoff = ragOrchestrator?.availableCharacters()
+                ?.firstOrNull { it.npcId == currentCharacterId }?.knowledgeScope?.storyCutoff
+                ?: initialBundle?.manifest?.defaultStoryCutoff
+        }
 
         // If the selected model is a TTS model, redirect to TtsActivity immediately.
         // The chat interface is only meaningful for LLM/VLM models.
@@ -286,8 +305,40 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton(R.string.confirm) { _, _ ->
                 clearChat()
             }
+            .setNeutralButton(R.string.history_view) { _, _ -> showReadOnlyHistory() }
             .setNegativeButton(R.string.cancel, null)
             .show()
+    }
+
+    private fun sessionStoreFor(bundle: DatabaseBundleHandle?): ChatSessionStore = ChatSessionStore(
+        paths = HarnessDataPaths.from(applicationContext),
+        datasetIdentity = bundle?.let(DatabaseIdentity::from),
+        allowedCharacterIds = bundle?.validated?.characterIds,
+        allowedCutoffs = bundle?.validated?.cutoffs?.keys,
+    )
+
+    private fun showReadOnlyHistory() {
+        lifecycleScope.launch {
+            val sessions = withContext(Dispatchers.IO) { sessionStore.listHistory() }
+            if (sessions.isEmpty()) {
+                Toast.makeText(this@MainActivity, R.string.history_empty, Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            val labels = sessions.map { session ->
+                val dataset = session.datasetId ?: getString(R.string.history_legacy)
+                val date = java.text.DateFormat.getDateTimeInstance().format(java.util.Date(session.updatedAt))
+                "${session.characterId} · $dataset · $date"
+            }.toTypedArray()
+            AlertDialog.Builder(this@MainActivity).setTitle(R.string.history_view)
+                .setItems(labels) { _, which ->
+                    val session = sessions[which]
+                    val content = session.turns.joinToString("\n\n") { turn ->
+                        "${getString(R.string.history_player)}：${turn.userText}\n${getString(R.string.history_character)}：${turn.assistantText}"
+                    }.ifBlank { getString(R.string.history_empty) }
+                    AlertDialog.Builder(this@MainActivity).setTitle(labels[which]).setMessage(content)
+                        .setPositiveButton(android.R.string.ok, null).show()
+                }.setNegativeButton(android.R.string.cancel, null).show()
+        }
     }
 
     /**
@@ -338,20 +389,26 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun clearChat() {
-        lifecycleScope.launch(Dispatchers.IO) {
+        if (databaseRebinding) return
+        databaseRebinding = true
+        enableInput(false)
+        if (generationJob?.isActive == true) harness.cancelGeneration()
+        lifecycleScope.launch {
             try {
-                harness.clearContext()
-                sessionStore.clearRecentSession()
-                currentSession = null
-                withContext(Dispatchers.Main) {
-                    clearChatUI()
-                    Toast.makeText(this@MainActivity, R.string.clear_chat_toast, Toast.LENGTH_SHORT).show()
+                generationJob?.cancelAndJoin()
+                withContext(Dispatchers.IO) {
+                    if (harness.state.value is LlamaState.ModelReady) harness.clearContext()
+                    if (boundIdentity != null) sessionStore.clearRecentSession()
                 }
+                currentSession = null
+                clearChatUI()
+                Toast.makeText(this@MainActivity, R.string.clear_chat_toast, Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
                 Log.e(TAG, "Error clearing context", e)
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(this@MainActivity, getString(R.string.toast_clear_chat_failed, e.message), Toast.LENGTH_SHORT).show()
-                }
+                Toast.makeText(this@MainActivity, getString(R.string.toast_clear_chat_failed, e.message), Toast.LENGTH_SHORT).show()
+            } finally {
+                databaseRebinding = false
+                enableInput(isModelReady)
             }
         }
     }
@@ -403,9 +460,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun enableInput(enable: Boolean) {
-        etInput.isEnabled = enable
-        btnSend.isEnabled = enable
-        if (!enable) {
+        val allowed = enable && !databaseRebinding
+        etInput.isEnabled = allowed
+        btnSend.isEnabled = allowed
+        if (!allowed) {
             btnImage.isEnabled = false
         } else {
             btnImage.isEnabled = harness.isVisionSupported
@@ -668,11 +726,28 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleUserInput() {
+        if (databaseRebinding) return
         val userMsg = etInput.text.toString().trim()
         if (userMsg.isEmpty()) {
             Toast.makeText(this, R.string.toast_empty_input, Toast.LENGTH_SHORT).show()
             return
         }
+        val lease = DatabaseRuntime.beginTurn()
+        if (lease?.identity != boundIdentity) {
+            rebindDatabase(lease, retryInput = true)
+            return
+        }
+        if (currentRagMode != RagMode.OFF && (lease == null || ragOrchestrator == null)) {
+            lease?.close()
+            Toast.makeText(this, databaseUnavailableMessage(), Toast.LENGTH_LONG).show()
+            return
+        }
+        val binding = TurnBinding(
+            identity = lease?.identity, mode = currentRagMode, characterId = currentCharacterId,
+            storyCutoff = currentStoryCutoff, session = currentSession, store = sessionStore,
+            orchestrator = ragOrchestrator, modelId = harness.getSelectedModel().id,
+            modelFamily = harness.getSelectedModelSpec().family,
+        )
 
         etInput.clearFocus()
         (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
@@ -706,18 +781,19 @@ class MainActivity : AppCompatActivity() {
         }
 
         generationJob = lifecycleScope.launch(Dispatchers.Default) {
-            val promptInput = compilePromptForHarness(userMsg)
+            val promptInput = compilePromptForHarness(userMsg, binding)
             val outcome = if (promptInput.isCharacterRoleplay) {
                 generateBufferedRoleplay(promptInput, userMsg)
             } else {
                 generateStreamingResponse(promptInput, aiMsgId)
             }
-            if (outcome.persistedAssistantText != null) {
+            if (outcome.persistedAssistantText != null && (binding.mode == RagMode.OFF || promptInput.compiled != null)) {
                 saveCompletedHarnessTurn(
                     userMsg = userMsg,
                     assistantText = outcome.persistedAssistantText,
                     promptInput = promptInput,
                     aiMsgId = aiMsgId,
+                    binding = binding,
                 )
             }
             withContext(Dispatchers.Main) {
@@ -739,6 +815,56 @@ class MainActivity : AppCompatActivity() {
                 scrollToBottom()
             }
         }
+        generationJob?.invokeOnCompletion { lease?.close() }
+    }
+
+    /** Rebuild every consumer and clear native context before accepting a new bundle's turn. */
+    private fun rebindDatabase(lease: DatabaseTurnLease?, retryInput: Boolean) {
+        if (databaseRebinding) { lease?.close(); return }
+        databaseRebinding = true
+        enableInput(false)
+        if (generationJob?.isActive == true) harness.cancelGeneration()
+        val rebindJob = lifecycleScope.launch {
+            var success = false
+            try {
+                generationJob?.cancelAndJoin()
+                val bundle = lease?.bundle
+                val rebound = withContext(Dispatchers.IO) {
+                    if (harness.state.value is LlamaState.ModelReady) harness.clearContext()
+                    val store = sessionStoreFor(bundle)
+                    val orchestrator = bundle?.let {
+                        AndroidRagOrchestrator.fromBundle(it, File(filesDir, "program/prompts/roleplay_system.prompt"),
+                            com.example.minicpm_v_demo.harness.rag.VectorRetrievalFeatureFlags.from(applicationContext))
+                    }
+                    Triple(store, orchestrator, if (bundle == null) null else store.loadRecentSession())
+                }
+                sessionStore = rebound.first
+                ragOrchestrator = rebound.second
+                currentSession = rebound.third
+                boundIdentity = lease?.identity
+                currentCharacterId = currentSession?.characterId ?: bundle?.manifest?.defaultCharacterId.orEmpty()
+                currentStoryCutoff = currentSession?.storyCutoff ?: bundle?.manifest?.defaultStoryCutoff
+                clearChatUI()
+                restoreRecentSessionMessages()
+                chatAdapter.submitList(messages.toList())
+                updateCharacterButton()
+                success = true
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                Log.e(TAG, "Database rebind failed", e)
+                ragOrchestrator = null
+                currentSession = null
+                Toast.makeText(this@MainActivity, R.string.database_unavailable, Toast.LENGTH_LONG).show()
+            } finally {
+                lease?.close()
+                databaseRebinding = false
+                enableInput(isModelReady)
+            }
+            if (success && retryInput) handleUserInput()
+            else if (success && lease != null) showCharacterDialog()
+            else if (success) Toast.makeText(this@MainActivity, R.string.database_unavailable, Toast.LENGTH_LONG).show()
+        }
+        rebindJob.invokeOnCompletion { lease?.close() }
     }
 
     /** CHARACTER_RAG never streams raw model tokens into the UI before the guard accepts them. */
@@ -887,31 +1013,37 @@ class MainActivity : AppCompatActivity() {
         Log.i(TAG, observation.toLogLine(includeRawText = includeRawRoleplayOutput))
     }
 
-    private fun compilePromptForHarness(userMsg: String): HarnessPromptInput {
-        if (currentRagMode == RagMode.OFF) {
+    private fun compilePromptForHarness(userMsg: String, binding: TurnBinding): HarnessPromptInput {
+        if (binding.mode == RagMode.OFF) {
             return HarnessPromptInput(HarnessChatRequest(userPrompt = userMsg), null)
         }
-        val orchestrator = ragOrchestrator
-            ?: return HarnessPromptInput(HarnessChatRequest(userPrompt = userMsg), null)
+        val orchestrator = binding.orchestrator
+            ?: return HarnessPromptInput(HarnessChatRequest(userPrompt = userMsg), null,
+                fixedResponse = getString(R.string.database_compile_failed))
         val compiled = runCatching {
             val followUpTarget = CharacterFollowUpResolver.resolve(
-                session = currentSession,
+                session = binding.session,
                 userInput = userMsg,
-                characterId = currentCharacterId,
-                storyCutoff = currentStoryCutoff,
+                characterId = binding.characterId,
+                storyCutoff = binding.storyCutoff,
                 knownCharacterNames = orchestrator.availableCharacters().flatMap { character ->
                     listOf(character.identity.name) + character.identity.aliases
                 },
+                datasetIdentity = requireNotNull(binding.identity),
             )
             val compiled = orchestrator.compile(
                 userInput = userMsg,
-                mode = currentRagMode,
-                characterId = currentCharacterId,
-                storyCutoff = currentStoryCutoff,
-                conversationSummary = currentSession?.conversationSummary.orEmpty(),
+                mode = binding.mode,
+                characterId = binding.characterId,
+                storyCutoff = binding.storyCutoff,
+                conversationSummary = binding.session?.takeIf {
+                    it.datasetId == binding.identity?.datasetId && it.datasetFingerprint == binding.identity?.fingerprint &&
+                        it.characterPackId == binding.identity?.datasetId && it.characterId == binding.characterId &&
+                        it.storyCutoff == binding.storyCutoff
+                }?.conversationSummary.orEmpty(),
                 knowledgeGraphEnabled = characterKnowledgeGraphEnabled,
                 followUpTarget = followUpTarget,
-                modelFamily = harness.getSelectedModelSpec().family,
+                modelFamily = binding.modelFamily,
             )
             val characterDebug = compiled.characterDebug as? CharacterPromptDebug
             Log.d(
@@ -941,7 +1073,8 @@ class MainActivity : AppCompatActivity() {
                     "estimatedUserTokens=${characterDebug?.estimatedUserTokens}",
             )
             Log.d(TAG, compiled.turnTrace.toLogLine())
-            if (isDebuggableBuild() && compiled.stageLogs.isNotEmpty()) {
+            if (isDebuggableBuild() && getSharedPreferences("rag_debug", MODE_PRIVATE)
+                    .getBoolean("raw_prompt_logcat", false) && compiled.stageLogs.isNotEmpty()) {
                 runCatching {
                     RagPromptLogcatPrinter.print(UUID.randomUUID().toString(), compiled.stageLogs)
                 }.onFailure { error ->
@@ -953,15 +1086,16 @@ class MainActivity : AppCompatActivity() {
                 .onFailure { error -> Log.w(TAG, "Failed to append content-free RAG trace", error) }
             compiled
         }.getOrElse { error ->
-            Log.e(TAG, "Failed to compile RAG prompt; falling back to raw user input", error)
-            return HarnessPromptInput(HarnessChatRequest(userPrompt = userMsg), null)
+            Log.e(TAG, "Database prompt compilation failed", error)
+            return HarnessPromptInput(HarnessChatRequest(userPrompt = userMsg), null,
+                fixedResponse = getString(R.string.database_compile_failed))
         }
         val roleplayCharacterName = if (compiled.mode == RagMode.CHARACTER_RAG) {
             orchestrator.availableCharacters()
-                .firstOrNull { it.npcId == currentCharacterId }
+                .firstOrNull { it.npcId == binding.characterId }
                 ?.identity
                 ?.name
-                ?: currentCharacterId
+                ?: binding.characterId
         } else {
             null
         }
@@ -970,10 +1104,10 @@ class MainActivity : AppCompatActivity() {
                 val characterDebug = compiled.characterDebug as? CharacterPromptDebug
                 RoleplayOutputObserver.createContext(
                     observationId = UUID.randomUUID().toString(),
-                    characterId = currentCharacterId,
-                    characterName = roleplayCharacterName ?: currentCharacterId,
-                    storyCutoff = currentStoryCutoff,
-                    modelId = harness.getSelectedModel().id,
+                    characterId = binding.characterId,
+                    characterName = roleplayCharacterName ?: binding.characterId,
+                    storyCutoff = binding.storyCutoff,
+                    modelId = binding.modelId,
                     ragMode = compiled.mode.name,
                     systemPrompt = compiled.rendered.splitPrompt.systemPrompt,
                     userPrompt = compiled.rendered.splitPrompt.userPrompt,
@@ -991,14 +1125,17 @@ class MainActivity : AppCompatActivity() {
             null
         }
         val answerabilityDecision = if (compiled.mode == RagMode.CHARACTER_RAG) {
-            RoleplayAnswerabilityGate.evaluate(compiled.characterDebug as? CharacterPromptDebug)
+            RoleplayAnswerabilityGate.evaluate(compiled.characterDebug as? CharacterPromptDebug, userMsg)
         } else {
             RoleplayAnswerabilityDecision.Allow
         }
-        val fixedResponse = (answerabilityDecision as? RoleplayAnswerabilityDecision.BlockFutureFact)
-            ?.visibleResponse
+        val fixedResponse = when (answerabilityDecision) {
+            is RoleplayAnswerabilityDecision.BlockFutureFact -> answerabilityDecision.visibleResponse
+            is RoleplayAnswerabilityDecision.BlockUnknownFact -> answerabilityDecision.visibleResponse
+            RoleplayAnswerabilityDecision.Allow -> null
+        }
         if (fixedResponse != null) {
-            Log.i(TAG, "Character answerability gate blocked a future fact for character=$currentCharacterId")
+            Log.i(TAG, "Character answerability gate=${answerabilityDecision.javaClass.simpleName} character=${binding.characterId}")
         }
         return HarnessPromptInput(
             request = HarnessChatRequest(
@@ -1038,12 +1175,18 @@ class MainActivity : AppCompatActivity() {
         assistantText: String,
         promptInput: HarnessPromptInput,
         aiMsgId: Long,
+        binding: TurnBinding,
     ) {
         runCatching {
-            val modelId = harness.getSelectedModel().id
-            val session = currentSession ?: sessionStore.create(
-                characterId = currentCharacterId,
-                storyCutoff = currentStoryCutoff,
+            val identity = binding.identity ?: return
+            check(identity == boundIdentity) { "database_changed_during_turn" }
+            val modelId = binding.modelId
+            val session = binding.session?.takeIf {
+                it.datasetId == identity.datasetId && it.datasetFingerprint == identity.fingerprint &&
+                    it.characterId == binding.characterId && it.storyCutoff == binding.storyCutoff
+            } ?: binding.store.create(
+                characterId = binding.characterId,
+                storyCutoff = binding.storyCutoff,
                 selectedModelId = modelId,
             )
             val turn = ChatTurn(
@@ -1059,7 +1202,7 @@ class MainActivity : AppCompatActivity() {
                 characterId = session.characterId,
                 modelId = modelId,
             )
-            val updatedSession = sessionStore.appendTurn(session, turn)
+            val updatedSession = binding.store.appendTurn(session, turn)
             memoryStore.observeTurn(updatedSession, turn)
             currentSession = updatedSession
         }.onFailure { error ->
@@ -1078,6 +1221,11 @@ class MainActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setTitle(R.string.rag_mode_title)
             .setSingleChoiceItems(labels, checked) { dialog, which ->
+                if (modes[which] != RagMode.OFF && ragOrchestrator == null) {
+                    Toast.makeText(this, databaseUnavailableMessage(), Toast.LENGTH_LONG).show()
+                    dialog.dismiss()
+                    return@setSingleChoiceItems
+                }
                 currentRagMode = modes[which]
                 updateRagModeButton()
                 Toast.makeText(
@@ -1113,9 +1261,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showCharacterDialog() {
+        if (databaseRebinding) return
+        val lease = DatabaseRuntime.beginTurn()
+        if (lease?.identity != boundIdentity) {
+            rebindDatabase(lease, retryInput = false)
+            return
+        }
+        lease?.close()
         val orchestrator = ragOrchestrator
         if (orchestrator == null) {
-            Toast.makeText(this, R.string.character_list_failed, Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, databaseUnavailableMessage(), Toast.LENGTH_LONG).show()
             return
         }
         val characters = runCatching { orchestrator.availableCharacters() }
@@ -1137,38 +1292,36 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
+    private fun databaseUnavailableMessage(): String = getString(
+        if (DatabaseRuntime.installation is DatabaseInstallResult.Ready) R.string.database_retrieval_pending
+        else R.string.database_unavailable,
+    )
+
     private fun switchCharacter(character: CharacterCard) {
-        if (character.npcId == currentCharacterId) return
-        generationJob?.cancel()
-        harness.cancelGeneration()
-        currentCharacterId = character.npcId
-        currentStoryCutoff = character.knowledgeScope.storyCutoff
-        currentSession = null
-        lifecycleScope.launch(Dispatchers.IO) {
+        if (character.npcId == currentCharacterId || databaseRebinding) return
+        databaseRebinding = true
+        enableInput(false)
+        if (generationJob?.isActive == true) harness.cancelGeneration()
+        lifecycleScope.launch {
             try {
-                if (harness.state.value is LlamaState.ModelReady) {
-                    harness.clearContext()
+                generationJob?.cancelAndJoin()
+                withContext(Dispatchers.IO) {
+                    if (harness.state.value is LlamaState.ModelReady) harness.clearContext()
+                    if (boundIdentity != null) sessionStore.clearRecentSession()
                 }
-                sessionStore.clearRecentSession()
-                withContext(Dispatchers.Main) {
-                    clearChatUI()
-                    updateCharacterButton(character)
-                    Toast.makeText(
-                        this@MainActivity,
-                        getString(R.string.character_changed, character.identity.name),
-                        Toast.LENGTH_SHORT,
-                    ).show()
-                }
+                currentCharacterId = character.npcId
+                currentStoryCutoff = character.knowledgeScope.storyCutoff
+                currentSession = null
+                clearChatUI()
+                updateCharacterButton(character)
+                Toast.makeText(this@MainActivity, getString(R.string.character_changed, character.identity.name), Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 Log.e(TAG, "Error switching character", e)
-                withContext(Dispatchers.Main) {
-                    updateCharacterButton(character)
-                    Toast.makeText(
-                        this@MainActivity,
-                        getString(R.string.character_switch_failed, e.message),
-                        Toast.LENGTH_SHORT,
-                    ).show()
-                }
+                Toast.makeText(this@MainActivity, getString(R.string.character_switch_failed, e.message), Toast.LENGTH_SHORT).show()
+            } finally {
+                databaseRebinding = false
+                enableInput(isModelReady)
             }
         }
     }
@@ -1240,6 +1393,18 @@ class MainActivity : AppCompatActivity() {
             get() = compiled?.mode == RagMode.CHARACTER_RAG
     }
 
+    private data class TurnBinding(
+        val identity: DatabaseIdentity?,
+        val mode: RagMode,
+        val characterId: String,
+        val storyCutoff: String?,
+        val session: ChatSession?,
+        val store: ChatSessionStore,
+        val orchestrator: AndroidRagOrchestrator?,
+        val modelId: String,
+        val modelFamily: HarnessModelFamily,
+    )
+
     private data class GenerationOutcome(
         val visibleText: String,
         /** Null means this rendered text must not affect sessions, summaries, or memory. */
@@ -1291,6 +1456,8 @@ class MainActivity : AppCompatActivity() {
         } else if (harness.consumeModelSwitched()) {
             loadedModelId = selectedId
             clearChatUI()
+            restoreRecentSessionMessages()
+            chatAdapter.submitList(messages.toList())
             updateUIForModelType()
         }
     }
@@ -1307,12 +1474,15 @@ class MainActivity : AppCompatActivity() {
             }
             withContext(Dispatchers.Main) {
                 clearChatUI()
+                restoreRecentSessionMessages()
+                chatAdapter.submitList(messages.toList())
                 loadDefaultModel()
             }
         }
     }
 
     override fun onStop() {
+        if (generationJob?.isActive == true) harness.cancelGeneration()
         generationJob?.cancel()
         super.onStop()
     }
@@ -1326,7 +1496,5 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private val TAG = MainActivity::class.java.simpleName
-        private const val DEFAULT_CHARACTER_ID = "lu_jiangxian"
-        private const val DEFAULT_STORY_CUTOFF = "evt-010"
     }
 }

@@ -6,6 +6,18 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RoleplayOutputGuardTest {
+    @Test fun unsolicitedQuestionRequestsRepairButQuotedSpeechIsAllowed() {
+        assertEquals(RoleplayOutputDecision.RetryWithRepair(listOf("unsolicited_question")),
+            RoleplayOutputGuard.evaluate("史强是我的朋友。我们怎么看他？", "罗辑", "你怎么看史强？"))
+        assertEquals(RoleplayOutputDecision.RetryWithRepair(listOf("unsolicited_question")),
+            RoleplayOutputGuard.evaluate("你想去哪里?", "罗辑", "你最想去哪里？"))
+        val quoted = "她问我“你要去哪儿？”，我没有回答。"
+        assertEquals(RoleplayOutputDecision.Accept(quoted), RoleplayOutputGuard.evaluate(quoted, "罗辑", "她说了什么？"))
+        val title = "我读过《你是谁？》。"
+        assertEquals(RoleplayOutputDecision.Accept(title), RoleplayOutputGuard.evaluate(title, "罗辑", "你读过什么？"))
+        assertEquals(RoleplayOutputDecision.RetryWithRepair(listOf("unsolicited_question")),
+            RoleplayOutputGuard.evaluate("“哪里最合适？", "罗辑", "你最想去哪里？"))
+    }
     @Test
     fun promptAndInternalFieldLeaksRequestOneFreshAttemptWithoutReturningText() {
         val decision = RoleplayOutputGuard.evaluate(

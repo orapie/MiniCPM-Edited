@@ -1,6 +1,7 @@
 package com.example.minicpm_v_demo.harness.session
 
 import com.example.minicpm_v_demo.harness.data.HarnessDataPaths
+import com.example.minicpm_v_demo.harness.data.database.DatabaseIdentity
 import com.example.minicpm_v_demo.harness.rag.RagMode
 import com.example.minicpm_v_demo.harness.rag.RagSource
 import com.example.minicpm_v_demo.harness.character.CharacterFollowUpResolver
@@ -12,6 +13,7 @@ import java.io.File
 import java.nio.file.Files
 
 class ChatSessionStoreTest {
+    private val identity = DatabaseIdentity("fixture", "a".repeat(64))
     @Test
     fun appendTurnPersistsRecentSessionWithSourcesModelAndSummary() {
         val tempRoot = Files.createTempDirectory("chat-session-store-test").toFile()
@@ -59,7 +61,9 @@ class ChatSessionStoreTest {
         val session = ChatSession(
             sessionId = "session",
             characterId = "lu_jiangxian",
-            characterPackId = "character_system",
+            characterPackId = identity.datasetId,
+            datasetId = identity.datasetId,
+            datasetFingerprint = identity.fingerprint,
             storyCutoff = "evt-018",
             selectedModelId = "minicpm-test",
             turns = listOf(
@@ -77,15 +81,15 @@ class ChatSessionStoreTest {
 
         assertEquals(
             target,
-            CharacterFollowUpResolver.resolve(session, "他为何这样做？", "lu_jiangxian", "evt-018", listOf("玄谙")),
+            CharacterFollowUpResolver.resolve(session, "他为何这样做？", "lu_jiangxian", "evt-018", listOf("玄谙"), identity),
         )
         assertEquals(
             null,
-            CharacterFollowUpResolver.resolve(session, "玄谙为何这样做？", "lu_jiangxian", "evt-018", listOf("玄谙")),
+            CharacterFollowUpResolver.resolve(session, "玄谙为何这样做？", "lu_jiangxian", "evt-018", listOf("玄谙"), identity),
         )
         assertEquals(
             null,
-            CharacterFollowUpResolver.resolve(session, "他为何这样做？", "xuan_an", "evt-018", listOf("玄谙")),
+            CharacterFollowUpResolver.resolve(session, "他为何这样做？", "xuan_an", "evt-018", listOf("玄谙"), identity),
         )
     }
 
@@ -95,7 +99,9 @@ class ChatSessionStoreTest {
         val session = ChatSession(
             sessionId = "session",
             characterId = "li_jiangqun",
-            characterPackId = "character_system",
+            characterPackId = identity.datasetId,
+            datasetId = identity.datasetId,
+            datasetFingerprint = identity.fingerprint,
             storyCutoff = "evt-028",
             selectedModelId = "minicpm-test",
             turns = listOf(
@@ -113,11 +119,11 @@ class ChatSessionStoreTest {
 
         assertEquals(
             target,
-            CharacterFollowUpResolver.resolve(session, "其他的还有吗？", "li_jiangqun", "evt-028", listOf("玄谙")),
+            CharacterFollowUpResolver.resolve(session, "其他的还有吗？", "li_jiangqun", "evt-028", listOf("玄谙"), identity),
         )
         assertEquals(
             null,
-            CharacterFollowUpResolver.resolve(session, "换个话题吧", "li_jiangqun", "evt-028", listOf("玄谙")),
+            CharacterFollowUpResolver.resolve(session, "换个话题吧", "li_jiangqun", "evt-028", listOf("玄谙"), identity),
         )
     }
 

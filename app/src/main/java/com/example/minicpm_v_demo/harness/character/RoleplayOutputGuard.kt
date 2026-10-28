@@ -17,6 +17,7 @@ enum class RoleplayLeakRule(
     META_PROMPT_REFERENCE("meta_prompt_reference", RoleplayLeakSeverity.HIGH),
     INTERNAL_FIELD_LABEL("internal_field_label", RoleplayLeakSeverity.HIGH),
     TEMPLATE_TOKEN("template_token", RoleplayLeakSeverity.HIGH),
+    UNSOLICITED_QUESTION("unsolicited_question", RoleplayLeakSeverity.HIGH),
     POSSIBLE_SELF_NARRATION("possible_self_narration", RoleplayLeakSeverity.WARNING),
 }
 
@@ -128,12 +129,37 @@ internal object RoleplayLeakClassifier {
         if (templateTokenPattern.containsMatchIn(visibleOutput)) {
             add(RoleplayOutputSignal(RoleplayLeakRule.TEMPLATE_TOKEN, "template control token"))
         }
+        if (hasUnquotedQuestion(visibleOutput)) {
+            add(RoleplayOutputSignal(RoleplayLeakRule.UNSOLICITED_QUESTION, "unquoted question in roleplay answer"))
+        }
         if (selfNarrationPattern(characterName).containsMatchIn(visibleOutput)) {
             add(RoleplayOutputSignal(RoleplayLeakRule.POSSIBLE_SELF_NARRATION, "character-name narration pattern"))
         }
     }
 
     private val assistantIdentityPattern = Regex("作为(?:一个)?(?:AI|人工智能|语言模型|通用助手|助手)")
+    private fun hasUnquotedQuestion(text: String): Boolean {
+        val closing = ArrayDeque<Char>()
+        var questionInOpenQuote = false
+        for (char in text) {
+            when {
+                closing.lastOrNull() == char -> {
+                    closing.removeLast()
+                    if (closing.isEmpty()) questionInOpenQuote = false
+                }
+                char == '“' -> closing.addLast('”')
+                char == '‘' -> closing.addLast('’')
+                char == '「' -> closing.addLast('」')
+                char == '『' -> closing.addLast('』')
+                char == '《' -> closing.addLast('》')
+                char == '〈' -> closing.addLast('〉')
+                char == '"' -> closing.addLast('"')
+                (char == '?' || char == '？') && closing.isEmpty() -> return true
+                char == '?' || char == '？' -> questionInOpenQuote = true
+            }
+        }
+        return closing.isNotEmpty() && questionInOpenQuote
+    }
     private val metaPromptPattern = Regex(
         "角色卡|系统提示|提示词|开发者指令|\\bprompt\\b",
         RegexOption.IGNORE_CASE,

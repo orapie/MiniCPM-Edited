@@ -13,7 +13,10 @@ class CharacterJsonLoader(
     private val promptTemplateFile: File,
 ) {
     fun loadCharacter(npcId: String): CharacterCard {
+        require(npcId.isNotBlank() && npcId !in setOf(".", "..") &&
+            npcId.none { it == '/' || it == '\\' || it == '\u0000' }) { "Invalid NPC ID" }
         val file = File(charactersDir, "$npcId.json")
+        require(file.canonicalFile.parentFile == charactersDir.canonicalFile) { "NPC path escapes character root" }
         require(file.isFile) { "Unknown NPC: $npcId" }
         return parseCharacter(SimpleJsonParser(file.readText(Charsets.UTF_8)).parse().asJsonObject("character"))
     }

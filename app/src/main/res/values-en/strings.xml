@@ -28,6 +28,14 @@
     <string name="clear_chat_confirm">Clear current chat?</string>
     <string name="clear_chat_toast">Chat cleared</string>
     <string name="rag_mode">RAG Mode</string>
+    <string name="database_retrieval_pending">Knowledge retrieval could not initialize. Please restart the app.</string>
+    <string name="database_compile_failed">The current database could not prepare this answer. Check the data bundle and retry.</string>
+    <string name="history_view">View history</string>
+    <string name="history_empty">No history is available.</string>
+    <string name="history_legacy">Legacy data</string>
+    <string name="history_player">Player</string>
+    <string name="history_character">Character</string>
+    <string name="database_unavailable">The knowledge package is unavailable. Check or reinstall the data package.</string>
     <string name="rag_mode_title">RAG Mode</string>
     <string name="rag_mode_off">Off</string>
     <string name="rag_mode_rag">RAG</string>

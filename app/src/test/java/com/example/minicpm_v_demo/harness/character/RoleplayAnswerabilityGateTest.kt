@@ -24,6 +24,7 @@ class RoleplayAnswerabilityGateTest {
             RoleplayAnswerabilityGate.FUTURE_FACT_RESPONSE,
             (decision as RoleplayAnswerabilityDecision.BlockFutureFact).visibleResponse,
         )
+        assertEquals("此事我尚不清楚，不能妄言。", RoleplayAnswerabilityGate.FUTURE_FACT_RESPONSE)
     }
 
     @Test
@@ -44,5 +45,14 @@ class RoleplayAnswerabilityGateTest {
         )
 
         assertTrue(decision is RoleplayAnswerabilityDecision.Allow)
+    }
+
+    @Test fun strongerFutureMatchIsNotMaskedByWeakSharedNameMatch() {
+        val decisions = listOf(
+            KnowledgeDecision("known", KnowledgeDisposition.SELECTED, KnowledgeDecisionReason.SELECTED, 0.526),
+            KnowledgeDecision("future", KnowledgeDisposition.DROPPED, KnowledgeDecisionReason.ACQUIRED_AFTER_CUTOFF, 0.822),
+        )
+        assertTrue(RoleplayAnswerabilityGate.evaluate(decisions) is RoleplayAnswerabilityDecision.BlockFutureFact)
+        assertTrue(RoleplayAnswerabilityGate.evaluate(listOf(decisions[0], decisions[1].copy(score = 0.55))) is RoleplayAnswerabilityDecision.Allow)
     }
 }

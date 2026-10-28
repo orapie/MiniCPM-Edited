@@ -3,6 +3,7 @@ package com.example.minicpm_v_demo.harness.rag
 import com.example.minicpm_v_demo.harness.ContentFingerprint
 import com.example.minicpm_v_demo.harness.HarnessModelFamily
 import com.example.minicpm_v_demo.harness.character.CharacterPromptDebug
+import com.example.minicpm_v_demo.harness.data.database.DatabaseBundleManifest
 import com.example.minicpm_v_demo.harness.chat.RenderedChatPrompt
 import java.io.File
 import java.io.FileWriter
@@ -29,6 +30,12 @@ data class RagTurnTrace(
     val contextChars: Int,
     val external: ExternalRagTrace,
     val character: CharacterRagTrace? = null,
+    val databaseStatusCodes: List<String> = emptyList(),
+    val datasetId: String = "unavailable",
+    val datasetFingerprint: String = "unavailable",
+    val indexFingerprint: String = "unavailable",
+    val authorizedFactIds: List<String> = emptyList(),
+    val rejectedFactReasons: List<String> = emptyList(),
 ) {
     fun toLogLine(): String = buildString {
         append("RAG_TRACE")
@@ -42,6 +49,13 @@ data class RagTurnTrace(
         append(" chars=").append(renderedChars).append('/').append(systemChars).append('/').append(userChars)
         append(" external=").append(external.compact())
         character?.let { append(" character=").append(it.compact()) }
+        append(" databaseStatus=").append(databaseStatusCodes.joinToString("+"))
+        append(" dataset=").append(datasetId).append(" fingerprint=").append(datasetFingerprint)
+        append(" indexFingerprint=").append(indexFingerprint)
+        append(" candidates=").append(external.vectorCandidateIds.joinToString("+"))
+        append(" authorized=").append(authorizedFactIds.joinToString("+"))
+        append(" injected=").append(character?.selectedItemIds.orEmpty().joinToString("+"))
+        append(" rejected=").append(rejectedFactReasons.joinToString("+"))
     }
 
     /** Suitable for the existing developer prompt dialog; it contains no prompt text. */
@@ -55,6 +69,11 @@ data class RagTurnTrace(
         append("userSha: ").append(userFingerprint).append(" (chars=").append(userChars).append(")\n")
         append("renderedChars: ").append(renderedChars).append(", contextChars: ").append(contextChars).append('\n')
         append("external: ").append(external.compact()).append('\n')
+        append("databaseStatus: ").append(databaseStatusCodes.joinToString("+")).append('\n')
+        append("dataset: ").append(datasetId).append(" / ").append(datasetFingerprint).append('\n')
+        append("indexFingerprint: ").append(indexFingerprint).append('\n')
+        append("authorized: ").append(authorizedFactIds.joinToString()).append('\n')
+        append("rejected: ").append(rejectedFactReasons.joinToString()).append('\n')
         character?.let { trace ->
             append("character: ").append(trace.compact()).append('\n')
             append("selected: ").append(trace.selectedItemIds.ifEmpty { listOf("none") }.joinToString()).append('\n')
@@ -100,6 +119,13 @@ data class RagTurnTrace(
         external.appendJson(this)
         append(",\"character\":")
         character?.appendJson(this) ?: append("null")
+        append(",\"databaseStatusCodes\":")
+        jsonArray(databaseStatusCodes)
+        append(','); jsonField("datasetId", datasetId)
+        append(','); jsonField("datasetFingerprint", datasetFingerprint)
+        append(','); jsonField("indexFingerprint", indexFingerprint)
+        append(",\"authorizedFactIds\":"); jsonArray(authorizedFactIds)
+        append(",\"rejectedFactReasons\":"); jsonArray(rejectedFactReasons)
         append('}')
     }
 
@@ -115,6 +141,7 @@ data class RagTurnTrace(
             sources: List<RagSource>,
             contextDecisions: List<RagContextDecision>,
             characterDebug: CharacterPromptDebug?,
+            databaseManifest: DatabaseBundleManifest? = null,
         ): RagTurnTrace = RagTurnTrace(
             mode = mode,
             queryFingerprint = ContentFingerprint.sha256Short(userInput),
@@ -142,6 +169,14 @@ data class RagTurnTrace(
                 },
             ),
             character = characterDebug?.let(CharacterRagTrace::from),
+            databaseStatusCodes = characterDebug?.databaseCapabilities.orEmpty(),
+            datasetId = databaseManifest?.datasetId ?: "unavailable",
+            datasetFingerprint = databaseManifest?.datasetFingerprint ?: "unavailable",
+            indexFingerprint = databaseManifest?.paths?.get("vector_index")?.let { databaseManifest.files[it] } ?: "unavailable",
+            authorizedFactIds = characterDebug?.knowledgeGraphDecisions.orEmpty()
+                .filter { it.disposition.name == "SELECTED" }.map { it.claimId },
+            rejectedFactReasons = characterDebug?.knowledgeGraphDecisions.orEmpty()
+                .filter { it.disposition.name == "DROPPED" }.map { "${it.claimId}:${it.reason.name}" },
         )
     }
 }

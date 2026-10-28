@@ -13,6 +13,9 @@ data class ChatSession(
     val conversationSummary: String = "",
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
+    /** Missing fields mean legacy history, never an active database session. */
+    val datasetId: String? = null,
+    val datasetFingerprint: String? = null,
 )
 
 data class ChatTurn(

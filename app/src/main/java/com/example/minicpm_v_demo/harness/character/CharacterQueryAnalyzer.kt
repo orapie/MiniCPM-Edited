@@ -209,6 +209,7 @@ data class CharacterQueryAnalysis(
         CharacterKnowledgeSurface.STATE in requestedSurfaces -> "state"
         CharacterKnowledgeSurface.POSSESSION in requestedSurfaces -> "possession"
         CharacterKnowledgeSurface.PROFILE in requestedSurfaces -> "profile"
+        CharacterKnowledgeSurface.STORY_FACT in requestedSurfaces -> "story_fact"
         else -> "unknown"
     }
 }

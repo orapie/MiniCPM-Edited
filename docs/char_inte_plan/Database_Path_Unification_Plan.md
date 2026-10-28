@@ -1,10 +1,13 @@
 # 数据检索路径统一与旧数据源停用计划
 
 日期：2026-10-27  
-状态：计划待实施；本文依据当前仓库代码、目录与新库只读检查编写。  
-目标：项目根目录 `database/` 成为唯一可替换的知识数据源，停止从旧 `character/` 数据包、旧 Harness 角色知识和旧外部 RAG 数据库取得回答依据。
+状态：Phase 0–5 已实施；Phase 6 进行中，详见 `Database_Cleanup_Report.md`。本文现状分析保留迁移前检查快照，后续状态以阶段记录为准。
 
-本次仅新增方案文档，不迁移、删除或修改运行时代码与数据。当前工作区已经存在将 `three_body_2_character_kb/` 重命名为 `database/` 的暂存改动，实施时必须保留。
+目标：项目根目录 `database/` 成为唯一可替换的知识数据源，停止从旧 `character/` 数据包、旧 Harness 角色知识和旧外部 RAG 数据库取得回答依据；迁移完成后删除所有因本次修改而失去用途的旧文件、旧目录和死代码。
+
+初次制定计划时仅新增文档。现已完成路径/协议/校验、APK 唯一数据源打包、设备安装激活、新包检索消费者接入及会话/Memory 隔离；Android 生产检索入口只使用当前 `database` 包。匹配数据集及 fingerprint 的会话可自动恢复，旧的无标识会话仅供只读查看。旧知识目录尚未删除。既有 `database/` 的源库、角色卡与事件原始内容保持不变。
+
+补充要求（2026-10-27）：本计划包含最终删除工作，不能以“已不读取”“已排除打包”代替清理完成。删除在新链路迁移和验证后实施；本次更新计划不立即执行删除。
 
 ## 1. 当前检索路径：先纠正对现状的理解
 
@@ -121,7 +124,7 @@ database/
 - 任意 `character`、`../character`、旧目录名、旧绝对路径的自动发现/回退。
 - 为填补 V1、状态、证据或向量索引缺失而搜索旧库的逻辑。
 
-旧文件可以保留作历史材料；生产打包、安装、服务构造和请求检索都必须排除它们。禁止依赖 `novel_test` 等名字黑名单判断来源，统一用当前包身份、受控根目录与文件清单判断。
+旧数据文件不再作为仓库历史材料长期保留；完成迁移和验证后，按 Phase 6 清单删除旧目录及其全部失效文件，历史通过版本控制追溯。过渡期间生产打包、安装、服务构造和请求检索也必须排除它们。禁止依赖 `novel_test` 等名字黑名单判断来源，统一用当前包身份、受控根目录与文件清单判断。
 
 `harness` 中模型配置、通用程序模板、agent 配置可继续存在，但数据复制必须改为允许清单。模板可作为代码资源复用，不能通过模板夹带旧人物事实。会话、Memory、诊断文件仍是用户运行数据，必须按数据包隔离。
 
@@ -166,6 +169,17 @@ database/
 
 ### Phase 0：固定协议、路径入口与数据适配审计
 
+> 实施状态（2026-10-27）：已完成。新增 `DatabaseDataPaths`、`DatabaseBundleManifest`、
+> `DatabaseBundleValidator` 和 `scripts/prepare_database_bundle.py`；已生成统一入口、候选导出、
+> 授权短事实导出与兼容报告。独立核验了 3 条罗辑对话事实，原 125 条场景、229 条相关边保持候选
+> 身份，不伪装成角色知情。路径/越界链接、hash、跨包导出、原文证据和获得时间已通过针对性测试。
+> 原根 `character` 读取测试已改为新库协议与最小合成 fixture。详情见
+> `docs/char_inte_plan/Phase_0_Validation_Report.md`。
+
+Phase 0 交付时的 manifest 额外声明 `reviewed_facts` 与 `candidate_v2` 路径，`vector/v1/timed_state=false`。
+Phase 1 已补齐真实向量索引，当前 `vector=true` 并声明完整 embedding 配置；候选原文和授权事实
+仍分开导出，新导出保留 `canon/source_span_verified`，需要 Phase 3 的在线消费者适配后才能用于回答。
+
 新增 `DatabaseDataPaths.kt`、`DatabaseBundleManifest.kt`、`DatabaseBundleValidator.kt`（建议放在 `harness/data/database/`）。路径只能由根目录句柄派生；`HarnessDataPaths` 留给非知识运行数据。测试显式从仓库根 `database/` 解析，兼容 Gradle 以 `app/` 为工作目录的情况，但不能搜索其他数据目录。
 
 新增根目录 `scripts/prepare_database_bundle.py`，负责：
@@ -181,6 +195,17 @@ database/
 
 ### Phase 1：构建只从根 `database/` 生成 APK 数据包
 
+> 实施状态（2026-10-27）：已完成。新增 `prepareDatabaseBundle`、`prepareProgramAssets` 和
+> `verifyDebugDatabaseAssets` 构建任务，使用当前 AGP generated-assets API 自动关联构建依赖。
+> 向量索引含 128 条记录、384 维，Python 生成与 Kotlin 查询已做一致性验证。
+> 实际 Debug APK 校验得到 13 个当前知识文件、3 个通用资源文件，旧 `assets/harness/` 文件为 0；
+> TTS 参考音频原字节保留。已验证重复构建复用、输入变化重建、生成目录缺失重建及旧包残留清理。
+> 详细结果见 `docs/char_inte_plan/Phase_1_Validation_Report.md`。
+
+Phase 1 完成时仅完成构建打包，没有安装设备或切换在线消费者。当时旧知识资源已从 APK 排除，而旧
+`AssetBootstrapper` 尚未被 Phase 2 替换，全新安装这一中间构建的角色/RAG 初始化暂不可用；
+普通模型推理代码保持现状。下一阶段必须先完成新包安装激活，不能把打包成功当作检索切换完成。
+
 修改 `app/build.gradle.kts`：
 
 1. 注册可增量执行的 `prepareDatabaseBundle` 任务，输入是根目录 `database/` 的数据与协议文件，输出是 `app/build/generated/databaseAssets/database/`；输出不得与输入形成任务循环。
@@ -193,18 +218,40 @@ database/
 
 ### Phase 2：安装并原子激活 `<filesDir>/database/`
 
+> 实施状态（2026-10-27）：已完成。`DatabaseBundleInstaller` 将 APK 当前数据包复制到同父目录 staging，
+> 校验后以目录重命名激活；进程锁与文件锁串行化安装，并用 `.database.previous` 恢复中断的激活。
+> 同数据集损坏升级可显式返回 `RETAINED_PREVIOUS`；另一数据集安装失败不发布旧句柄。
+> `AssetBootstrapper.bootstrap()` 只复制白名单程序模板并初始化新数据包；生产工厂不再创建旧 Harness stores。
+> JVM 全量 132 项、Android 专项 14 项通过，实际启动日志显示 `three_body_2` 安装成功。
+> 详见 `docs/char_inte_plan/Phase_2_Validation_Report.md`。
+
+Phase 2 完成时的可用能力是安装与验证，不包括实际检索。当时为防止升级设备继续使用旧目录，
+`AndroidRagOrchestrator.fromContext()` 在 Phase 3 接入消费者前明确报迁移未完成；UI 阻止开启角色/RAG，
+并给出原因。OFF 普通推理后端未改动；旧会话、Memory、模型和旧知识副本不在本阶段删除。
+
 将知识安装从 `AssetBootstrapper` 中拆为 `DatabaseBundleInstaller`：
 
 1. 从 `assets/database/` 解包至同父目录 staging，校验完整文件清单、源/导出一致性、schema 与 ID 引用。
 2. 原子替换整个当前包，防止 A 包中没有的旧角色/关系文件残留；可复用现有临时目录、备份和 hash 校验思想。
 3. 校验失败保留此前同一 `dataset_id` 的已验证版本并报告状态；候选属于另一数据集时，不能悄悄继续显示旧数据集为新库。当前所选包不可用时让依赖知识的功能显式不可用。
 4. 调整 `MiniCPMApplication`/`AssetBootstrapper` 的调用顺序，初始化知识消费者前必须取得有效 bundle handle。
-5. 旧 `<filesDir>/harness/rag` 与旧角色知识目录即使物理存在，也不注册为候选目录；默认不删除用户文件，通过访问计数/测试证明从未读它们。
+5. 过渡期间旧 `<filesDir>/harness/rag` 与旧角色知识目录即使物理存在，也不注册为候选目录，通过访问计数/测试证明从未读它们。新包成功激活后，按 Phase 6 删除应用管理的旧内置数据副本；不删除会话、Memory、用户导入文件和模型。
 6. Harness 通用文件复制改为白名单，防止每次启动又恢复旧数据。
 
 **通过条件：** 新安装、覆盖升级、hash 损坏、同包升级、换数据集均有设备测试；安装后仅 `database` 根参与知识加载；模型文件、会话历史保留。
 
 ### Phase 3：检索器统一注入当前包，永久停用旧外部分支
+
+> 实施状态（2026-10-28）：已完成。生产工厂从 `DatabaseRuntime.requireBundle()` 构造当前包的向量检索器与角色编译器，
+> 删除 Phase 2 临时封锁及外部关键词路由；角色模式的向量候选经新来源政策、角色边和 cutoff 审核后参与最终事实选择。
+> 原场景、V1、旧事件/记忆 fallback 不再进入生产角色链。缺 V1、时间状态及已授权 V2 关系时有稳定能力原因码。
+> 完整角色卡仅在其声明截止点及之后使用，早期回合只保留基本身份与语气；当前包角色卡关系保留方向，按同一截止点约束。
+> 当前 8 条源 V2 关系没有可消费的授权导出，显式报告 `v2_relations_not_authorized`，不自动将它们当作角色认知。
+> JVM 全量 145 项、Android 专项 28 项及实际 APK 清单校验通过，包含新库事实注入和旧文件零 OPEN 事件。
+> 详见 `docs/char_inte_plan/Phase_3_Validation_Report.md`。
+
+Phase 3 完成时为启动入口取用 manifest 默认角色/cutoff，避免恢复旧小说 ID；持久化旧会话暂不自动恢复，
+文件未删除。同一次启动中的新对话正常积累历史与追问；Phase 4 已接入 fingerprint 隔离与兼容会话恢复。
 
 修改 `AndroidRagOrchestrator.fromContext()`：只从 `DatabaseBundleHandle` 构造 `RagSearchService` 和 `CharacterPromptCompiler`。移除生产服务对 `HarnessDataPaths.ragIndexFile` 的依赖，角色子路径也改用 `DatabaseDataPaths`。
 
@@ -229,6 +276,18 @@ database/
 
 ### Phase 4：角色选择、历史、缓存与模型上下文按数据包隔离
 
+> 实施状态（2026-10-28）：已完成本计划约定的 APK 数据包切换路径。会话和 Memory 记录数据集 ID 与 fingerprint，
+> 仅同包、同版本、合法角色/cutoff 的会话自动恢复；历史文件按包版本归档，旧无标识记录可从清空对话菜单只读查看。
+> 追问和可用于 prompt 的 Memory 强制校验包与角色；旧 consumer 在包变化后拒绝继续编译或列出角色。
+> 每个回合与重试通过 lease 固定数据包；角色切换和清空对话先取消并等待生成，随后清空 native context。
+> 数据包运行时不允许在有回合 lease 时激活，绑定变化后在下一回合前重建消费者并清理上下文。
+> 默认 Logcat 只输出内容无关的数据集/索引 hash、候选与授权/注入 ID 和原因码；原始 prompt 输出须显式开启调试偏好。
+> JVM 全量 152 项及 Android 专项 36 项通过。具体范围和限制见 `docs/char_inte_plan/Phase_4_Validation_Report.md`。
+
+本期仍不提供设备内数据库导入或运行中热换库 UI；替换仓库根 `database/`、重新构建 APK 是实际换库入口。
+切换请求在活动回合期间被拒绝，调用方必须先取消并等待当前回合结束，再重试激活。模型模板与会话模型 ID 切换已测试；
+本阶段未在两种实体模型上运行原生生成回归，该设备验收留待 Phase 5。
+
 重点修改 `MainActivity.kt`、`ConversationSession.kt`、`ChatSessionStore.kt`、`MemoryStore.kt`、`MemoryPromptSelector.kt`、`CharacterFollowUpResolver.kt`：
 
 1. 默认角色取 manifest 中的有效 ID；切换角色使用新卡的有效 cutoff，取消生产路径中的旧小说 ID 兜底。
@@ -242,6 +301,13 @@ database/
 **通过条件：** A→B 切库、同名角色/事件、同数据集换版本、旧会话恢复、连续追问和重试均不会复用其他包内容；模型切换只换推理后端，数据包路径仍固定。
 
 ### Phase 5：验收、文档与交付
+
+> 实施状态（2026-10-28）：构造与验收已完成。更新根 README、`docs/RAG_Logic.md` 与数据库说明；
+> 覆盖 APK 清单、旧库零访问、数据包安装、角色/cutoff 授权、会话隔离和真实设备 prompt 证据。
+> 设备验收发现并修复共名弱匹配掩盖未来事实、第三人来历借用自身资料、未引用反问，以及 JNI 原文日志问题。
+> 输出质量样本仍存在元叙述与含糊回答，详见 `docs/char_inte_plan/Phase_5_Validation_Report.md` 和
+> `docs/char_inte_plan/Phase_5_Device_Evidence.md`；检索通过不代表模型质量完全达标。
+> 按用户最新要求，不将检查其他模型是否可用作为本阶段交付前置。
 
 自动化验收必须同时覆盖“新库可用”和“旧库禁止读取”：
 
@@ -257,11 +323,92 @@ database/
 | 会话/追问 | 不同包同 claim/event ID 不可互用，旧 memory/summary 不进新回合 |
 | 错误处理 | 缺索引/缺导出/缺角色/缺 capability 明确提示，无旧库回退 |
 
-`CharacterKnowledgeContractValidatorTest` 当前直接读取根 `character` 的部分，应改为校验根 `database` 的新协议；旧 V1/V2 单元样本可成为明确的测试 fixture，但不能再作为生产默认数据源或隐式兼容目录。
+`CharacterKnowledgeContractValidatorTest` 当前直接读取根 `character` 的部分，应改为校验根 `database` 的新协议。需要验证 V1/V2 通用规则时，使用测试内构造的最小数据或独立的最小合成 fixture；不把完整旧小说数据包复制到测试目录以绕过删除要求。
 
-设备端安装应用后执行：罗辑身份/来历、史强与罗辑关系、一个具体历史事件及同一事实前后 cutoff、代词追问、无资料问题、模型切换、旧库诱饵问题。至少在一个已安装可用模型上跑实测，分别保存检索证据与回答质量结果。JVM/APK 检查不能代替设备输出；其他模型未跑时如实注明。
+设备端安装应用后执行：罗辑身份/来历、史强与罗辑关系、一个具体历史事件及同一事实前后 cutoff、代词追问、无资料问题和旧库诱饵问题。已在一个可用模型上保存检索证据与回答质量结果。根据用户最新要求，无需检查其他模型可用性；JVM/APK 检查仍不能代替已执行的设备输出。
 
-更新 `README.md`、`docs/RAG_Logic.md`、`database/README.md` 与旧图谱接入文档：明确根 `database/` 是唯一输入，generated assets 不手工编辑，`character/` 不再参与活跃数据流程，旧外部资料永久停用。
+更新 `README.md`、`docs/RAG_Logic.md`、`database/README.md`：明确根 `database/` 是唯一输入，generated assets 不手工编辑，根 `character/` 在完成工具与说明迁移后删除，旧外部资料永久停用。旧图谱接入文档中的仍有效约束合并到当前文档后删除旧文档，并同步修复链接。
+
+### Phase 6：删除迁移后无用的文件、目录与代码
+
+**目的：** 最终仓库只保留当前数据源和仍被实际使用的功能；旧资源不能以备用库、历史拷贝、空壳接口、测试整包等形式继续存在。
+
+下表路径均相对仓库根目录。“迁移后删除”表示先完成列出的替代工作，再删除源路径；实现者不得仅在计划里标记停用而把文件留到交付后。表内 `**` 表示清单范围，实际删除必须解析为确定的文件路径。
+
+#### 6.1 已确定的删除范围
+
+| 删除路径 | 删除原因 | 删除前必须完成 |
+| --- | --- | --- |
+| `character/character_kb_agent_bundle/` 全部文件 | 旧 V1 数据、旧 Python 读取器、重复小说原文和旧接入说明已被统一数据包替代 | 新库关系/事实适配完成，必要通用校验迁移，旧目录读取测试改写 |
+| `character/character_kb_v2_agent_bundle/` 全部文件 | 旧 V2 SQLite、manifest、重复小说原文、旧 Python 读取器与新库无关 | 新库导出与校验通过，不再从该目录取输入 |
+| `character/export_v2_knowledge_fallback.py` | 导出职责迁至 `scripts/prepare_database_bundle.py` 或其通用模块，旧入口重复 | 新工具可完成导出；构建、README、测试命令全部更新；不保留转发旧入口 |
+| `character/CHARACTER_RAG_QUERY_ROUTING_PLAN.md` | 旧数据路径与外部资料路由方案被当前计划替代 | 仍有效的意图/授权约束纳入当前实现文档；删除旧链接 |
+| `character/CHARACTER_KNOWLEDGE_GRAPH_INTEGRATION_PLAN.md` | 依赖旧 V1/V2 bundle 位置的实施文档已失效 | 通用数据协议、认知过滤和设备验证结论已转入当前文档；删除旧链接 |
+| 根 `character/` 剩余 `.DS_Store` 等文件及空目录 | 上述迁移后该根目录不再有用途 | 核对完整清单；仍有未迁移的有效文件须先处理，完成后移除整个旧目录 |
+| `app/src/main/assets/harness/rag/` 全部文件 | 旧外部向量索引、文档清单、`documents/novel_test` 等文档被当前数据库索引替代 | 新库向量产物与 RAG 测试通过；旧索引不再被服务加载 |
+| `app/src/main/assets/harness/characters/characters/` 全部文件 | 旧六角色卡，与当前 `database/characters/` 重复角色数据入口 | 默认角色、UI 列表、会话恢复和角色编译改为当前包 |
+| `app/src/main/assets/harness/characters/story/` 全部文件 | 旧小说事件和说明不再用于回退 | 新包事件与 fallback 权限验证完成 |
+| `app/src/main/assets/harness/characters/state/` 全部文件 | 旧人物状态只能用于旧库，禁止给新人物补全 | 状态从新包 capability 读取，缺失情况有明确结果 |
+| `app/src/main/assets/harness/characters/knowledge/` 全部文件 | 旧 V1/V2、旧 JSON 导出及 manifest 均为重复来源 | 新包 stores、installer、hash 校验和损坏处理完成 |
+| `app/src/main/assets/harness/roles/xuan_an.json` | 旧玄谙专用角色预设，迁移后无当前数据集用途 | 删除/替换所有引用该 ID 的旧配置或样例 |
+| `app/src/main/assets/harness/agent/scenarios.json`、`ab_cases.json`、`multiturn_cases.json` | 内容绑定旧角色与旧剧情的评测输入 | 有效评测场景迁至当前新库的评测文件；若没有消费者则直接删除 |
+| `app/src/main/assets/harness/fixtures/showcase_questions.json` | 旧数据集演示问题，不再对应当前角色库 | 有演示入口则生成新库问题并更新入口，否则删除引用 |
+
+旧外部数据源中的“世界杯”等记录即使只存在于旧 `index.json` 中，也随整份旧索引一起删除。不能只删文档而遗留仍含正文和向量的索引文件。
+
+#### 6.2 迁移用途后删除旧副本的资源
+
+| 当前路径 | 处理要求 |
+| --- | --- |
+| `app/src/main/assets/harness/characters/prompts/roleplay_system.prompt` | 仍被角色编译器使用。迁至独立程序模板目录（建议 `app/src/main/assets/prompts/roleplay_system.prompt`），更新 loader 与测试，再删除旧副本；只维护一个模板源 |
+| `app/src/main/assets/harness/characters/prompts/character_extraction.prompt` 及该目录 `README.md` | 当前 Android 代码未检索到提取模板消费者；完成构建/工具引用核对后，无消费者则删除；若提取工具仍使用则迁至该工具的模板目录后删旧副本 |
+| `app/src/main/assets/harness/characters/schemas/` | 新库已有 npc/story schema；以实际解析契约校验后统一。通用时间状态 schema 如仍需使用则迁至独立程序 schema 目录，重复与无消费者文件删除 |
+| `app/src/main/assets/harness/manifest.json` | 删除旧路径、旧人物默认值、旧数据统计。若模型/通用配置仍消费它，则保留精简版本；若全部职责由新包 manifest 与模型注册表接管，则删除整文件 |
+| `app/src/main/assets/harness/roles/default.json` | 核对所有消费者；有实际通用资料助理用途则保留，否则删除。不能仅因位于旧资源树就误删仍使用的功能 |
+| 旧 Harness 数据目录附带 README、空 `agent/fixtures/roles/characters/` 目录 | 内容过时且无用途的文件全部删除；目录迁空后移除；根 `harness/` 是否仍保留由剩余通用配置决定 |
+
+这里的最终要求是删除**失去用途**的文件，不是为了删除旧目录而删掉仍在执行的模板、通用 schema 或模型配置。必要资源迁移完成后，旧路径不留兼容副本。
+
+#### 6.3 死代码与被替代的测试清理
+
+需要按迁移后实际引用关系处理以下代码，不能仅凭类名包含 `character` 或 `rag` 删除：
+
+| 位置 | 删除/重构要求 |
+| --- | --- |
+| `AndroidRagOrchestrator.kt` 中 `CharacterQueryRouter`、外部关键词、`novel_test` 黑名单及外部路由专用分支 | 新包检索接管后删除这些声明和分支，并删除已无调用的常量/参数 |
+| `HarnessDataPaths.kt` 的 `ragDir`、`ragIndexFile`、旧角色卡/状态/知识路径属性 | 消费者迁至 `DatabaseDataPaths` 后删除旧属性；通用会话、Memory、settings、diagnostics 属性继续使用 |
+| `HarnessDataPaths.kt` 的 `harnessAssetsDir()` 及测试中的同类旧目录定位器 | 改为当前数据库或合成 fixture 的显式入口后删除旧定位函数；不再保留旧路径探测 |
+| `AssetBootstrapper.kt` 的旧 `KnowledgeBundleSpec`、V1/V2 `knowledgeBundles`、旧知识根常量及专用安装分支 | 可复用的校验/原子安装能力迁至新 installer 后，删除重复旧实现。若类最终无通用职责则删除整个文件并更新调用方 |
+| `CharacterKnowledgeContractValidator.kt` | 被新 bundle validator 完全替代且无消费者时删除整文件；仍使用的通用校验先迁移，不保留两套失同步校验 |
+| `V1ClaimKnowledgeStore.kt` / `V1GraphKnowledgeStore.kt` | 若最终不再支持 V1 且所有当前/受支持包均不使用，删除 store 及专用模型/分支；若仍是新包适配器的实际依赖则保留并统一路径，不把“当前 V1 capability=false”等同于永久无用 |
+| `V2SqliteCapabilityProbe.kt` | 若新实现继续做 Android FTS 能力诊断则保留并读取新包；若已不再调用且测试也无独立兼容验证价值则连同专用测试删除 |
+| JVM `CharacterKnowledgeContractValidatorTest.kt`、`AssetBootstrapperKnowledgeBundleTest.kt` 及检索测试中的旧整包路径 | 迁移有效断言到新 validator/installer 测试，保留授权、hash、时间、零旧库访问等覆盖；删除被替代的旧文件和 helper |
+| Android `CharacterGraphNativeInferenceTest.kt`、`CharacterProfileNativeInferenceTest.kt`、`CharacterRoleplayRegressionTest.kt`、`CharacterGraphRuntimeAcceptanceTest.kt`、`V2SqliteCapabilityProbeTest.kt` | 将有效场景改为新数据包或可复用参数；新测试完整替代旧小说专用测试后删除旧文件；通用且仍有价值的设备测试继续保留 |
+
+`VectorIndex`、`RagSearchService`、角色编译器、模型后端、输出 guard、重试协调器等仍服务新链路的代码继续保留。清理仅限本次迁移造成的失效代码，不扩展到无关功能重构。
+
+#### 6.4 设备端旧安装副本与生成目录
+
+新包成功激活并校验后，由一次性迁移步骤清理下列**应用管理的旧内置副本**：
+
+- `<filesDir>/harness/rag/`。
+- `<filesDir>/harness/characters/{characters,story,state,knowledge}/`。
+- 旧 `prompts/`、`schemas/`、角色预设、fixtures 等已由新 APK 管理位置替代的副本，以及对应失效安装标记。
+
+清理必须依据旧版本内置文件的路径/清单与身份确认。检测到用户自行修改、导入或归属不明的文件时，隔离保留并禁用读取，不把整段用户目录当作缓存删除。`<filesDir>/harness/sessions/`、`memory/`、模型目录和当前 `<filesDir>/database/` 不属于删除范围。未激活有效新库时不执行旧内置副本删除。
+
+构建输出用受控 Sync/整包替换消除上一个数据包残留，只清理由任务管理的 `app/build/generated/databaseAssets/`。正常构建会再生成的当前 APK/索引不是无用源文件；不执行全项目递归清理。
+
+#### 6.5 清理流程与完成证据
+
+1. 迁移期间维护明确的删除记录（建议 `docs/char_inte_plan/Database_Cleanup_Report.md`），列出实际路径、原因、替代路径、引用检查和最终删除状态；目录范围展开为文件级清单。
+2. 用全仓库引用检查覆盖 Kotlin、Gradle、脚本、测试、资源 JSON、manifest、README 与文档链接；路径字符串搜索之外还要检查资源打包与依赖注入。零文本命中不单独作为无用判据。
+3. 完成新链路正向检索和旧库零访问测试；移植有效测试断言。故障诱饵在测试临时目录生成，不依赖仓库永久保留旧数据。
+4. 按确定的文件清单删除，不使用针对工作区根目录的宽泛递归命令；已纳入版本控制的历史通过 Git 恢复，不新增 `legacy/`、`backup/` 整包副本。
+5. 删除后重新运行相关单元测试、APK 构建和设备验收，检查 APK 中旧资源不存在、文档无失效链接、生产代码无旧路径 fallback。旧名称可出现在本计划/删除报告、拒绝旧路径的负向测试中，但不得作为可加载数据源。
+6. 清理报告中不能遗留“准备删除但暂留”的无用文件。确有用途的文件必须记录具体消费者、保留原因和最终路径；处理完所有项后才能宣布计划完成。
+
+**通过条件：** 根 `character/` 已移除；旧外部数据、旧角色数据和重复工具已从源码树与 APK 删除；迁移产生的死代码与被替代测试完成清理；当前模型、通用推理能力与新数据库检索回归通过。
 
 ## 6. 文件级实施清单
 
@@ -280,10 +427,11 @@ database/
 | `CharacterRagPromptBuilder.kt` / `RagTurnTrace.kt` | 证据来源与信任分层、数据包溯源，不再注入旧外部资料 |
 | `MainActivity.kt` / session / memory / follow-up | 新包默认角色、旧会话隔离、切包后重新构建服务与上下文 |
 | JVM / Android tests | 路径隔离、旧库零访问、新库证据贯通和切包回归 |
+| Phase 6 删除范围与 `Database_Cleanup_Report.md` | 迁移完成后实际删除所有失效资源、旧工具、死代码和被替代测试，提供文件级清理结果 |
 
 ## 7. 推荐实施顺序与完成定义
 
-顺序固定为：**协议与新库语义核验 → 生成/打包 → 原子安装 → 消费者切换及旧外部入口移除 → 会话/缓存隔离 → 设备验收**。
+顺序固定为：**协议与新库语义核验 → 生成/打包 → 原子安装 → 消费者切换及旧外部入口移除 → 会话/缓存隔离 → 初次设备验收 → 删除无用文件与死代码 → 删除后回归验收**。
 
 第一阶段交付应是可运行的校验/适配工具、入口 manifest 和路径协议；不能仅把旧路径字符串替换为 `database` 就宣布完成。整体完成必须满足：
 
@@ -294,6 +442,10 @@ database/
 - [ ] 新数据事实实际通过授权与预算进入 prompt；全部被过滤或全部超预算不算迁移成功。
 - [ ] 新库角色/状态/关系/剧情保持时点和知情边界，没有借用旧角色补齐。
 - [ ] 旧会话、Memory、follow-up、缓存与 native context 不会污染新数据集。
-- [ ] 自动化与至少一个真实模型的设备验收有结果；未覆盖模型明确列为待验收。
+- [x] 自动化与现有设备模型的验收有结果；按用户要求，其他模型可用性不作为交付条件。
+- [ ] 根 `character/`、旧 Harness 外部库、旧角色数据、重复工具与失效文档已按清单删除，未复制到备用目录长期保留。
+- [ ] 被新实现替代后无用途的 Kotlin 声明、安装逻辑、测试文件与 helper 已删除，有效测试覆盖已迁移。
+- [ ] 已确认归属的设备旧内置副本完成清理；模型、用户会话/Memory 与当前数据包完整保留。
+- [ ] 文件级清理报告闭环，删除后的构建、检索、角色生成与链接检查通过。
 
 本次旧库停用是持续约束。回滚只允许恢复同一 `dataset_id` 的已验证数据包或暂停依赖知识的功能，不允许重新启用 `character/` / `harness/rag` 以填补错误。

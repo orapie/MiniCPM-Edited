@@ -1,6 +1,5 @@
 package com.example.minicpm_v_demo.harness.character
 
-import com.example.minicpm_v_demo.harness.data.harnessAssetsDir
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -10,17 +9,14 @@ import java.nio.file.Files
 
 class CharacterStateLoaderTest {
     @Test
-    fun bundledStateIsUnavailableBeforeItsValidFromAndNeverTurnsNotCarriedIntoCarried() {
-        val root = harnessAssetsDir()
-        val loader = CharacterStateLoader(
-            stateDir = File(root, "characters/state"),
-            events = characterLoader().loadEvents(),
-        )
-
-        assertNull(loader.currentState("lu_jiangxian", "evt-010"))
-        val state = requireNotNull(loader.currentState("lu_jiangxian", "evt-018"))
-        assertEquals("lu-evt-018-after-door-decision", state.stateId)
-        assertEquals(PossessionStatus.NOT_CARRIED, state.possessions.single().status)
+    fun stateRespectsStartAndDoesNotTreatHistoricalItemAsCarried() {
+        val directory = Files.createTempDirectory("character-state").toFile()
+        try {
+            File(directory, "lu_jiangxian.json").writeText("""{"schema_version":"1.0","character_id":"lu_jiangxian","states":[{"state_id":"test","valid_from":"evt-018","valid_to":null,"scene":"甲","quest_state":"乙","current_goal":"丙","evidence_refs":["fixture:L1"],"possessions":[{"item_id":"item","name":"旧物","status":"not_carried","description":"已放下","keywords":["旧物"],"evidence_refs":["fixture:L2"]}]}]}""")
+            val loader = CharacterStateLoader(directory, events())
+            assertNull(loader.currentState("lu_jiangxian", "evt-010"))
+            assertEquals(PossessionStatus.NOT_CARRIED, loader.currentState("lu_jiangxian", "evt-018")!!.possessions.single().status)
+        } finally { directory.deleteRecursively() }
     }
 
     @Test
@@ -28,7 +24,7 @@ class CharacterStateLoaderTest {
         val directory = Files.createTempDirectory("overlapping-character-state").toFile()
         try {
             File(directory, "lu_jiangxian.json").writeText(overlappingFixture(), Charsets.UTF_8)
-            val loader = CharacterStateLoader(directory, characterLoader().loadEvents())
+            val loader = CharacterStateLoader(directory, events())
 
             assertTrue(runCatching { loader.currentState("lu_jiangxian", "evt-018") }.isFailure)
         } finally {
@@ -43,7 +39,7 @@ class CharacterStateLoaderTest {
             File(directory, "unknown_npc.json").writeText(singleStateFixture("unknown_npc"), Charsets.UTF_8)
             val loader = CharacterStateLoader(
                 stateDir = directory,
-                events = characterLoader().loadEvents(),
+                events = events(),
                 knownCharacterIds = setOf("lu_jiangxian"),
             )
 
@@ -53,13 +49,8 @@ class CharacterStateLoaderTest {
         }
     }
 
-    private fun characterLoader(): CharacterJsonLoader {
-        val root = harnessAssetsDir()
-        return CharacterJsonLoader(
-            charactersDir = File(root, "characters/characters"),
-            storyEventsFile = File(root, "characters/story/story_events.jsonl"),
-            promptTemplateFile = File(root, "characters/prompts/roleplay_system.prompt"),
-        )
+    private fun events() = listOf("evt-010", "evt-018").mapIndexed { index, id ->
+        StoryEvent(id, index, "synthetic", 1.0, 1.0, emptySet(), emptyList(), emptyMap())
     }
 
     private fun overlappingFixture(): String = """

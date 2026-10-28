@@ -1,7 +1,86 @@
 import java.util.Properties
+import javax.inject.Inject
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.FileSystemOperations
+import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.provider.Property
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputDirectory
+import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.OutputDirectory
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
+import org.gradle.api.tasks.TaskAction
+import org.gradle.process.ExecOperations
 
 plugins {
     alias(libs.plugins.android.application)
+}
+
+abstract class PrepareDatabaseBundleTask @Inject constructor(
+    private val execOperations: ExecOperations,
+) : DefaultTask() {
+    @get:InputDirectory
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val sourceDirectory: DirectoryProperty
+
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val preparationScript: RegularFileProperty
+
+    @get:Input
+    abstract val pythonExecutable: Property<String>
+
+    @get:OutputDirectory
+    abstract val outputDirectory: DirectoryProperty
+
+    @TaskAction
+    fun prepare() {
+        execOperations.exec {
+            commandLine(pythonExecutable.get(), preparationScript.get().asFile.absolutePath,
+                "--source", sourceDirectory.get().asFile.absolutePath,
+                "--output-assets", outputDirectory.get().asFile.absolutePath)
+        }
+    }
+}
+
+val prepareDatabaseBundle = tasks.register<PrepareDatabaseBundleTask>("prepareDatabaseBundle") {
+    group = "database"
+    description = "Validate the root database bundle and stage only its controlled APK assets"
+    sourceDirectory.set(rootProject.layout.projectDirectory.dir("database"))
+    preparationScript.set(rootProject.layout.projectDirectory.file("scripts/prepare_database_bundle.py"))
+    pythonExecutable.set(providers.gradleProperty("databasePython").orElse("python3"))
+    outputDirectory.set(layout.buildDirectory.dir("generated/databaseAssets"))
+}
+
+abstract class PrepareProgramAssetsTask @Inject constructor(
+    private val fileSystemOperations: FileSystemOperations,
+) : DefaultTask() {
+    @get:InputDirectory
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val referenceAudios: DirectoryProperty
+
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val roleplayTemplate: RegularFileProperty
+
+    @get:OutputDirectory
+    abstract val outputDirectory: DirectoryProperty
+
+    @TaskAction
+    fun prepare() {
+        fileSystemOperations.sync {
+            into(outputDirectory)
+            from(referenceAudios) { into("ref_audios") }
+            from(roleplayTemplate) { into("prompts") }
+        }
+    }
+}
+
+val prepareProgramAssets = tasks.register<PrepareProgramAssetsTask>("prepareProgramAssets") {
+    referenceAudios.set(layout.projectDirectory.dir("src/main/assets/ref_audios"))
+    roleplayTemplate.set(layout.projectDirectory.file("src/main/assets/prompts/roleplay_system.prompt"))
+    outputDirectory.set(layout.buildDirectory.dir("generated/programAssets"))
 }
 
 val localProperties = Properties().apply {
@@ -111,6 +190,10 @@ android {
         viewBinding = true
     }
 
+    sourceSets.getByName("main").assets.directories.clear()
+    sourceSets.getByName("test").kotlin.directories.add("src/sharedTest/java")
+    sourceSets.getByName("androidTest").kotlin.directories.add("src/sharedTest/java")
+
     androidResources {
         noCompress.add("gguf")
         noCompress.add("bin")
@@ -118,6 +201,23 @@ android {
         // filesDir before Android SQLite opens it read-only.
         noCompress.add("sqlite3")
     }
+}
+
+androidComponents.onVariants { variant ->
+    variant.sources.assets?.addGeneratedSourceDirectory(prepareDatabaseBundle, PrepareDatabaseBundleTask::outputDirectory)
+    variant.sources.assets?.addGeneratedSourceDirectory(prepareProgramAssets, PrepareProgramAssetsTask::outputDirectory)
+}
+
+tasks.register<Exec>("verifyDebugDatabaseAssets") {
+    group = "verification"
+    description = "Verify the final Debug APK contains only the current database and approved program assets"
+    dependsOn("assembleDebug")
+    commandLine(providers.gradleProperty("databasePython").orElse("python3").get(),
+        rootProject.file("scripts/verify_database_apk.py").absolutePath,
+        "--apk", layout.buildDirectory.file("outputs/apk/debug/app-debug.apk").get().asFile.absolutePath,
+        "--source", rootProject.file("database").absolutePath,
+        "--program-source", file("src/main/assets").absolutePath,
+        "--report", layout.buildDirectory.file("reports/database/apk_inventory.json").get().asFile.absolutePath)
 }
 
 dependencies {

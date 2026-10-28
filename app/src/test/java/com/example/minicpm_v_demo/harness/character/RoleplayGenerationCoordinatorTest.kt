@@ -8,6 +8,14 @@ import org.junit.Test
 class RoleplayGenerationCoordinatorTest {
     private val coordinator = RoleplayGenerationCoordinator()
 
+    @Test fun repeatedUnsolicitedQuestionsNeverBecomeVisibleOrPersisted() {
+        val text = "我想寻找答案，哪里最合适？"
+        assertTrue(coordinator.resolve(0, text, "罗辑", "你最想去哪里？") is RoleplayGenerationAction.Retry)
+        val fallback = coordinator.resolve(1, text, "罗辑", "你最想去哪里？") as RoleplayGenerationAction.Fallback
+        assertEquals(RoleplayGenerationCoordinator.DEFAULT_SAFE_FALLBACK, fallback.visibleText)
+        assertTrue(fallback.ruleIds.contains("unsolicited_question"))
+    }
+
     @Test
     fun safeOutputIsDeliveredAndMayBePersisted() {
         val action = coordinator.resolve(

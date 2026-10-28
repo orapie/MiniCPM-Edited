@@ -12,7 +12,8 @@ import com.example.minicpm_v_demo.harness.character.knowledge.V1RelationshipQuer
 import com.example.minicpm_v_demo.harness.character.knowledge.V2EpistemicKnowledgeStore
 import com.example.minicpm_v_demo.harness.character.knowledge.V2KnowledgeFact
 import com.example.minicpm_v_demo.harness.character.knowledge.V2KnowledgeQuery
-import com.example.minicpm_v_demo.harness.data.HarnessDataPaths
+import com.example.minicpm_v_demo.harness.data.database.DatabaseBundleHandle
+import com.example.minicpm_v_demo.harness.data.database.DatabaseCharacterCardAdapter
 import com.example.minicpm_v_demo.harness.rag.RagPromptSnapshot
 import com.example.minicpm_v_demo.harness.rag.RagPromptStage
 import com.example.minicpm_v_demo.harness.rag.RagPromptStageLog
@@ -28,6 +29,7 @@ class CharacterPromptCompiler(
     private val stateLoader: CharacterStateLoader? = null,
     private val queryAnalyzer: CharacterQueryAnalyzer = CharacterQueryAnalyzer(),
     private val profileStore: CharacterProfileStore = CharacterProfileStore(),
+    private val databaseBundle: DatabaseBundleHandle? = null,
 ) {
     private val events: List<StoryEvent> by lazy { loader.loadEvents() }
     private val eventsById: Map<String, StoryEvent> by lazy { events.associateBy { it.eventId } }
@@ -52,21 +54,25 @@ class CharacterPromptCompiler(
         require(runtimeContext.stateMaxChars >= 0) { "stateMaxChars must not be negative" }
         require(runtimeContext.possessionTopK >= 0) { "possessionTopK must not be negative" }
         require(runtimeContext.possessionMaxChars >= 0) { "possessionMaxChars must not be negative" }
-        val npc = loader.loadCharacter(npcId)
-        val cutoff = runtimeContext.storyCutoff ?: npc.knowledgeScope.storyCutoff
+        val loadedNpc = loader.loadCharacter(npcId)
+        val cutoff = runtimeContext.storyCutoff ?: loadedNpc.knowledgeScope.storyCutoff
+        val npc = databaseBundle?.let { DatabaseCharacterCardAdapter(it.validated).atCutoff(loadedNpc, cutoff) } ?: loadedNpc
         require(eventsById.containsKey(cutoff)) { "unknown story cutoff: $cutoff" }
         val followUpTarget = runtimeContext.followUpTarget
         val queryPlan = planKnowledgeQuery(userInput, runtimeContext, followUpTarget)
-        val graphRetrieval = if (queryPlan.retrieveFacts && runtimeContext.knowledgeGraphEnabled && v2KnowledgeStore != null) {
+        val graphRetrieval = if (queryPlan.retrieveFacts && (runtimeContext.knowledgeGraphEnabled || databaseBundle != null) && v2KnowledgeStore != null) {
             if (followUpTarget?.kind == "authorized_story_facts") {
                 v2KnowledgeStore.retrieveByClaimIdSafely(npc.npcId, followUpTarget.id, cutoff)
             } else {
                 v2KnowledgeStore.retrieveSafely(
                     V2KnowledgeQuery(
                         characterId = npc.npcId,
-                        query = userInput,
+                        query = if (databaseBundle != null && CharacterQueryIntent.ORIGIN in queryPlan.analysis.intents &&
+                            CharacterQuestionSubject.isSelfOrigin(userInput))
+                            "$userInput 经历 背景 职业 专业 过去" else userInput,
                         storyCutoff = cutoff,
                         limit = queryPlan.factLimit,
+                        candidateScores = runtimeContext.vectorCandidateScores,
                     ),
                 )
             }
@@ -117,7 +123,7 @@ class CharacterPromptCompiler(
         // Old events are a fallback only.  Do not pay their retrieval and memory
         // cost when V2 already supplied authorized story facts or when a query is
         // intentionally handled by identity/relationship context alone.
-        val useLegacyStoryFallback = queryPlan.retrieveFacts && graphFacts.isEmpty() && v1ClaimFacts.isEmpty()
+        val useLegacyStoryFallback = databaseBundle == null && queryPlan.retrieveFacts && graphFacts.isEmpty() && v1ClaimFacts.isEmpty()
         val candidates = if (useLegacyStoryFallback) {
             val directEvent = followUpTarget
                 ?.takeIf { it.kind == "authorized_story_facts" }
@@ -163,7 +169,7 @@ class CharacterPromptCompiler(
         } else {
             null
         }
-        val dynamicState = runtimeContext.dynamicState ?: npc.dynamicState
+        val dynamicState = if (databaseBundle != null) npc.dynamicState else runtimeContext.dynamicState ?: npc.dynamicState
         val timedState = stateLoader?.currentState(npcId, cutoff)
 
         val mandatoryBase = linkedMapOf(
@@ -578,6 +584,10 @@ class CharacterPromptCompiler(
                 basePromptFingerprint = basePromptFingerprint,
                 dynamicEvidenceFingerprint = dynamicEvidenceFingerprint,
                 selectedItemsFingerprint = selectedItemsFingerprint,
+                databaseCapabilities = if (databaseBundle == null) emptyList() else listOf(
+                    "v1_unsupported", "timed_state_unsupported", "v2_relations_not_authorized",
+                    "legacy_fallback_disabled", "profile_scoped_to_card_cutoff",
+                ),
             ),
             stageLogs = stageLogs,
         )
@@ -726,6 +736,9 @@ class CharacterPromptCompiler(
     }
 
     private fun compileDynamicState(state: DynamicState): String {
+        if (databaseBundle != null && !databaseBundle.manifest.supports("timed_state")) {
+            return "处境与情绪尚不明确。"
+        }
         val emotion = state.emotion
         return "你此刻${emotion.label}。"
     }
@@ -901,9 +914,11 @@ class CharacterPromptCompiler(
         )
         val retrieveState = analysis.requests(CharacterKnowledgeSurface.STATE)
         val retrievePossessions = analysis.requests(CharacterKnowledgeSurface.POSSESSION)
-        val retrieveProfile = !analysis.isGreeting && analysis.requests(CharacterKnowledgeSurface.PROFILE)
+        val thirdPartyOrigin = databaseBundle != null && CharacterQueryIntent.ORIGIN in analysis.intents &&
+            !CharacterQuestionSubject.isSelfOrigin(userInput)
+        val retrieveProfile = !analysis.isGreeting && !thirdPartyOrigin && analysis.requests(CharacterKnowledgeSurface.PROFILE)
         val retrieveRelations = analysis.requests(CharacterKnowledgeSurface.RELATIONSHIP)
-        val retrieveFacts = analysis.requests(CharacterKnowledgeSurface.STORY_FACT)
+        val retrieveFacts = analysis.requests(CharacterKnowledgeSurface.STORY_FACT) || (databaseBundle != null && !analysis.isGreeting)
         val explicitRelationship = retrieveRelations && analysis.hasNamedTarget
         return KnowledgeQueryPlan(
             intent = analysis.stableIntentLabel(),
@@ -969,6 +984,16 @@ class CharacterPromptCompiler(
     )
 
     companion object {
+        fun fromBundle(bundle: DatabaseBundleHandle, promptTemplate: java.io.File): CharacterPromptCompiler {
+            fun path(key: String) = bundle.paths.resolve(bundle.manifest.paths.getValue(key))
+            require(bundle.manifest.supports("v2")) { "database_v2_unsupported" }
+            return CharacterPromptCompiler(
+                loader = CharacterJsonLoader(path("characters"), path("story_events"), promptTemplate),
+                v2KnowledgeStore = V2EpistemicKnowledgeStore(path("runtime_v2"), path("v2_database"), bundle.validated),
+                databaseBundle = bundle,
+            )
+        }
+
         /** Minimum protected slice for prompt evidence when the Android cap is 900 characters. */
         private const val DYNAMIC_EVIDENCE_RESERVE_CHARS = 220
         private val KnowledgeLeadIns = mapOf(
@@ -982,32 +1007,5 @@ class CharacterPromptCompiler(
                 .joinToString("；") { it.take(itemChars) }
                 .ifBlank { "无" }
 
-        fun fromPaths(paths: HarnessDataPaths): CharacterPromptCompiler {
-            val loader = CharacterJsonLoader(
-                charactersDir = paths.charactersDir,
-                storyEventsFile = paths.storyEventsFile,
-                promptTemplateFile = java.io.File(paths.promptsDir, "roleplay_system.prompt"),
-            )
-            return CharacterPromptCompiler(
-                loader = loader,
-                v2KnowledgeStore = V2EpistemicKnowledgeStore(
-                    fallbackFile = paths.v2CharacterKnowledgeFallbackFile,
-                    sourceDatabaseFile = paths.v2CharacterKnowledgeDatabaseFile,
-                ),
-                v1KnowledgeStore = V1GraphKnowledgeStore(
-                    manifestFile = paths.v1CharacterKnowledgeManifestFile,
-                    relationsFile = java.io.File(paths.v1CharacterKnowledgeDir, "relations.jsonl"),
-                ),
-                v1ClaimKnowledgeStore = V1ClaimKnowledgeStore(
-                    manifestFile = paths.v1CharacterKnowledgeManifestFile,
-                    claimsFile = java.io.File(paths.v1CharacterKnowledgeDir, "claims.jsonl"),
-                ),
-                stateLoader = CharacterStateLoader(
-                    stateDir = paths.characterStateDir,
-                    events = loader.loadEvents(),
-                    knownCharacterIds = loader.listCharacters().map(CharacterCard::npcId).toSet(),
-                ),
-            )
-        }
     }
 }

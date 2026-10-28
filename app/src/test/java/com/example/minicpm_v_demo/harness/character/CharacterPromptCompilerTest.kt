@@ -754,7 +754,7 @@ class CharacterPromptCompilerTest {
         return CharacterJsonLoader(
             charactersDir = File(root, "characters/characters"),
             storyEventsFile = File(root, "characters/story/story_events.jsonl"),
-            promptTemplateFile = File(root, "characters/prompts/roleplay_system.prompt"),
+            promptTemplateFile = File(root.parentFile, "prompts/roleplay_system.prompt"),
         )
     }
 }

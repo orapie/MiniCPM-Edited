@@ -31,6 +31,14 @@
     <string name="clear_chat_confirm">确定要清空对话吗？</string>
     <string name="clear_chat_toast">对话已清空</string>
     <string name="rag_mode">RAG 模式</string>
+    <string name="database_retrieval_pending">知识库检索初始化失败，请重新启动应用。</string>
+    <string name="database_compile_failed">当前数据库无法生成本轮回答，请检查数据包后重试。</string>
+    <string name="history_view">查看历史记录</string>
+    <string name="history_empty">没有可查看的历史记录。</string>
+    <string name="history_legacy">旧数据</string>
+    <string name="history_player">玩家</string>
+    <string name="history_character">角色</string>
+    <string name="database_unavailable">知识库暂不可用，请检查或重新安装数据包。</string>
     <string name="rag_mode_title">RAG 模式</string>
     <string name="rag_mode_off">关闭</string>
     <string name="rag_mode_rag">资料检索</string>

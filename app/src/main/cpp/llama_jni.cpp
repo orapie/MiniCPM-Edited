@@ -362,7 +362,7 @@ static std::string chat_add_and_format(const std::string &role, const std::strin
     auto formatted = common_chat_format_single(
             g_chat_templates.get(), chat_msgs, new_msg, role == ROLE_USER, true);
     chat_msgs.push_back(new_msg);
-    LOGi("%s: Formatted and added %s message: \n%s\n", __func__, role.c_str(), formatted.c_str());
+    LOGi("%s: Formatted and added %s message, bytes=%zu", __func__, role.c_str(), formatted.size());
     return formatted;
 }
 
@@ -455,7 +455,7 @@ Java_com_example_minicpm_1v_1demo_LlamaEngine_processSystemPrompt(
     reset_short_term_states();
 
     const auto *system_prompt = env->GetStringUTFChars(jsystem_prompt, nullptr);
-    LOGd("%s: System prompt received: \n%s", __func__, system_prompt);
+    LOGd("%s: System prompt received", __func__);
     std::string formatted_system_prompt(system_prompt);
 
     if (g_ctx_vision) {
@@ -512,10 +512,6 @@ Java_com_example_minicpm_1v_1demo_LlamaEngine_processSystemPrompt(
     } else {
         const auto system_tokens = common_tokenize(g_context, formatted_system_prompt,
                                                    current_position == 0, true);
-        for (auto id: system_tokens) {
-            LOGv("token: `%s`\t -> `%d`", common_token_to_piece(g_context, id).c_str(), id);
-        }
-
         const int max_batch_size = g_n_ctx - OVERFLOW_HEADROOM;
         if ((int) system_tokens.size() > max_batch_size) {
             LOGe("%s: System prompt too long for context! %d tokens, max: %d",
@@ -656,7 +652,7 @@ Java_com_example_minicpm_1v_1demo_LlamaEngine_processUserPrompt(
     reset_short_term_states();
 
     const auto *const user_prompt = env->GetStringUTFChars(juser_prompt, nullptr);
-    LOGd("%s: User prompt received: \n%s", __func__, user_prompt);
+    LOGd("%s: User prompt received", __func__);
 
     std::string content_for_format(user_prompt);
     if (content_for_format.empty()) {
@@ -681,11 +677,11 @@ Java_com_example_minicpm_1v_1demo_LlamaEngine_processUserPrompt(
         new_msg.content = content_for_format;
         chat_msgs.push_back(new_msg);
 
-        LOGi("%s: Formatted user prompt (mtmd, image=%s, minicpmv=%d): \n%s\n",
+        LOGi("%s: Formatted user prompt (mtmd, image=%s, minicpmv=%d, bytes=%zu)",
              __func__,
              g_image_prefilled ? "yes" : "no",
              g_minicpmv_version,
-             formatted_user_prompt.c_str());
+             formatted_user_prompt.size());
 
         g_image_prefilled = false;
     } else {
@@ -740,10 +736,6 @@ Java_com_example_minicpm_1v_1demo_LlamaEngine_processUserPrompt(
                  __func__);
         }
         auto user_tokens = common_tokenize(g_context, formatted_user_prompt, current_position == 0, true);
-        for (auto id: user_tokens) {
-            LOGv("token: `%s`\t -> `%d`", common_token_to_piece(g_context, id).c_str(), id);
-        }
-
         const int user_prompt_size = (int) user_tokens.size();
         const int max_batch_size = g_n_ctx - OVERFLOW_HEADROOM;
         int skipped_tokens = 0;
@@ -879,7 +871,7 @@ Java_com_example_minicpm_1v_1demo_LlamaEngine_generateNextToken(
     jstring result = nullptr;
     if (is_valid_utf8(cached_token_chars.c_str())) {
         result = env->NewStringUTF(cached_token_chars.c_str());
-        LOGv("id: %d,\tcached: `%s`,\tnew: `%s`", new_token_id, cached_token_chars.c_str(), new_token_chars.c_str());
+        LOGv("id: %d, valid UTF-8 token bytes=%zu", new_token_id, cached_token_chars.size());
 
         assistant_ss << cached_token_chars;
         cached_token_chars.clear();

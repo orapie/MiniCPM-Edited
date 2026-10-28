@@ -2,17 +2,26 @@ package com.example.minicpm_v_demo.harness.session
 
 import com.example.minicpm_v_demo.harness.data.HarnessDataPaths
 import com.example.minicpm_v_demo.harness.character.CharacterFollowUpTarget
+import com.example.minicpm_v_demo.harness.data.database.DatabaseIdentity
 import com.example.minicpm_v_demo.harness.rag.RagSource
 import com.example.minicpm_v_demo.harness.rag.SimpleJsonParser
 import com.example.minicpm_v_demo.harness.rag.asJsonObject
 import java.io.File
+import java.io.FileOutputStream
 import java.util.UUID
 
 class ChatSessionStore(
     private val paths: HarnessDataPaths,
     private val summaryBuilder: ConversationSummaryBuilder = ConversationSummaryBuilder(),
+    private val datasetIdentity: DatabaseIdentity? = null,
+    private val allowedCharacterIds: Set<String>? = null,
+    private val allowedCutoffs: Set<String>? = null,
 ) {
-    private val recentSessionFile: File = File(paths.sessionsDir, "recent_session.json")
+    private val legacyRecentSessionFile = File(paths.sessionsDir, "recent_session.json")
+    private val scopedDirectory: File? = datasetIdentity?.let {
+        File(paths.sessionsDir, "by-dataset/${it.datasetId}/${it.fingerprint}")
+    }
+    private val recentSessionFile: File = scopedDirectory?.let { File(it, "recent_session.json") } ?: legacyRecentSessionFile
 
     fun create(
         characterId: String,
@@ -23,9 +32,11 @@ class ChatSessionStore(
         return ChatSession(
             sessionId = UUID.randomUUID().toString().replace("-", ""),
             characterId = characterId,
-            characterPackId = characterPackId,
             storyCutoff = storyCutoff,
             selectedModelId = selectedModelId,
+            datasetId = datasetIdentity?.datasetId,
+            datasetFingerprint = datasetIdentity?.fingerprint,
+            characterPackId = datasetIdentity?.datasetId ?: characterPackId,
         ).also { save(it) }
     }
 
@@ -33,7 +44,7 @@ class ChatSessionStore(
         if (!recentSessionFile.isFile) return null
         return runCatching {
             parseSession(SimpleJsonParser(recentSessionFile.readText(Charsets.UTF_8)).parse().asJsonObject("session"))
-        }.getOrNull()
+        }.getOrNull()?.takeIf(::isCompatible)
     }
 
     fun appendTurn(session: ChatSession, turn: ChatTurn): ChatSession {
@@ -50,7 +61,50 @@ class ChatSessionStore(
 
     fun save(session: ChatSession) {
         paths.ensureRuntimeDirs()
-        recentSessionFile.writeText(serialize(session), Charsets.UTF_8)
+        require(isCompatible(session)) { "session_dataset_or_character_mismatch" }
+        require(session.sessionId.matches(Regex("[a-zA-Z0-9_-]+"))) { "Invalid session ID" }
+        val text = serialize(session)
+        scopedDirectory?.let { atomicWrite(File(it, "history/${session.sessionId}.json"), text) }
+        atomicWrite(recentSessionFile, text)
+    }
+
+    /** Read-only browsing. These records are not eligible for prompt context. */
+    fun listHistory(): List<ChatSession> {
+        val root = File(paths.sessionsDir, "by-dataset")
+        val files = mutableListOf(legacyRecentSessionFile)
+        val datasetDirectories = if (root.canonicalFile.parentFile == paths.sessionsDir.canonicalFile) root.listFiles().orEmpty() else emptyArray()
+        datasetDirectories.filter { it.isDirectory && it.canonicalFile.parentFile == root.canonicalFile }
+            .forEach { dataset -> dataset.listFiles().orEmpty()
+                .filter { it.isDirectory && it.canonicalFile.parentFile == dataset.canonicalFile }
+                .forEach { version ->
+                    val history = File(version, "history")
+                    if (history.canonicalFile.parentFile == version.canonicalFile) {
+                        files += history.listFiles().orEmpty().filter { it.isFile && it.extension == "json" && it.canonicalFile.parentFile == history.canonicalFile }
+                    }
+                }
+            }
+        return files.filter(File::isFile).mapNotNull { file ->
+            runCatching { parseSession(SimpleJsonParser(file.readText(Charsets.UTF_8)).parse().asJsonObject("session")) }.getOrNull()
+        }.distinctBy { Triple(it.sessionId, it.datasetId, it.datasetFingerprint) }.sortedByDescending { it.updatedAt }
+    }
+
+    private fun isCompatible(session: ChatSession): Boolean {
+        if (datasetIdentity == null) return true // legacy fixture / explicit history access
+        return session.datasetId == datasetIdentity.datasetId && session.datasetFingerprint == datasetIdentity.fingerprint &&
+            session.characterPackId == datasetIdentity.datasetId &&
+            (allowedCharacterIds == null || session.characterId in allowedCharacterIds) &&
+            (allowedCutoffs == null || (session.storyCutoff != null && session.storyCutoff in allowedCutoffs)) &&
+            session.turns.all { it.characterId == session.characterId }
+    }
+
+    private fun atomicWrite(file: File, text: String) {
+        val parent = requireNotNull(file.parentFile)
+        check(parent.isDirectory || parent.mkdirs()) { "Cannot create session directory" }
+        val temp = File(parent, ".session-${UUID.randomUUID()}.tmp")
+        try {
+            FileOutputStream(temp).use { it.write(text.toByteArray(Charsets.UTF_8)); it.fd.sync() }
+            check(temp.renameTo(file)) { "Cannot replace session file" }
+        } finally { if (temp.exists()) temp.delete() }
     }
 
     fun clearRecentSession() {
@@ -63,6 +117,8 @@ class ChatSessionStore(
                 "session_id" to session.sessionId,
                 "character_id" to session.characterId,
                 "character_pack_id" to session.characterPackId,
+                "dataset_id" to session.datasetId,
+                "dataset_fingerprint" to session.datasetFingerprint,
                 "story_cutoff" to session.storyCutoff,
                 "selected_model_id" to session.selectedModelId,
                 "turns" to session.turns.map { serializeTurnMap(it) },
@@ -110,6 +166,8 @@ class ChatSessionStore(
             conversationSummary = value.optionalString("conversation_summary").orEmpty(),
             createdAt = value.optionalLong("created_at") ?: 0L,
             updatedAt = value.optionalLong("updated_at") ?: 0L,
+            datasetId = value.optionalString("dataset_id"),
+            datasetFingerprint = value.optionalString("dataset_fingerprint"),
         )
     }
 

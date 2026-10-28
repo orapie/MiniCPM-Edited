@@ -41,3 +41,6 @@ artifacts/*.apk
 !**/data/
 !harness_logic/data/.gitkeep
 !app/src/main/java/com/example/minicpm_v_demo/harness/data/**
+!app/src/test/java/com/example/minicpm_v_demo/harness/data/**
+!app/src/androidTest/java/com/example/minicpm_v_demo/harness/data/**
+!app/src/sharedTest/java/com/example/minicpm_v_demo/harness/data/**

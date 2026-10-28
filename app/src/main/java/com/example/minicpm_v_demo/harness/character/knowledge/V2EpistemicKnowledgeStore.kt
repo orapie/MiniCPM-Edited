@@ -5,6 +5,7 @@ import com.example.minicpm_v_demo.harness.rag.asJsonArray
 import com.example.minicpm_v_demo.harness.rag.asJsonObject
 import com.example.minicpm_v_demo.harness.rag.stringValue
 import java.io.File
+import com.example.minicpm_v_demo.harness.data.database.ValidatedDatabaseBundle
 import java.security.MessageDigest
 import kotlin.math.round
 
@@ -13,12 +14,14 @@ import kotlin.math.round
  *
  * Android's SQLite build can open the source database but, on the verified API
  * 36 device, cannot execute its FTS5/trigram MATCH query.  This store consumes
- * the build-time export instead.  It deliberately does not construct prompts:
- * Phase 2A only proves retrieval and the knowledge boundary.
+ * the build-time export instead. A validated portable bundle enables its
+ * reviewed source policy; standalone legacy fixtures keep their curated policy.
+ * Vector scores improve recall but never grant character knowledge.
  */
 class V2EpistemicKnowledgeStore(
     private val fallbackFile: File,
     private val sourceDatabaseFile: File? = null,
+    private val reviewedBundle: ValidatedDatabaseBundle? = null,
 ) {
     private val document: V2KnowledgeDocument by lazy { loadDocument() }
 
@@ -29,7 +32,8 @@ class V2EpistemicKnowledgeStore(
     /**
      * Strict V2 retrieval with an explainable decision for every candidate.
      * Invalid requests still fail closed; use [retrieveSafely] at a runtime
-     * boundary where an unavailable graph must fall back to story-events.
+     * boundary that reports an unavailable graph; current bundles do not
+     * fall back to unreviewed story events.
      */
     fun retrieveAudited(request: V2KnowledgeQuery): V2KnowledgeRetrieval {
         require(request.limit > 0) { "limit must be positive" }
@@ -48,20 +52,23 @@ class V2EpistemicKnowledgeStore(
             }
             val allEdges = document.edgesByCharacterAndClaim[request.characterId to claim.claimId].orEmpty()
             val edge = allEdges.filter { it.acquiredSequence <= cutoff }.maxByOrNull { it.acquiredSequence }
+            val lexical = matchedTerms.size.toDouble() / queryTerms.size.coerceAtLeast(1)
+            val confidence = edge?.confidence ?: allEdges.maxOfOrNull { it.confidence } ?: 0.0
+            val relevance = round5(lexical * 0.70 + claim.importance * 0.15 + claim.confidence * 0.10 + confidence * 0.05 +
+                (request.candidateScores[claim.claimId] ?: 0.0).coerceIn(0.0, 1.0) * 0.30)
             when {
-                queryTerms.isEmpty() || matchedTerms.isEmpty() ->
+                matchedTerms.isEmpty() && (request.candidateScores[claim.claimId] ?: 0.0) <= 0.0 ->
                     KnowledgeDecision(claim.claimId, KnowledgeDisposition.DROPPED, KnowledgeDecisionReason.NO_LEXICAL_MATCH)
                 allEdges.isEmpty() -> KnowledgeDecision(claim.claimId, KnowledgeDisposition.DROPPED, KnowledgeDecisionReason.NO_CHARACTER_KNOWLEDGE_EDGE)
-                edge == null -> KnowledgeDecision(claim.claimId, KnowledgeDisposition.DROPPED, KnowledgeDecisionReason.ACQUIRED_AFTER_CUTOFF)
+                edge == null -> KnowledgeDecision(claim.claimId, KnowledgeDisposition.DROPPED, KnowledgeDecisionReason.ACQUIRED_AFTER_CUTOFF, relevance)
                 claim.scope != "story" -> KnowledgeDecision(claim.claimId, KnowledgeDisposition.DROPPED, KnowledgeDecisionReason.PROFILE_CLAIM)
-                claim.sourceTier != "curated" || claim.canonStatus != "accepted" || claim.verificationStatus != "verified_curated" ->
+                !sourceAccepted(claim) ->
                     KnowledgeDecision(claim.claimId, KnowledgeDisposition.DROPPED, KnowledgeDecisionReason.UNVERIFIED_SOURCE)
                 edge.beliefStatus != "believed" -> KnowledgeDecision(claim.claimId, KnowledgeDisposition.DROPPED, KnowledgeDecisionReason.UNSUPPORTED_BELIEF_STATUS)
                 claim.validFromSequence > cutoff || (claim.validToSequence != null && claim.validToSequence < cutoff) ->
                     KnowledgeDecision(claim.claimId, KnowledgeDisposition.DROPPED, KnowledgeDecisionReason.NOT_VALID_AT_CUTOFF)
                 else -> {
-                    val lexical = matchedTerms.size.toDouble() / queryTerms.size
-                    val score = round5(lexical * 0.70 + claim.importance * 0.15 + claim.confidence * 0.10 + edge.confidence * 0.05)
+                    val score = relevance
                     selected += V2KnowledgeFact(
                         claimId = claim.claimId,
                         statement = claim.statement,
@@ -130,7 +137,7 @@ class V2EpistemicKnowledgeStore(
             document.edgesByCharacterAndClaim[characterId to claimId].orEmpty().isEmpty() -> KnowledgeDecisionReason.NO_CHARACTER_KNOWLEDGE_EDGE
             edge == null -> KnowledgeDecisionReason.ACQUIRED_AFTER_CUTOFF
             claim.scope != "story" -> KnowledgeDecisionReason.PROFILE_CLAIM
-            claim.sourceTier != "curated" || claim.canonStatus != "accepted" || claim.verificationStatus != "verified_curated" -> KnowledgeDecisionReason.UNVERIFIED_SOURCE
+            !sourceAccepted(claim) -> KnowledgeDecisionReason.UNVERIFIED_SOURCE
             edge.beliefStatus != "believed" -> KnowledgeDecisionReason.UNSUPPORTED_BELIEF_STATUS
             claim.validFromSequence > cutoff || (claim.validToSequence != null && claim.validToSequence < cutoff) -> KnowledgeDecisionReason.NOT_VALID_AT_CUTOFF
             else -> null
@@ -162,6 +169,14 @@ class V2EpistemicKnowledgeStore(
     private fun loadDocument(): V2KnowledgeDocument {
         require(fallbackFile.isFile) { "Missing V2 fallback export: ${fallbackFile.absolutePath}" }
         val root = SimpleJsonParser(fallbackFile.readText(Charsets.UTF_8)).parse().asJsonObject("V2 fallback export")
+        reviewedBundle?.let { bundle ->
+            require(fallbackFile.canonicalFile == bundle.paths.resolve(bundle.manifest.paths.getValue("runtime_v2")))
+            require(sha256(fallbackFile) == bundle.manifest.files.getValue(bundle.manifest.paths.getValue("runtime_v2"))) {
+                "database_runtime_hash_mismatch"
+            }
+            require(root.stringValue("dataset_id") == bundle.manifest.datasetId &&
+                root.stringValue("dataset_version") == bundle.manifest.datasetVersion) { "database_identity_mismatch" }
+        }
         require(root.stringValue("schema_version").startsWith("2.")) { "Unsupported V2 fallback schema" }
         sourceDatabaseFile?.let { database ->
             require(database.isFile) { "Missing V2 source database: ${database.absolutePath}" }
@@ -206,6 +221,15 @@ class V2EpistemicKnowledgeStore(
         canonStatus = raw.stringValue("canon_status"),
         verificationStatus = raw.stringValue("verification_status"),
     )
+
+    private fun sourceAccepted(claim: V2Claim): Boolean = if (reviewedBundle != null) {
+        claim.sourceTier == "canon" && claim.verificationStatus == "source_span_verified" &&
+            claim.canonStatus == "accepted" && reviewedBundle.authorizedFacts.any {
+                it.claimId == claim.claimId && it.statement == claim.statement
+            }
+    } else {
+        claim.sourceTier == "curated" && claim.canonStatus == "accepted" && claim.verificationStatus == "verified_curated"
+    }
 
     private fun parseEdge(raw: Map<String, Any?>) = V2KnowledgeEdge(
         characterId = raw.stringValue("character_id"),
@@ -281,6 +305,7 @@ data class V2KnowledgeQuery(
     val query: String,
     val storyCutoff: String,
     val limit: Int = 8,
+    val candidateScores: Map<String, Double> = emptyMap(),
 )
 
 data class V2KnowledgeFact(

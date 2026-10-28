@@ -1,6 +1,6 @@
 package com.example.minicpm_v_demo.harness.character
 
-import com.example.minicpm_v_demo.harness.data.harnessAssetsDir
+import com.example.minicpm_v_demo.harness.data.database.databaseTestSource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -8,16 +8,16 @@ import java.io.File
 
 class CharacterProfileStoreTest {
     private val loader = CharacterJsonLoader(
-        charactersDir = File(harnessAssetsDir(), "characters/characters"),
-        storyEventsFile = File(harnessAssetsDir(), "characters/story/story_events.jsonl"),
-        promptTemplateFile = File(harnessAssetsDir(), "characters/prompts/roleplay_system.prompt"),
+        charactersDir = databaseTestSource().resolve("characters"),
+        storyEventsFile = databaseTestSource().resolve("story/story_events.jsonl"),
+        promptTemplateFile = File("unused-template"),
     )
     private val analyzer = CharacterQueryAnalyzer()
     private val store = CharacterProfileStore()
 
     @Test
     fun cardProfileIsAtomizedIntoStableEvidenceLinkedRecords() {
-        val card = loader.loadCharacter("lu_jiangxian")
+        val card = loader.loadCharacter("luo_ji")
         val records = store.allRecords(card)
 
         assertTrue(records.any { it.id == "profile_identity" && it.facet == ProfileFacet.IDENTITY })
@@ -28,8 +28,8 @@ class CharacterProfileStoreTest {
 
     @Test
     fun preferenceRetrievalUsesMotivationRecordsWithoutScanningStoryFacts() {
-        val card = loader.loadCharacter("lu_jiangxian")
-        val analysis = analyzer.analyze("你最想去哪里？", listOf("玄谙", "白君意"))
+        val card = loader.loadCharacter("luo_ji")
+        val analysis = analyzer.analyze("你最想去哪里？", listOf("史强"))
 
         val retrieval = store.retrieve(card, "你最想去哪里？", analysis, limit = 2)
 

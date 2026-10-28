@@ -2,6 +2,7 @@ package com.example.minicpm_v_demo.harness.character
 
 import com.example.minicpm_v_demo.harness.rag.RagMode
 import com.example.minicpm_v_demo.harness.session.ChatSession
+import com.example.minicpm_v_demo.harness.data.database.DatabaseIdentity
 
 /**
  * Reuses only one opaque, already-authorized target from the immediately prior
@@ -24,12 +25,15 @@ object CharacterFollowUpResolver {
         characterId: String,
         storyCutoff: String?,
         knownCharacterNames: Collection<String>,
+        datasetIdentity: DatabaseIdentity,
     ): CharacterFollowUpTarget? {
         val isPronounFollowUp = PronounSignals.any { it in userInput }
         val isContinuationFollowUp = ContinuationSignals.any { it in userInput }
         if (!isPronounFollowUp && !isContinuationFollowUp) return null
         if (knownCharacterNames.any { it.isNotBlank() && it in userInput }) return null
         val previous = session?.turns?.lastOrNull() ?: return null
+        if (session.datasetId != datasetIdentity.datasetId || session.datasetFingerprint != datasetIdentity.fingerprint ||
+            session.characterPackId != datasetIdentity.datasetId) return null
         if (session.characterId != characterId || session.storyCutoff != storyCutoff) return null
         if (previous.characterId != characterId || previous.ragMode != RagMode.CHARACTER_RAG.name) return null
         if (previous.sources.isNotEmpty()) return null

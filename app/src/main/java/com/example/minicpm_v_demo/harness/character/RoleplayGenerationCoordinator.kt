@@ -37,7 +37,7 @@ class RoleplayGenerationCoordinator(
         const val MAX_REPAIR_ATTEMPTS = 1
         const val DEFAULT_SAFE_FALLBACK = "这话我一时说不清。"
         const val REPAIR_INSTRUCTION =
-            "只直接用角色第一人称回答玩家，不谈论你收到的说明或材料。"
+            "只直接用角色第一人称回答玩家，不反问或追问玩家，不谈论你收到的说明或材料。"
     }
 }
 

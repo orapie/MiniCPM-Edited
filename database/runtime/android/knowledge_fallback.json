@@ -1,0 +1,650 @@
+{
+  "authorization_policy": "source_span_and_reviewed_dialogue_v1",
+  "claims": [
+    {
+      "authorization_review": {
+        "knowledge_basis": "前文叶文洁称呼小罗，罗辑随后亲口介绍自己与杨冬的关系；这里只授权该自述，不授权同场景旁白。",
+        "review_method": "dialogue_context_inspection",
+        "reviewed_by": "codex_phase0_evidence_audit"
+      },
+      "canon_status": "accepted",
+      "claim_id": "reviewed-luo-ji-classmate",
+      "claim_scope": "story",
+      "confidence": 1.0,
+      "event_id": "evt-001",
+      "evidence_id": "evidence-evt-001",
+      "evidence_ref": "three_body_2.txt:L20-L20",
+      "importance": 0.8,
+      "keywords_json": [
+        "杨冬",
+        "高中",
+        "同学"
+      ],
+      "modality": "asserted",
+      "object_text": "罗辑是杨冬的高中同学。",
+      "parent_claim_id": "claim-evt-001",
+      "polarity": "positive",
+      "predicate": "reviewed_atomic_fact",
+      "source_tier": "canon",
+      "statement": "罗辑是杨冬的高中同学。",
+      "subject_ids_json": [
+        "luo_ji"
+      ],
+      "valid_from_sequence": 20,
+      "valid_to_sequence": null,
+      "verification_status": "source_span_verified"
+    },
+    {
+      "authorization_review": {
+        "knowledge_basis": "叶文洁前一句问小罗是否搞天文学，罗辑直接说明自己过去专业和当时职业；该事实记录这次自述，不推断之后仍任教。",
+        "review_method": "dialogue_context_inspection",
+        "reviewed_by": "codex_phase0_evidence_audit"
+      },
+      "canon_status": "accepted",
+      "claim_id": "reviewed-luo-ji-profession",
+      "claim_scope": "story",
+      "confidence": 1.0,
+      "event_id": "evt-001",
+      "evidence_id": "evidence-evt-001",
+      "evidence_ref": "three_body_2.txt:L26-L26",
+      "importance": 0.8,
+      "keywords_json": [
+        "职业",
+        "天文学",
+        "大学",
+        "社会学",
+        "叶文洁"
+      ],
+      "modality": "asserted",
+      "object_text": "罗辑以前研究天文学，向叶文洁自述当时在大学教社会学。",
+      "parent_claim_id": "claim-evt-001",
+      "polarity": "positive",
+      "predicate": "reviewed_atomic_fact",
+      "source_tier": "canon",
+      "statement": "罗辑以前研究天文学，向叶文洁自述当时在大学教社会学。",
+      "subject_ids_json": [
+        "luo_ji"
+      ],
+      "valid_from_sequence": 26,
+      "valid_to_sequence": null,
+      "verification_status": "source_span_verified"
+    },
+    {
+      "authorization_review": {
+        "knowledge_basis": "罗辑上一句向叶老师询问公理，叶文洁作答；随后罗辑回应这两条公理。授权为罗辑听闻的观点，不能写成已验证的宇宙定律。",
+        "review_method": "dialogue_context_inspection",
+        "reviewed_by": "codex_phase0_evidence_audit"
+      },
+      "canon_status": "accepted",
+      "claim_id": "reviewed-luo-ji-civilization-axioms",
+      "claim_scope": "story",
+      "confidence": 1.0,
+      "event_id": "evt-002",
+      "evidence_id": "evidence-evt-002",
+      "evidence_ref": "three_body_2.txt:L47-L47",
+      "importance": 0.8,
+      "keywords_json": [
+        "叶文洁",
+        "宇宙社会学",
+        "公理",
+        "生存",
+        "文明",
+        "物质"
+      ],
+      "modality": "reported",
+      "object_text": "叶文洁向罗辑提出两条宇宙社会学公理：生存是文明的第一需要；文明增长扩张，而宇宙物质总量不变。",
+      "parent_claim_id": "claim-evt-002",
+      "polarity": "positive",
+      "predicate": "reviewed_atomic_fact",
+      "source_tier": "canon",
+      "statement": "叶文洁向罗辑提出两条宇宙社会学公理：生存是文明的第一需要；文明增长扩张，而宇宙物质总量不变。",
+      "subject_ids_json": [
+        "luo_ji"
+      ],
+      "valid_from_sequence": 47,
+      "valid_to_sequence": null,
+      "verification_status": "source_span_verified"
+    }
+  ],
+  "cutoffs": {
+    "evt-001": {
+      "sequence": 31,
+      "story_order": 1
+    },
+    "evt-002": {
+      "sequence": 56,
+      "story_order": 2
+    },
+    "evt-003": {
+      "sequence": 109,
+      "story_order": 3
+    },
+    "evt-004": {
+      "sequence": 142,
+      "story_order": 4
+    },
+    "evt-005": {
+      "sequence": 195,
+      "story_order": 5
+    },
+    "evt-006": {
+      "sequence": 270,
+      "story_order": 6
+    },
+    "evt-007": {
+      "sequence": 410,
+      "story_order": 7
+    },
+    "evt-008": {
+      "sequence": 443,
+      "story_order": 8
+    },
+    "evt-009": {
+      "sequence": 477,
+      "story_order": 9
+    },
+    "evt-010": {
+      "sequence": 510,
+      "story_order": 10
+    },
+    "evt-011": {
+      "sequence": 537,
+      "story_order": 11
+    },
+    "evt-012": {
+      "sequence": 565,
+      "story_order": 12
+    },
+    "evt-013": {
+      "sequence": 595,
+      "story_order": 13
+    },
+    "evt-014": {
+      "sequence": 618,
+      "story_order": 14
+    },
+    "evt-015": {
+      "sequence": 649,
+      "story_order": 15
+    },
+    "evt-016": {
+      "sequence": 692,
+      "story_order": 16
+    },
+    "evt-017": {
+      "sequence": 723,
+      "story_order": 17
+    },
+    "evt-018": {
+      "sequence": 764,
+      "story_order": 18
+    },
+    "evt-019": {
+      "sequence": 801,
+      "story_order": 19
+    },
+    "evt-020": {
+      "sequence": 825,
+      "story_order": 20
+    },
+    "evt-021": {
+      "sequence": 835,
+      "story_order": 21
+    },
+    "evt-022": {
+      "sequence": 855,
+      "story_order": 22
+    },
+    "evt-023": {
+      "sequence": 894,
+      "story_order": 23
+    },
+    "evt-024": {
+      "sequence": 921,
+      "story_order": 24
+    },
+    "evt-025": {
+      "sequence": 969,
+      "story_order": 25
+    },
+    "evt-026": {
+      "sequence": 998,
+      "story_order": 26
+    },
+    "evt-027": {
+      "sequence": 1043,
+      "story_order": 27
+    },
+    "evt-028": {
+      "sequence": 1080,
+      "story_order": 28
+    },
+    "evt-029": {
+      "sequence": 1101,
+      "story_order": 29
+    },
+    "evt-030": {
+      "sequence": 1124,
+      "story_order": 30
+    },
+    "evt-031": {
+      "sequence": 1165,
+      "story_order": 31
+    },
+    "evt-032": {
+      "sequence": 1206,
+      "story_order": 32
+    },
+    "evt-033": {
+      "sequence": 1240,
+      "story_order": 33
+    },
+    "evt-034": {
+      "sequence": 1280,
+      "story_order": 34
+    },
+    "evt-035": {
+      "sequence": 1306,
+      "story_order": 35
+    },
+    "evt-036": {
+      "sequence": 1352,
+      "story_order": 36
+    },
+    "evt-037": {
+      "sequence": 1401,
+      "story_order": 37
+    },
+    "evt-038": {
+      "sequence": 1448,
+      "story_order": 38
+    },
+    "evt-039": {
+      "sequence": 1496,
+      "story_order": 39
+    },
+    "evt-040": {
+      "sequence": 1547,
+      "story_order": 40
+    },
+    "evt-041": {
+      "sequence": 1602,
+      "story_order": 41
+    },
+    "evt-042": {
+      "sequence": 1635,
+      "story_order": 42
+    },
+    "evt-043": {
+      "sequence": 1680,
+      "story_order": 43
+    },
+    "evt-044": {
+      "sequence": 1727,
+      "story_order": 44
+    },
+    "evt-045": {
+      "sequence": 1769,
+      "story_order": 45
+    },
+    "evt-046": {
+      "sequence": 1808,
+      "story_order": 46
+    },
+    "evt-047": {
+      "sequence": 1837,
+      "story_order": 47
+    },
+    "evt-048": {
+      "sequence": 1877,
+      "story_order": 48
+    },
+    "evt-049": {
+      "sequence": 1904,
+      "story_order": 49
+    },
+    "evt-050": {
+      "sequence": 1937,
+      "story_order": 50
+    },
+    "evt-051": {
+      "sequence": 1967,
+      "story_order": 51
+    },
+    "evt-052": {
+      "sequence": 2011,
+      "story_order": 52
+    },
+    "evt-053": {
+      "sequence": 2038,
+      "story_order": 53
+    },
+    "evt-054": {
+      "sequence": 2069,
+      "story_order": 54
+    },
+    "evt-055": {
+      "sequence": 2103,
+      "story_order": 55
+    },
+    "evt-056": {
+      "sequence": 2121,
+      "story_order": 56
+    },
+    "evt-057": {
+      "sequence": 2160,
+      "story_order": 57
+    },
+    "evt-058": {
+      "sequence": 2213,
+      "story_order": 58
+    },
+    "evt-059": {
+      "sequence": 2261,
+      "story_order": 59
+    },
+    "evt-060": {
+      "sequence": 2290,
+      "story_order": 60
+    },
+    "evt-061": {
+      "sequence": 2328,
+      "story_order": 61
+    },
+    "evt-062": {
+      "sequence": 2364,
+      "story_order": 62
+    },
+    "evt-063": {
+      "sequence": 2388,
+      "story_order": 63
+    },
+    "evt-064": {
+      "sequence": 2420,
+      "story_order": 64
+    },
+    "evt-065": {
+      "sequence": 2438,
+      "story_order": 65
+    },
+    "evt-066": {
+      "sequence": 2465,
+      "story_order": 66
+    },
+    "evt-067": {
+      "sequence": 2504,
+      "story_order": 67
+    },
+    "evt-068": {
+      "sequence": 2538,
+      "story_order": 68
+    },
+    "evt-069": {
+      "sequence": 2717,
+      "story_order": 69
+    },
+    "evt-070": {
+      "sequence": 2887,
+      "story_order": 70
+    },
+    "evt-071": {
+      "sequence": 2920,
+      "story_order": 71
+    },
+    "evt-072": {
+      "sequence": 2973,
+      "story_order": 72
+    },
+    "evt-073": {
+      "sequence": 3009,
+      "story_order": 73
+    },
+    "evt-074": {
+      "sequence": 3037,
+      "story_order": 74
+    },
+    "evt-075": {
+      "sequence": 3062,
+      "story_order": 75
+    },
+    "evt-076": {
+      "sequence": 3094,
+      "story_order": 76
+    },
+    "evt-077": {
+      "sequence": 3145,
+      "story_order": 77
+    },
+    "evt-078": {
+      "sequence": 3176,
+      "story_order": 78
+    },
+    "evt-079": {
+      "sequence": 3217,
+      "story_order": 79
+    },
+    "evt-080": {
+      "sequence": 3248,
+      "story_order": 80
+    },
+    "evt-081": {
+      "sequence": 3288,
+      "story_order": 81
+    },
+    "evt-082": {
+      "sequence": 3328,
+      "story_order": 82
+    },
+    "evt-083": {
+      "sequence": 3363,
+      "story_order": 83
+    },
+    "evt-084": {
+      "sequence": 3392,
+      "story_order": 84
+    },
+    "evt-085": {
+      "sequence": 3408,
+      "story_order": 85
+    },
+    "evt-086": {
+      "sequence": 3441,
+      "story_order": 86
+    },
+    "evt-087": {
+      "sequence": 3472,
+      "story_order": 87
+    },
+    "evt-088": {
+      "sequence": 3492,
+      "story_order": 88
+    },
+    "evt-089": {
+      "sequence": 3538,
+      "story_order": 89
+    },
+    "evt-090": {
+      "sequence": 3585,
+      "story_order": 90
+    },
+    "evt-091": {
+      "sequence": 3624,
+      "story_order": 91
+    },
+    "evt-092": {
+      "sequence": 3662,
+      "story_order": 92
+    },
+    "evt-093": {
+      "sequence": 3689,
+      "story_order": 93
+    },
+    "evt-094": {
+      "sequence": 3717,
+      "story_order": 94
+    },
+    "evt-095": {
+      "sequence": 3747,
+      "story_order": 95
+    },
+    "evt-096": {
+      "sequence": 3771,
+      "story_order": 96
+    },
+    "evt-097": {
+      "sequence": 3804,
+      "story_order": 97
+    },
+    "evt-098": {
+      "sequence": 3829,
+      "story_order": 98
+    },
+    "evt-099": {
+      "sequence": 3861,
+      "story_order": 99
+    },
+    "evt-100": {
+      "sequence": 3896,
+      "story_order": 100
+    },
+    "evt-101": {
+      "sequence": 3922,
+      "story_order": 101
+    },
+    "evt-102": {
+      "sequence": 3999,
+      "story_order": 102
+    },
+    "evt-103": {
+      "sequence": 4020,
+      "story_order": 103
+    },
+    "evt-104": {
+      "sequence": 4044,
+      "story_order": 104
+    },
+    "evt-105": {
+      "sequence": 4066,
+      "story_order": 105
+    },
+    "evt-106": {
+      "sequence": 4098,
+      "story_order": 106
+    },
+    "evt-107": {
+      "sequence": 4121,
+      "story_order": 107
+    },
+    "evt-108": {
+      "sequence": 4157,
+      "story_order": 108
+    },
+    "evt-109": {
+      "sequence": 4275,
+      "story_order": 109
+    },
+    "evt-110": {
+      "sequence": 4314,
+      "story_order": 110
+    },
+    "evt-111": {
+      "sequence": 4334,
+      "story_order": 111
+    },
+    "evt-112": {
+      "sequence": 4361,
+      "story_order": 112
+    },
+    "evt-113": {
+      "sequence": 4390,
+      "story_order": 113
+    },
+    "evt-114": {
+      "sequence": 4420,
+      "story_order": 114
+    },
+    "evt-115": {
+      "sequence": 4458,
+      "story_order": 115
+    },
+    "evt-116": {
+      "sequence": 4505,
+      "story_order": 116
+    },
+    "evt-117": {
+      "sequence": 4535,
+      "story_order": 117
+    },
+    "evt-118": {
+      "sequence": 4570,
+      "story_order": 118
+    },
+    "evt-119": {
+      "sequence": 4619,
+      "story_order": 119
+    },
+    "evt-120": {
+      "sequence": 4636,
+      "story_order": 120
+    },
+    "evt-121": {
+      "sequence": 4658,
+      "story_order": 121
+    },
+    "evt-122": {
+      "sequence": 4674,
+      "story_order": 122
+    },
+    "evt-123": {
+      "sequence": 4716,
+      "story_order": 123
+    },
+    "evt-124": {
+      "sequence": 4750,
+      "story_order": 124
+    },
+    "evt-125": {
+      "sequence": 4763,
+      "story_order": 125
+    }
+  },
+  "dataset_id": "three_body_2",
+  "dataset_version": "2026-10-27-phase1",
+  "knowledge_edges": [
+    {
+      "acquired_at_event": "evt-001",
+      "acquired_sequence": 20,
+      "acquired_story_order": 1,
+      "acquisition_method": "direct",
+      "belief_status": "believed",
+      "character_id": "luo_ji",
+      "claim_id": "reviewed-luo-ji-classmate",
+      "confidence": 1.0,
+      "knowledge_edge_id": "reviewed-edge-reviewed-luo-ji-classmate"
+    },
+    {
+      "acquired_at_event": "evt-001",
+      "acquired_sequence": 26,
+      "acquired_story_order": 1,
+      "acquisition_method": "direct",
+      "belief_status": "believed",
+      "character_id": "luo_ji",
+      "claim_id": "reviewed-luo-ji-profession",
+      "confidence": 1.0,
+      "knowledge_edge_id": "reviewed-edge-reviewed-luo-ji-profession"
+    },
+    {
+      "acquired_at_event": "evt-002",
+      "acquired_sequence": 47,
+      "acquired_story_order": 2,
+      "acquisition_method": "reported",
+      "belief_status": "believed",
+      "character_id": "luo_ji",
+      "claim_id": "reviewed-luo-ji-civilization-axioms",
+      "confidence": 1.0,
+      "knowledge_edge_id": "reviewed-edge-reviewed-luo-ji-civilization-axioms"
+    }
+  ],
+  "schema_version": "2.0.0",
+  "source_database_sha256": "3e15c91e2c54d802636b1d5ec8f94f3d371ac82b56ff55e165c9f788bc9758b4"
+}

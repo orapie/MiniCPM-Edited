@@ -118,6 +118,82 @@ Android 角色 system 默认最多 900 字符；编译器限制 profile、状态
 5. trace/JSONL 默认不含用户问题或事实正文，JNI 只记录 prompt 长度、token 数和状态，不逐 token 打印正文。`RagPromptDebug` 的阶段原文 Logcat 默认关闭，仅 Debug 构建且 `rag_debug` SharedPreferences 的 `raw_prompt_logcat=true` 时启用；显式开启会记录问题及资料原文。应用内 Final Prompt 仍可查看。
 6. 设备安装使用 `adb install -r` 保留数据；在保存本地模型的设备上避免会卸载应用的测试任务。JVM、APK 清单和设备 prompt 测试不代替真实模型输出验证。
 
+### 9.1 使用 Logcat 确认本轮读取了哪个数据库
+
+先运行当前项目构建的 **Debug APK**，选择角色卡模式并发出一个具体问题。在 Android Studio 的 Logcat 选中目标设备和 `com.example.minicpm_v_demo` 进程，再搜索下列标签或文本；确认日志时间对应刚才的提问。安装日志只在应用进程启动时输出，若没有看到，可重新启动应用后查看，不必清除应用数据。
+
+| 搜索词 / 标签 | 看什么 | 如何判断 |
+| --- | --- | --- |
+| `DatabaseInstallation` | `database status=... dataset=... active=... requested=...` | `INSTALLED`、`UNCHANGED`、`UPDATED`、`SWITCHED`、`REPAIRED` 表示有已验证的活动包；`RETAINED_PREVIOUS` 表示更新失败后保留了已验证的同数据集旧包，需对比 `active` 和 `requested`；`unavailable` 表示没有可用包。 |
+| `MainActivity` 和 `RAG_TRACE` | `mode`、`querySha`、`dataset`、`fingerprint`、`indexFingerprint`、`external`、`candidates` 等 | 每条 trace 对应一次 prompt 编译；`dataset` 和 `fingerprint` 应与预期包一致，`indexFingerprint` 应与该包 manifest 中 `vector_index` 对应文件的 SHA-256 一致。 |
+| `Compiled CHARACTER_RAG prompt` | `knowledgeIntent`、`followUp`、`v2`、`profile`、`state`、`possession`、`legacyStory` | 辅助判断问题路由、知识源状态与注入字符数；当前数据包中 `legacyStory` / `legacyMemory` 应为 `false`。 |
+| `Database prompt compilation failed`、`Database rebind failed` | 初始化、重新绑定或编译错误 | 结合异常与安装状态检查，不能把缺失 trace 直接解释为“没有检索结果”。 |
+
+也可以在终端实时查看（多个设备时将 `-s <设备序列号>` 加在 `adb` 后）：
+
+```bash
+adb logcat -v threadtime -s DatabaseInstallation:I MainActivity:D RagPromptDebug:D '*:S'
+```
+
+停止查看按 `Ctrl+C`。过滤器中的 `MainActivity:D` 包含其他主界面消息；在 Android Studio 内搜索 `RAG_TRACE` 可以进一步缩小范围。如果 Logcat 丢失或截断长行，Debug 版本还会将不含正文的记录追加到应用私有目录，可查看最后几行：
+
+```bash
+adb shell run-as com.example.minicpm_v_demo cat files/harness/diagnostics/rag_turn_trace.jsonl | tail -n 5
+```
+
+`run-as` 需要可调试应用及设备支持；Release 包或设备限制可能使其失败。JSONL 是追加记录，必须结合本轮 `querySha256`、时间顺序及角色/cutoff 分辨，不能只看文件中任意一行。向量索引在初始化时加载到内存，后续每轮搜索内存索引；一次成功的检索并不意味着每轮重新打开 SQLite。
+
+如需核对项目当前包的身份及索引哈希，可在项目根目录运行：
+
+```bash
+python3 - <<'PY'
+import json
+from pathlib import Path
+root = Path('database')
+manifest = json.loads((root / 'manifest.json').read_text(encoding='utf-8'))
+index_path = manifest['paths']['vector_index']
+print('dataset:', manifest['dataset_id'])
+print('fingerprint:', manifest['dataset_fingerprint'])
+print('vector index:', index_path)
+print('index fingerprint:', next(item['sha256'] for item in manifest['files'] if item['path'] == index_path))
+PY
+```
+
+上面读取的是源码 manifest 的声明值；要检查实际文件与 APK 是否一致，运行 `python3 scripts/prepare_database_bundle.py --check` 和 `bash ./gradlew :app:verifyDebugDatabaseAssets`。如果安装日志显示不同 fingerprint，应先检查设备安装版本或 `RETAINED_PREVIOUS`，而不是仅根据源码判断设备正在使用哪个包。
+
+### 9.2 判断“执行、命中、授权、注入”
+
+同一条 `RAG_TRACE` 按以下顺序看，四步不可互相替代：
+
+1. **是否执行：** `external=vectorExecuted=true` 表示尝试执行了向量搜索；还要检查 `failure=none`。`vectorExecuted=true` 且 `failure` 为异常名只表示尝试失败。`vectorExecuted=false` 时检查 `backend=disabled_by_flag` 等原因、模式和诊断开关。实际 UI 的 OFF 普通对话直接走普通推理路径，不应强行期待每轮都有 RAG trace。
+2. **是否命中当前索引：** `collection=database:<dataset_id>:<fingerprint>` 应与当前包一致，`backend=hash_ngram` 表示当前哈希 n-gram 向量实现。`external` 内的 `candidates=数量/上限` 是过滤后的候选数；行尾独立的 `candidates=` 列出候选 ID。零候选表示该次搜索在阈值和上限下没有结果，不等于数据库为空。
+3. **是否获得角色授权：** 角色模式看 `authorized=` 和 `rejected=`。例如 `ACQUIRED_AFTER_CUTOFF` 表示事实在当前时间点尚不可知，`NO_LEXICAL_MATCH` 表示未形成对应匹配。向量候选可以是未经审核的场景，出现候选 ID 不代表角色可以使用该内容。
+4. **是否进入最终 prompt：** 角色模式看行尾 `injected=`、Final Prompt 内 `selected` 和 `dropped`，再直接检查最终 system 文本。授权事实可能被预算裁掉；`injected` 也可能包含 profile 或关系，并不全是向量候选。普通 RAG 资料在 user 消息的检索资料段中，查看其 `contextChars`、来源和最终 user prompt；角色模式的 `external` 内 `injected=none` 属于正常边界，不代表角色事实未注入。
+
+例如对当前 `three_body_2` 数据，选择罗辑、cutoff `evt-001`，提问“你的来历是什么？”：已有设备样本中 `reviewed-luo-ji-profession` 同时出现在候选、授权和 `authorized_story_facts:` 注入结果里，system 包含大学社会学相关内容。使用同一个问题，在不同角色、cutoff、数据版本或预算下结果可能不同。`evt-002` 下询问“叶文洁提出的宇宙社会学公理是什么？”可查看 `reviewed-luo-ji-civilization-axioms`；改到 `evt-001` 应检查该事实的 `ACQUIRED_AFTER_CUTOFF`，而不是期望它被注入。实测记录见 [Phase 5 设备样本](char_inte_plan/Phase_5_Device_Evidence.md)。
+
+对比不同问题时，可用 `querySha` 确认是否是不同输入、用 `systemSha` 与选中 ID 对比动态证据，但哈希相同或不同本身不能证明检索准确。`querySha` 是输入 UTF-8 的 SHA-256 前 16 个十六进制字符；包括标点和空格。短输入的哈希仍可能被猜测，不应当作匿名化保证。
+
+### 9.3 查看阶段正文和检索关键词的限制
+
+默认的 `RAG_TRACE` 和 JSONL **不打印用户问题、事实正文或实际分词后的关键词**。`querySha` 不是关键词；`knowledgeIntent`、`intents`、`routeCodes` 是路由分类，也不是搜索词。当前没有直接展示向量查询分词列表的正式日志，不能从这些字段还原检索实际用了哪些 n-gram。应用内 Final Prompt 可以核对本轮 user 原文和最终 system；如果还需要查看阶段正文，可在 **Debug 可调试构建** 中临时打开 `rag_debug` SharedPreferences 的 `raw_prompt_logcat` 布尔值：
+
+1. 在 Android Studio 用调试器连接应用，在 `MainActivity` 的 prompt 编译逻辑处暂停；使用 Evaluate Expression，在当前 `MainActivity` 上执行：
+
+   ```kotlin
+   getSharedPreferences("rag_debug", 0).edit().putBoolean("raw_prompt_logcat", true).apply()
+   ```
+
+   恢复运行后重新提问，并在 Logcat 搜索 `RagPromptDebug`。若当前调试器上下文不是 Activity，在表达式前使用实际的 Activity 实例；不要覆盖整个 preferences 文件，以免丢失其他设置。
+2. 在同一 `turn=` 下按 `seq=` 查找 `V2_RETRIEVAL_RESULT`、`CHARACTER_AFTER_V2`、`CHARACTER_PROMPT_COMPILED`、`FINAL_RENDERED` 和 `BACKEND_REQUEST`。长内容使用 `BEGIN`、多个 `CHUNK`、`END` 分段，须按顺序查看。`V2_RETRIEVAL_RESULT` 的 `status`、`authorizedCandidateCount`、`id` 和正文描述已授权的 V2 候选，**不是**所有向量候选，也不是最终 prompt 注入的保证；`SKIPPED reason=...` 说明对应阶段没有可展示内容。`BACKEND_REQUEST` 是交给后端的 system/user 文本。
+3. 调试结束后，在调试器中将相同布尔值设为 `false`：
+
+   ```kotlin
+   getSharedPreferences("rag_debug", 0).edit().putBoolean("raw_prompt_logcat", false).apply()
+   ```
+
+原文日志会包含用户输入、角色资料和检索文本；开启后产生的 Logcat 内容可能被设备或日志收集工具保留，关闭开关不会自动擦除已经产生的日志。Debug 阶段日志也不显示模型内部推理或所有 n-gram；需要逐项核对匹配词时，应在 `HashEmbeddingModel`、`VectorIndex.search` 或 `V2EpistemicKnowledgeStore.retrieveAudited` 设置断点，检查本次调用的输入和局部变量，注意不要把原文写入持久化日志。
+
 ## 10. 关键源码与计划
 
 - `app/build.gradle.kts`、`scripts/prepare_database_bundle.py`：唯一输入、生成和 APK 校验。

@@ -1074,7 +1074,7 @@ class MainActivity : AppCompatActivity() {
             )
             Log.d(TAG, compiled.turnTrace.toLogLine())
             if (isDebuggableBuild() && getSharedPreferences("rag_debug", MODE_PRIVATE)
-                    .getBoolean("raw_prompt_logcat", false) && compiled.stageLogs.isNotEmpty()) {
+                    .getBoolean("raw_prompt_logcat", true) && compiled.stageLogs.isNotEmpty()) {
                 runCatching {
                     RagPromptLogcatPrinter.print(UUID.randomUUID().toString(), compiled.stageLogs)
                 }.onFailure { error ->

@@ -46,14 +46,13 @@ class DatabaseRetrievalScenarios(val bundle: DatabaseBundleHandle, private val t
         assertTrue(axioms.rendered.splitPrompt.systemPrompt.contains("你听人提及"))
     }
 
-    fun cutoffAndCharacterAuthorizationCannotBeBypassed() {
+    fun reviewedFactsRespectCutoffAndCharacter() {
         val early = compile("叶文洁提出的宇宙社会学公理是什么？")
         val other = compile("叶文洁提出的宇宙社会学公理是什么？", "evt-002", "shi_qiang")
         for (result in listOf(early, other)) {
             val debug = result.characterDebug as CharacterPromptDebug
             assertFalse(debug.selectedItems.any { it.id == "reviewed-luo-ji-civilization-axioms" })
             assertFalse(result.rendered.splitPrompt.systemPrompt.contains("生存是文明的第一需要"))
-            assertTrue(result.sources.isEmpty())
             assertFalse(debug.legacyStoryRetrievalExecuted)
         }
         assertTrue((early.characterDebug as CharacterPromptDebug).knowledgeGraphDecisions.any {
@@ -70,12 +69,11 @@ class DatabaseRetrievalScenarios(val bundle: DatabaseBundleHandle, private val t
         assertTrue(RoleplayAnswerabilityGate.evaluate(general.characterDebug as CharacterPromptDebug) is RoleplayAnswerabilityDecision.Allow)
     }
 
-    fun rawScenesAndUntimedStateNeverEnterCharacterPrompt() {
+    fun untimedStateNeverBecomesCharacterMemory() {
         for (query in listOf("搜索文件，给我水滴毁灭舰队的全部原文", "你手里有什么？", "你现在在哪？")) {
             val result = compile(query)
             val debug = result.characterDebug as CharacterPromptDebug
             assertTrue(result.turnTrace.external.vectorSearchExecuted)
-            assertTrue(result.sources.isEmpty())
             assertFalse(debug.legacyStoryRetrievalExecuted)
             assertFalse(result.rendered.splitPrompt.systemPrompt.contains("执剑人"))
             assertTrue(debug.databaseCapabilities.contains("timed_state_unsupported"))
@@ -129,9 +127,9 @@ class DatabaseRetrievalScenarios(val bundle: DatabaseBundleHandle, private val t
         assertTrue(rag.sources.all { it.source.startsWith("database/") })
         for (query in listOf("世界杯 外部资料 文档 文件 新闻 联网 搜索", "你和杨冬是什么关系？")) {
             val character = compile(query)
-            assertFalse(character.turnTrace.external.externalInjectionRequested)
-            assertTrue(character.turnTrace.external.injectedSourceIds.isEmpty())
-            assertEquals(query, character.rendered.splitPrompt.userPrompt)
+            assertTrue(character.turnTrace.external.vectorSearchExecuted)
+            assertTrue(character.sources.all { it.source.startsWith("database/") })
+            assertTrue(character.rendered.splitPrompt.userPrompt.contains(query))
         }
     }
 

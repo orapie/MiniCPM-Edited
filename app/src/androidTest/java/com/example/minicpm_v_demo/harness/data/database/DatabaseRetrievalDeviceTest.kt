@@ -32,9 +32,9 @@ class DatabaseRetrievalDeviceTest {
     @After fun cleanup() { root.deleteRecursively() }
     @Test fun profession() = scenarios.currentProfessionReachesFinalPrompt()
     @Test fun dynamicFacts() = scenarios.questionsSelectDifferentFacts()
-    @Test fun authorization() = scenarios.cutoffAndCharacterAuthorizationCannotBeBypassed()
+    @Test fun authorization() = scenarios.reviewedFactsRespectCutoffAndCharacter()
     @Test fun futureRelevance() = scenarios.futureQuestionIsNotMaskedByWeakNameMatch()
-    @Test fun rawScenesAndState() = scenarios.rawScenesAndUntimedStateNeverEnterCharacterPrompt()
+    @Test fun rawScenesAndState() = scenarios.untimedStateNeverBecomesCharacterMemory()
     @Test fun origin() = scenarios.originUsesCurrentDatabaseAndDoesNotLeakFullBiography()
     @Test fun thirdPartyOrigin() = scenarios.otherPersonsOriginDoesNotBorrowSpeakerProfile()
     @Test fun modesAndFlags() = scenarios.everyModeAndFlagRemainsBoundToSelectedDatabase()

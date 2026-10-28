@@ -155,15 +155,14 @@ class AndroidRagOrchestrator(
                 ),
             )
         } else {
-            // Candidates are always from this index. Raw scenes never become
-            // character knowledge; only the compiler's authorization gate may
-            // promote a reviewed claim into the system prompt.
+            // Reviewed facts remain character knowledge; vector hits are also
+            // supplied separately as untrusted reference material for this turn.
             val vectorRetrieval = retrieveForActiveRagTurn(
                 userInput = userInput,
                 candidateLimit = maxOf(topK * 8, 20),
                 minScore = CHARACTER_RAG_MIN_SCORE,
             )
-            val externalInjectionRequested = false
+            val externalInjectionRequested = vectorRetrieval.attempt.executed
             val characterPrompt = characterCompiler.buildNpcPrompt(
                 npcId = characterId,
                 userInput = userInput,
@@ -181,14 +180,17 @@ class AndroidRagOrchestrator(
             val prompt = characterRagPromptBuilder.build(
                 characterMessages = characterPrompt.messages,
                 userInput = userInput,
-                results = emptyList(),
+                results = vectorRetrieval.results,
                 characterDebug = characterPrompt.debug,
             )
             val rendered = renderer.render(prompt.messages)
-            val externalStage = RagPromptStageLog.skipped(
-                    RagPromptStage.EXTERNAL_CONTEXT_COMPILED,
-                    "external_source_disabled",
-                )
+            val externalStage = if (prompt.contextText.isNotBlank()) {
+                RagPromptStageLog.emitted(RagPromptStage.EXTERNAL_CONTEXT_COMPILED,
+                    RagPromptSnapshot(systemPrompt = prompt.messages[0].content, userPrompt = prompt.messages[1].content))
+            } else {
+                RagPromptStageLog.skipped(RagPromptStage.EXTERNAL_CONTEXT_COMPILED,
+                    if (vectorRetrieval.attempt.executed) "no_reference_context" else "vector_retrieval_not_requested")
+            }
             val stageLogs = finalStageLogs(characterPrompt.stageLogs + externalStage, rendered)
             CompiledAndroidPrompt(
                 renderedPrompt = rendered.renderedSinglePrompt,

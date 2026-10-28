@@ -3,6 +3,7 @@ package com.example.minicpm_v_demo.harness.rag
 import com.example.minicpm_v_demo.harness.HarnessModelFamily
 import com.example.minicpm_v_demo.harness.character.CharacterPromptDebug
 import com.example.minicpm_v_demo.harness.data.database.DatabaseBundleHandle
+import com.example.minicpm_v_demo.harness.rag.VectorRetrievalFeatureFlags
 import com.example.minicpm_v_demo.harness.data.database.DatabaseBundleValidator
 import com.example.minicpm_v_demo.harness.data.database.databaseTestSource
 import org.junit.Assert.*
@@ -40,8 +41,10 @@ class AndroidRagOrchestratorTest {
         val result = orchestrator().compile(query, RagMode.CHARACTER_RAG, "luo_ji", "evt-001")
         val debug = result.characterDebug as CharacterPromptDebug
         assertTrue(result.rendered.splitPrompt.systemPrompt.contains("大学教社会学"))
-        assertEquals(query, result.rendered.splitPrompt.userPrompt)
-        assertTrue(result.sources.isEmpty())
+        assertTrue(result.rendered.splitPrompt.userPrompt.contains(query))
+        assertTrue(result.sources.isNotEmpty())
+        assertTrue(result.rendered.splitPrompt.userPrompt.contains("本轮检索资料"))
+        assertTrue(result.stageLogs.any { it.stage == RagPromptStage.EXTERNAL_CONTEXT_COMPILED && it.status == RagPromptStageStatus.EMITTED })
         assertTrue(result.turnTrace.external.vectorSearchExecuted)
         assertTrue(result.turnTrace.external.vectorCollection.startsWith("database:"))
         assertTrue(debug.promptChars <= 900)
@@ -58,4 +61,32 @@ class AndroidRagOrchestratorTest {
             assertFalse(file.readText().contains(query))
         } finally { folder.deleteRecursively() }
     }
+    @Test fun characterReferenceChangesWithQuestionAndIsBounded() {
+        val first = orchestrator().compile("罗輯现在的身份是什么", RagMode.CHARACTER_RAG, "shi_qiang", "evt-118")
+        val second = orchestrator().compile("大学社会学", RagMode.CHARACTER_RAG, "shi_qiang", "evt-118")
+        for (result in listOf(first, second)) {
+            assertTrue(result.contextText.isNotBlank())
+            assertTrue(result.contextText.length <= 620) // includes separators between blocks
+            assertTrue(result.sources.all { it.source.startsWith("database/") })
+            assertTrue(result.turnTrace.external.injectedSourceIds.isNotEmpty())
+            assertTrue(result.rendered.splitPrompt.userPrompt.contains(result.contextText))
+            assertTrue(result.rendered.splitPrompt.systemPrompt.contains("不是角色亲身记忆"))
+        }
+        assertTrue(first.rendered.splitPrompt.userPrompt.contains("罗輯现在的身份是什么"))
+        assertNotEquals(first.contextText, second.contextText)
+    }
+
+    @Test fun disablingVectorRetrievalLeavesUserMessageWithoutReferences() {
+        val repo = if (File("settings.gradle.kts").isFile) File(".") else File("..")
+        val bundle = DatabaseBundleHandle(DatabaseBundleValidator.validate(databaseTestSource()))
+        val instance = AndroidRagOrchestrator.fromBundle(bundle,
+            File(repo, "app/src/main/assets/prompts/roleplay_system.prompt"), VectorRetrievalFeatureFlags(false, false))
+        val result = instance.compile("你的来历是什么？", RagMode.CHARACTER_RAG, "luo_ji", "evt-001")
+        assertFalse(result.turnTrace.external.vectorSearchExecuted)
+        assertTrue(result.sources.isEmpty())
+        assertTrue(result.contextText.isEmpty())
+        assertEquals("你的来历是什么？", result.rendered.splitPrompt.userPrompt)
+        assertTrue(result.stageLogs.any { it.stage == RagPromptStage.EXTERNAL_CONTEXT_COMPILED && it.status == RagPromptStageStatus.SKIPPED })
+    }
+
 }

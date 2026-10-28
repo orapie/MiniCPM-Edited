@@ -82,7 +82,7 @@ class DatabaseNativeAcceptanceTest {
                     assertEquals(identity.fingerprint, prompt.turnTrace.datasetFingerprint)
                     assertTrue(prompt.turnTrace.external.vectorSearchExecuted)
                     assertFalse(debug.legacyStoryRetrievalExecuted)
-                    assertTrue(prompt.sources.isEmpty())
+                    assertTrue(prompt.sources.all { it.source.startsWith("database/") })
                     case.expectedId?.let { id -> assertTrue("${case.label}: missing $id", debug.selectedItems.any { it.id == id }) }
                     if (case.label == "relationship") assertTrue(prompt.rendered.splitPrompt.systemPrompt.contains("史强"))
                     if (case.label == "legacy_bait") assertFalse(prompt.rendered.splitPrompt.systemPrompt.contains("陆江仙"))

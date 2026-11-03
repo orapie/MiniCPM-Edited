@@ -91,13 +91,36 @@ class DatabasePreparationTest(unittest.TestCase):
 
     def test_vector_index_has_provenance_but_does_not_authorize_scene_candidates(self):
         index = bundle.load_json(self.root / bundle.PATHS["vector_index"])
-        self.assertEqual(128, len(index["items"]))
-        self.assertEqual(125, sum(item["chunk"]["metadata"]["record_kind"] == "scene_candidate" for item in index["items"]))
+        self.assertEqual("1.2", index["schema_version"])
+        self.assertGreater(len(index["items"]), 128)
+        self.assertEqual(125, len(index["parent_embeddings"]))
+        self.assertEqual(125, len({item["chunk"]["metadata"]["claim_id"] for item in index["items"]
+                                   if item["chunk"]["metadata"]["record_kind"] == "scene_candidate"}))
         for item in index["items"]:
             self.assertEqual(384, len(item["embedding"]))
             self.assertAlmostEqual(1.0, sum(value * value for value in item["embedding"]), places=10)
             self.assertEqual("true", item["chunk"]["metadata"]["authorization_required"])
             self.assertEqual("three_body_2", item["chunk"]["metadata"]["dataset_id"])
+
+    def test_scene_windows_preserve_codepoint_coverage_and_are_deterministic(self):
+        for text in ("甲。乙！" * 130, "🙂" * 650, "无标点" * 240, "对白：\n甲说话。\n乙回答。" * 50):
+            windows = list(bundle.scene_windows(text))
+            self.assertEqual(windows, list(bundle.scene_windows(text)))
+            self.assertTrue(all(0 <= a < b <= len(text) and b-a <= 300 for a, b in windows))
+            self.assertEqual(set(range(len(text))), {n for a,b in windows for n in range(a,b)})
+
+    def test_changed_fragment_is_rejected_after_manifest_hash_refresh(self):
+        path = self.root / bundle.PATHS["vector_index"]
+        index = bundle.load_json(path)
+        item = next(i for i in index['items'] if i['chunk']['metadata']['record_kind'] == 'scene_candidate')
+        item['chunk']['text'] += '篡改'
+        bundle.write_json(path, index)
+        manifest = bundle.load_json(self.root / 'manifest.json')
+        next(f for f in manifest['files'] if f['path'] == bundle.PATHS['vector_index'])['sha256'] = bundle.sha256(path)
+        manifest['dataset_fingerprint'] = bundle.fingerprint(manifest)
+        bundle.write_json(self.root / 'manifest.json', manifest)
+        with self.assertRaisesRegex(ValueError, 'Vector index configuration/content/embedding mismatch'):
+            bundle.check(self.root)
 
     def test_staging_replaces_only_owned_generated_tree_and_does_not_modify_source(self):
         output = Path(self.temp.name) / "build/generated/databaseAssets"

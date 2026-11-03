@@ -1074,7 +1074,7 @@ class MainActivity : AppCompatActivity() {
             )
             Log.d(TAG, compiled.turnTrace.toLogLine())
             if (isDebuggableBuild() && getSharedPreferences("rag_debug", MODE_PRIVATE)
-                    .getBoolean("raw_prompt_logcat", true) && compiled.stageLogs.isNotEmpty()) {
+                    .getBoolean("raw_prompt_logcat", false) && compiled.stageLogs.isNotEmpty()) {
                 runCatching {
                     RagPromptLogcatPrinter.print(UUID.randomUUID().toString(), compiled.stageLogs)
                 }.onFailure { error ->
@@ -1133,6 +1133,10 @@ class MainActivity : AppCompatActivity() {
             is RoleplayAnswerabilityDecision.BlockFutureFact -> answerabilityDecision.visibleResponse
             is RoleplayAnswerabilityDecision.BlockUnknownFact -> answerabilityDecision.visibleResponse
             RoleplayAnswerabilityDecision.Allow -> null
+        }
+        if (compiled.mode == RagMode.CHARACTER_RAG) {
+            Log.i(TAG, "RAG_GATE querySha=${compiled.turnTrace.queryFingerprint} " +
+                "outcome=${answerabilityDecision.javaClass.simpleName} character=${binding.characterId}")
         }
         if (fixedResponse != null) {
             Log.i(TAG, "Character answerability gate=${answerabilityDecision.javaClass.simpleName} character=${binding.characterId}")

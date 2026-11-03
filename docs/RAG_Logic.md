@@ -42,7 +42,7 @@ app/build/generated/databaseAssets/database/ 构建输出，勿手工修改
 
 ## 3. 向量索引与 V2 事实的区别
 
-索引由 `scripts/prepare_database_bundle.py` 生成，使用 384 维、2–4 gram、BLAKE2b-64、L2 归一化；Kotlin `HashEmbeddingModel` 用相同算法编码本轮问题，`VectorIndex` 按余弦相似度排序。索引在消费者初始化时加载到内存，之后每轮搜索当前输入，而不是每轮重新读取 SQLite。
+索引由 `scripts/prepare_database_bundle.py` 生成，使用 384 维、2–4 gram、BLAKE2b-64、L2 归一化；Kotlin `HashEmbeddingModel` 用相同算法编码本轮问题，`VectorIndex` 按余弦相似度排序。索引在消费者初始化时加载到内存，之后每轮搜索当前输入，而不是每轮重新读取 SQLite。当前 schema 1.2 将 125 条场景切为短片段；每个场景用整场景 0.8、片段 0.2 的余弦分数聚合，同场景只保留排名最高片段。此权重是试验值，相关性和设备性能尚未完成验收。
 
 V2 `knowledge_fallback.json` 包含经单独审核的短事实、角色认知边、获取 sequence 和 cutoff；`V2EpistemicKnowledgeStore` 对问题做中文 2/3 gram 词项召回，也接收 `reviewed_fact` 向量候选 ID/分数。两者用于召回和排序，最终仍检查来源策略、角色、`believed`、获取时间与有效时间。`scene_candidate` 不被直接提升为角色事实。
 
@@ -60,7 +60,7 @@ V2 `knowledge_fallback.json` 包含经单独审核的短事实、角色认知边
 
 `always_on_vector_retrieval` 默认为 true，可通过调试偏好关闭；关闭时 trace 为 `disabled_by_flag`，不能声称该轮执行了向量查询。`retrieve_in_off_mode` 仅影响直接调用编排器的 OFF 路径。无论开关组合如何，都不会重新注册旧外部索引。
 
-角色模式不再用“世界杯、文档、搜索”等关键词打开旧外部库；向量候选只来自当前 `database/`，可压缩后作为未审核的本轮资料附加到 user 消息。当前尚未对这条参考资料路径执行时间或角色知识过滤，存在未来情节和旁白进入模型上下文的风险。
+角色模式不再用“世界杯、文档、搜索”等关键词打开旧外部库；向量候选只来自当前 `database/`，可压缩后作为未审核的本轮资料附加到 user 消息。角色模式会用已验证的 cutoff 和源行范围拒绝明确未来、跨 cutoff 或未知来源的片段，并限制 reviewed 事实的角色授权；未审核场景在时间内仍可能包含角色不知道的旁白或秘密。
 
 <a id="routing-rules"></a>
 
@@ -73,7 +73,7 @@ V2 `knowledge_fallback.json` 包含经单独审核的短事实、角色认知边
 5. V2 将词项和 reviewed 向量候选交给角色授权、时间和来源检查。单一、合法的上一轮目标可以按 ID 重查，但不能绕过这些检查。
 6. `DatabaseCharacterCardAdapter` 只在回合 cutoff 达到卡本身声明的 cutoff 后使用完整卡；早期回合只保留基本姓名和语气。无时间状态时不把卡的最终场景、任务或物品当作此刻状态。
 7. `CharacterPromptCompiler` 将身份、约束、风格与动态证据放入 system；向量匹配不等于注入，候选还可能因 topK、角色授权、cutoff 和字符预算被丢弃。旧 story/Memory fallback 在当前包模式关闭。
-8. `CharacterRagPromptBuilder` 接收向量结果，以 600 字符预算排序、压缩为本轮参考资料并和问题共同放入 user；system 标记资料不是角色亲身记忆或指令。无候选时保留原始 user 问题。`ChatTemplateRenderer` 形成 system/user 和用于显示的渲染版本。
+8. `CharacterReferenceFilter` 先按当前包、角色和 cutoff 过滤候选；`CharacterRagPromptBuilder` 在包含分隔符和标头的 600 字符预算内按句挑选有意义的正文，并和问题共同放入 user；system 标记资料不是角色亲身记忆或指令。无候选时保留原始 user 问题。`ChatTemplateRenderer` 形成 system/user 和用于显示的渲染版本。
 9. `RoleplayAnswerabilityGate` 在仅命中未来事实，或未来事实显著强于仅由共名产生的当前事实匹配时，返回固定的安全回复。询问第三人的来历而没有相关证据时也返回未知；其他普通无命中继续交给模型。这些指代和相关性判断是启发式，不能保证完全理解所有复合问题。
 10. 模型通过 `HarnessBackend.sendChatPrompt()` 接收分离的 system/user；结构化请求会清空 native context 并设置本轮 system。生成结果由 `RoleplayGenerationCoordinator` / `RoleplayOutputGuard` 缓冲检查，必要时最多修复重试一次，然后安全回退。
 
@@ -87,7 +87,7 @@ V2 `knowledge_fallback.json` 包含经单独审核的短事实、角色认知边
 | --- | --- | --- |
 | 罗辑 `evt-001`：“你的来历是什么？” | `reviewed-luo-ji-profession`：曾研究天文学、当时在大学教社会学 | 已知职业不等于有家乡信息；全传角色卡不会在早期直接注入 |
 | 罗辑 `evt-002`：“叶文洁提出的宇宙社会学公理是什么？” | `reviewed-luo-ji-civilization-axioms`，获取方式 `reported` | 把它作为罗辑听到的观点，不能自动视为经验证的宇宙定律 |
-| 同一问题在 `evt-001` | 公理边的获取时间在 cutoff 之后 | 审核事实不进入角色 system；原始参考资料目前未做时间过滤，但生成前 gate 可在匹配到未来事实时阻止模型生成 |
+| 同一问题在 `evt-001` | 公理边的获取时间在 cutoff 之后 | 审核事实不进入角色 system；明确未来或跨截止点的参考片段被过滤，生成前 gate 可在匹配到未来事实时阻止模型生成 |
 | 罗辑 `evt-125`：“你怎么看史强？” | 罗辑角色卡中的有向态度 | 早于角色卡声明的 cutoff 时不使用整张卡的关系 |
 | 史强问罗辑才知道的公理 | 没有史强的已审核认知边 | 未经审核的向量片段可能作为参考资料进入 user，不能证明史强知道该事实 |
 | “你手里有什么？” | 当前包没有 `timed_state` | 不从剧情中的历史物品猜测当前携带状态 |
@@ -115,7 +115,7 @@ Android 角色 system 默认最多 900 字符；编译器限制 profile、状态
 2. 在回答的 Final Prompt 对话框查看 system/user 和 trace；system 的固定角色规则相同是正常现象，关键是动态证据和 user 输入。
 3. 查看 `RAG_TRACE`：`dataset`、`fingerprint`、`indexFingerprint`、`vectorExecuted`、`candidates`、`authorized`、`injected`、`rejected`。候选、授权和注入分别是不同阶段。
 4. 未查询时检查模式和 `disabled_by_flag`；执行但无目标候选时检查输入与索引；有候选但无授权时看角色边、来源和 `ACQUIRED_AFTER_CUTOFF`；已授权但未注入时看 `dropped` 和预算；已注入而回答不佳时再检查模型生成与 guard。
-5. trace/JSONL 默认不含用户问题或事实正文，JNI 只记录 prompt 长度、token 数和状态，不逐 token 打印正文。`RagPromptDebug` 的阶段原文 Logcat 仅 Debug 构建且 `rag_debug` SharedPreferences 的 `raw_prompt_logcat=true` 时启用；当前源码默认值为 true，会记录问题及资料原文，可以显式设为 false。应用内 Final Prompt 仍可查看。
+5. trace/JSONL 默认不含用户问题或事实正文，JNI 只记录 prompt 长度、token 数和状态，不逐 token 打印正文。`RagPromptDebug` 阶段原文日志默认关闭，仅在 Debug 构建且 `rag_debug` SharedPreferences 的 `raw_prompt_logcat=true` 时启用；已有显式设置为 true 的设备升级后仍会记录原文。应用内 Final Prompt 仍可查看。
 6. 设备安装使用 `adb install -r` 保留数据；在保存本地模型的设备上避免会卸载应用的测试任务。JVM、APK 清单和设备 prompt 测试不代替真实模型输出验证。
 
 ### 9.1 使用 Logcat 确认本轮读取了哪个数据库
@@ -125,7 +125,7 @@ Android 角色 system 默认最多 900 字符；编译器限制 profile、状态
 | 搜索词 / 标签 | 看什么 | 如何判断 |
 | --- | --- | --- |
 | `DatabaseInstallation` | `database status=... dataset=... active=... requested=...` | `INSTALLED`、`UNCHANGED`、`UPDATED`、`SWITCHED`、`REPAIRED` 表示有已验证的活动包；`RETAINED_PREVIOUS` 表示更新失败后保留了已验证的同数据集旧包，需对比 `active` 和 `requested`；`unavailable` 表示没有可用包。 |
-| `MainActivity` 和 `RAG_TRACE` | `mode`、`querySha`、`dataset`、`fingerprint`、`indexFingerprint`、`external`、`candidates` 等 | 每条 trace 对应一次 prompt 编译；`dataset` 和 `fingerprint` 应与预期包一致，`indexFingerprint` 应与该包 manifest 中 `vector_index` 对应文件的 SHA-256 一致。 |
+| `MainActivity` 和 `RAG_TRACE` | `mode`、`querySha`、`dataset`、`fingerprint`、`indexFingerprint`、`external`、`candidates` 等 | 每条 trace 对应一次 prompt 编译；`dataset` 和 `fingerprint` 应与预期包一致，`indexFingerprint` 应与该包 manifest 中 `vector_index` 对应文件的 SHA-256 一致；`indexVersion` 为索引 schema。`contextDecisions` 显示片段 ID、父条目、来源范围、分数与裁剪原因；`selectionBoost` 和 `selectionScore` 分别是资料选句最大词项匹配分数及其与候选向量分数之和；未参与该排序时为 `none`。`spansUtf16` 是实际保留句子相对于原始片段的半开 UTF-16 偏移，可能有多段；不是源文件行号或 Unicode 码点偏移，需先定位对应片段。 |
 | `Compiled CHARACTER_RAG prompt` | `knowledgeIntent`、`followUp`、`v2`、`profile`、`state`、`possession`、`legacyStory` | 辅助判断问题路由、知识源状态与注入字符数；当前数据包中 `legacyStory` / `legacyMemory` 应为 `false`。 |
 | `Database prompt compilation failed`、`Database rebind failed` | 初始化、重新绑定或编译错误 | 结合异常与安装状态检查，不能把缺失 trace 直接解释为“没有检索结果”。 |
 
@@ -176,7 +176,7 @@ PY
 
 ### 9.3 查看阶段正文和检索关键词的限制
 
-默认的 `RAG_TRACE` 和 JSONL **不打印用户问题、事实正文或实际分词后的关键词**；独立的 `RagPromptDebug` 阶段正文在当前 Debug 源码中默认开启。`querySha` 不是关键词；`knowledgeIntent`、`intents`、`routeCodes` 是路由分类，也不是搜索词。当前没有直接展示向量查询分词列表的正式日志，不能从这些字段还原检索实际用了哪些 n-gram。应用内 Final Prompt 可以核对本轮 user 原文和最终 system；如果还需要查看阶段正文，可在 **Debug 可调试构建** 中临时打开 `rag_debug` SharedPreferences 的 `raw_prompt_logcat` 布尔值：
+默认的 `RAG_TRACE` 和 JSONL **不打印用户问题、事实正文或实际分词后的关键词**；独立的 `RagPromptDebug` 阶段正文默认关闭，已有显式启用的 preference 不会被覆盖。`querySha` 不是关键词；`knowledgeIntent`、`intents`、`routeCodes` 是路由分类，也不是搜索词。当前没有直接展示向量查询分词列表的正式日志，不能从这些字段还原检索实际用了哪些 n-gram。应用内 Final Prompt 可以核对本轮 user 原文和最终 system；如果还需要查看阶段正文，可在 **Debug 可调试构建** 中临时打开 `rag_debug` SharedPreferences 的 `raw_prompt_logcat` 布尔值：
 
 1. 在 Android Studio 用调试器连接应用，在 `MainActivity` 的 prompt 编译逻辑处暂停；使用 Evaluate Expression，在当前 `MainActivity` 上执行：
 

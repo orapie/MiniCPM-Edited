@@ -1,0 +1,4569 @@
+{
+  "dataset_id": "three_body_2",
+  "index_sha256": "96518f9c80cce0ced1b245fb4863cef29344df2d7444ef06112c343122807f38",
+  "cases_sha256": "056cc805be2fb73700239525fdb25c10928b69a3dc614be8dee73cc0e4330e9f",
+  "elapsed_ms": 2291.3,
+  "caveat": "Diagnostic only; rank before threshold. No authorization, final prompt or model quality evaluation.",
+  "runs": {
+    "0.0": [
+      {
+        "id": "profession_train",
+        "split": "development",
+        "expected": [
+          "reviewed-luo-ji-profession"
+        ],
+        "rank": 1,
+        "top20": [
+          {
+            "id": "reviewed-luo-ji-profession",
+            "parent": "reviewed-luo-ji-profession",
+            "vector": 0.27229057431858544,
+            "chunk": 0.27229057431858544,
+            "parent_score": null,
+            "lexical": 0.4444444444444444,
+            "score": 0.27229057431858544
+          },
+          {
+            "id": "claim-evt-077@1457-1729",
+            "parent": "claim-evt-077",
+            "vector": 0.11762071187117856,
+            "chunk": 0.11987297705688515,
+            "parent_score": 0.1170576455747519,
+            "lexical": 0.2222222222222222,
+            "score": 0.11762071187117856
+          },
+          {
+            "id": "claim-evt-038@824-1112",
+            "parent": "claim-evt-038",
+            "vector": 0.10774180838163165,
+            "chunk": 0.13041013273932528,
+            "parent_score": 0.10207472729220823,
+            "lexical": 0.1111111111111111,
+            "score": 0.10774180838163165
+          },
+          {
+            "id": "claim-evt-036@1049-1309",
+            "parent": "claim-evt-036",
+            "vector": 0.10564989504521505,
+            "chunk": 0.10105651043180543,
+            "parent_score": 0.10679824119856744,
+            "lexical": 0.1111111111111111,
+            "score": 0.10564989504521505
+          },
+          {
+            "id": "claim-evt-039@196-476",
+            "parent": "claim-evt-039",
+            "vector": 0.10464645764405946,
+            "chunk": 0.08596023825918793,
+            "parent_score": 0.10931801249027734,
+            "lexical": 0.0,
+            "score": 0.10464645764405946
+          },
+          {
+            "id": "claim-evt-112@2021-2242",
+            "parent": "claim-evt-112",
+            "vector": 0.10460758916209735,
+            "chunk": 0.15575863599868883,
+            "parent_score": 0.09181982745294946,
+            "lexical": 0.1111111111111111,
+            "score": 0.10460758916209735
+          },
+          {
+            "id": "claim-evt-110@157-447",
+            "parent": "claim-evt-110",
+            "vector": 0.10247740307819102,
+            "chunk": 0.0824318930241352,
+            "parent_score": 0.10748878059170495,
+            "lexical": 0.0,
+            "score": 0.10247740307819102
+          },
+          {
+            "id": "claim-evt-111@1785-2039",
+            "parent": "claim-evt-111",
+            "vector": 0.10060124577272608,
+            "chunk": 0.0887356509416114,
+            "parent_score": 0.10356764448050475,
+            "lexical": 0.2222222222222222,
+            "score": 0.10060124577272608
+          },
+          {
+            "id": "claim-evt-003@1526-1815",
+            "parent": "claim-evt-003",
+            "vector": 0.099777792257347,
+            "chunk": 0.11130384518677137,
+            "parent_score": 0.0968962790249909,
+            "lexical": 0.1111111111111111,
+            "score": 0.099777792257347
+          },
+          {
+            "id": "claim-evt-103@653-923",
+            "parent": "claim-evt-103",
+            "vector": 0.09516132561206517,
+            "chunk": 0.16195526603578322,
+            "parent_score": 0.07846284050613564,
+            "lexical": 0.0,
+            "score": 0.09516132561206517
+          },
+          {
+            "id": "claim-evt-094@1459-1704",
+            "parent": "claim-evt-094",
+            "vector": 0.09482772468901446,
+            "chunk": 0.09532062476387965,
+            "parent_score": 0.09470449967029815,
+            "lexical": 0.2222222222222222,
+            "score": 0.09482772468901446
+          },
+          {
+            "id": "claim-evt-096@192-469",
+            "parent": "claim-evt-096",
+            "vector": 0.09465022701301554,
+            "chunk": 0.09750955640481447,
+            "parent_score": 0.09393539466506579,
+            "lexical": 0.1111111111111111,
+            "score": 0.09465022701301554
+          },
+          {
+            "id": "claim-evt-010@0-288",
+            "parent": "claim-evt-010",
+            "vector": 0.09449769830837267,
+            "chunk": 0.09861594056966569,
+            "parent_score": 0.0934681377430494,
+            "lexical": 0.2222222222222222,
+            "score": 0.09449769830837267
+          },
+          {
+            "id": "claim-evt-125@223-431",
+            "parent": "claim-evt-125",
+            "vector": 0.09184488866456132,
+            "chunk": 0.06424925662032356,
+            "parent_score": 0.09874379667562075,
+            "lexical": 0.0,
+            "score": 0.09184488866456132
+          },
+          {
+            "id": "claim-evt-119@1261-1537",
+            "parent": "claim-evt-119",
+            "vector": 0.09156982534948166,
+            "chunk": 0.13623421903119948,
+            "parent_score": 0.08040372692905219,
+            "lexical": 0.1111111111111111,
+            "score": 0.09156982534948166
+          },
+          {
+            "id": "claim-evt-008@698-983",
+            "parent": "claim-evt-008",
+            "vector": 0.08776523770438022,
+            "chunk": 0.09897594780811199,
+            "parent_score": 0.08496256017844726,
+            "lexical": 0.2222222222222222,
+            "score": 0.08776523770438022
+          },
+          {
+            "id": "claim-evt-099@223-510",
+            "parent": "claim-evt-099",
+            "vector": 0.08734140514681271,
+            "chunk": 0.10814761408717505,
+            "parent_score": 0.08213985291172213,
+            "lexical": 0.1111111111111111,
+            "score": 0.08734140514681271
+          },
+          {
+            "id": "claim-evt-095@203-487",
+            "parent": "claim-evt-095",
+            "vector": 0.0871800772146554,
+            "chunk": 0.11208836045578631,
+            "parent_score": 0.08095300640437267,
+            "lexical": 0.0,
+            "score": 0.0871800772146554
+          },
+          {
+            "id": "claim-evt-115@1776-2068",
+            "parent": "claim-evt-115",
+            "vector": 0.08699276949276563,
+            "chunk": 0.08529038067574019,
+            "parent_score": 0.08741836669702199,
+            "lexical": 0.1111111111111111,
+            "score": 0.08699276949276563
+          },
+          {
+            "id": "claim-evt-049@1121-1400",
+            "parent": "claim-evt-049",
+            "vector": 0.0853434306067464,
+            "chunk": 0.13618759576872608,
+            "parent_score": 0.07263238931625147,
+            "lexical": 0.1111111111111111,
+            "score": 0.0853434306067464
+          }
+        ]
+      },
+      {
+        "id": "classmate_train",
+        "split": "development",
+        "expected": [
+          "reviewed-luo-ji-classmate"
+        ],
+        "rank": 1,
+        "top20": [
+          {
+            "id": "reviewed-luo-ji-classmate",
+            "parent": "reviewed-luo-ji-classmate",
+            "vector": 0.2501595914621521,
+            "chunk": 0.2501595914621521,
+            "parent_score": null,
+            "lexical": 0.4,
+            "score": 0.2501595914621521
+          },
+          {
+            "id": "claim-evt-125@223-431",
+            "parent": "claim-evt-125",
+            "vector": 0.11637888245603391,
+            "chunk": 0.11689736578863885,
+            "parent_score": 0.11624926162288265,
+            "lexical": 0.0,
+            "score": 0.11637888245603391
+          },
+          {
+            "id": "claim-evt-124@1097-1363",
+            "parent": "claim-evt-124",
+            "vector": 0.07966909580027286,
+            "chunk": 0.08067147136853582,
+            "parent_score": 0.07941850190820711,
+            "lexical": 0.0,
+            "score": 0.07966909580027286
+          },
+          {
+            "id": "claim-evt-006@432-714",
+            "parent": "claim-evt-006",
+            "vector": 0.07386399994912216,
+            "chunk": 0.1288464801594537,
+            "parent_score": 0.060118379896539266,
+            "lexical": 0.0,
+            "score": 0.07386399994912216
+          },
+          {
+            "id": "claim-evt-040@1534-1782",
+            "parent": "claim-evt-040",
+            "vector": 0.06671672167963533,
+            "chunk": 0.10013804040416859,
+            "parent_score": 0.05836139199850201,
+            "lexical": 0.0,
+            "score": 0.06671672167963533
+          },
+          {
+            "id": "claim-evt-097@852-1115",
+            "parent": "claim-evt-097",
+            "vector": 0.06265743271058641,
+            "chunk": 0.10359722954017199,
+            "parent_score": 0.05242248350319001,
+            "lexical": 0.0,
+            "score": 0.06265743271058641
+          },
+          {
+            "id": "claim-evt-121@1498-1737",
+            "parent": "claim-evt-121",
+            "vector": 0.055384065964416244,
+            "chunk": 0.052133030759893416,
+            "parent_score": 0.056196824765546945,
+            "lexical": 0.0,
+            "score": 0.055384065964416244
+          },
+          {
+            "id": "claim-evt-026@0-251",
+            "parent": "claim-evt-026",
+            "vector": 0.0549353368210367,
+            "chunk": 0.13180161915329625,
+            "parent_score": 0.0357187662379718,
+            "lexical": 0.0,
+            "score": 0.0549353368210367
+          },
+          {
+            "id": "claim-evt-094@222-512",
+            "parent": "claim-evt-094",
+            "vector": 0.05426300675246372,
+            "chunk": 0.08334189535837759,
+            "parent_score": 0.04699328460098525,
+            "lexical": 0.0,
+            "score": 0.05426300675246372
+          },
+          {
+            "id": "claim-evt-071@1899-2183",
+            "parent": "claim-evt-071",
+            "vector": 0.0535622423503508,
+            "chunk": 0.1292233433073908,
+            "parent_score": 0.0346469671110908,
+            "lexical": 0.0,
+            "score": 0.0535622423503508
+          },
+          {
+            "id": "reviewed-luo-ji-profession",
+            "parent": "reviewed-luo-ji-profession",
+            "vector": 0.04503773491110449,
+            "chunk": 0.04503773491110449,
+            "parent_score": null,
+            "lexical": 0.0,
+            "score": 0.04503773491110449
+          },
+          {
+            "id": "claim-evt-056@1638-1893",
+            "parent": "claim-evt-056",
+            "vector": 0.04375256133912808,
+            "chunk": 0.06557130346417728,
+            "parent_score": 0.038297875807865776,
+            "lexical": 0.0,
+            "score": 0.04375256133912808
+          },
+          {
+            "id": "claim-evt-031@1225-1523",
+            "parent": "claim-evt-031",
+            "vector": 0.043380161683424484,
+            "chunk": 0.09363120761347887,
+            "parent_score": 0.030817400200910883,
+            "lexical": 0.0,
+            "score": 0.043380161683424484
+          },
+          {
+            "id": "claim-evt-005@2205-2387",
+            "parent": "claim-evt-005",
+            "vector": 0.041939611824607266,
+            "chunk": 0.06255347431156046,
+            "parent_score": 0.03678614620286896,
+            "lexical": 0.0,
+            "score": 0.041939611824607266
+          },
+          {
+            "id": "claim-evt-116@0-287",
+            "parent": "claim-evt-116",
+            "vector": 0.040666347005607686,
+            "chunk": 0.09080242527234748,
+            "parent_score": 0.02813232743892273,
+            "lexical": 0.0,
+            "score": 0.040666347005607686
+          },
+          {
+            "id": "claim-evt-077@338-624",
+            "parent": "claim-evt-077",
+            "vector": 0.03990119781959787,
+            "chunk": 0.10484873886207245,
+            "parent_score": 0.02366431255897922,
+            "lexical": 0.0,
+            "score": 0.03990119781959787
+          },
+          {
+            "id": "claim-evt-120@205-382",
+            "parent": "claim-evt-120",
+            "vector": 0.0395818474343253,
+            "chunk": 0.1035759110443109,
+            "parent_score": 0.023583331531828906,
+            "lexical": 0.0,
+            "score": 0.0395818474343253
+          },
+          {
+            "id": "claim-evt-086@945-1232",
+            "parent": "claim-evt-086",
+            "vector": 0.03840107130273966,
+            "chunk": 0.09920299002317963,
+            "parent_score": 0.023200591622629666,
+            "lexical": 0.0,
+            "score": 0.03840107130273966
+          },
+          {
+            "id": "claim-evt-084@1366-1651",
+            "parent": "claim-evt-084",
+            "vector": 0.0371762680284663,
+            "chunk": 0.08379253069981943,
+            "parent_score": 0.025522202360628014,
+            "lexical": 0.0,
+            "score": 0.0371762680284663
+          },
+          {
+            "id": "claim-evt-009@863-1156",
+            "parent": "claim-evt-009",
+            "vector": 0.035748990408139086,
+            "chunk": 0.08260672755076923,
+            "parent_score": 0.02403455612248155,
+            "lexical": 0.0,
+            "score": 0.035748990408139086
+          }
+        ]
+      },
+      {
+        "id": "axioms_eval",
+        "split": "validation",
+        "expected": [
+          "reviewed-luo-ji-civilization-axioms"
+        ],
+        "rank": 1,
+        "top20": [
+          {
+            "id": "reviewed-luo-ji-civilization-axioms",
+            "parent": "reviewed-luo-ji-civilization-axioms",
+            "vector": 0.2189224326311058,
+            "chunk": 0.2189224326311058,
+            "parent_score": null,
+            "lexical": 0.5625,
+            "score": 0.2189224326311058
+          },
+          {
+            "id": "claim-evt-002@808-1101",
+            "parent": "claim-evt-002",
+            "vector": 0.16966845154533938,
+            "chunk": 0.26219637826135683,
+            "parent_score": 0.146536469866335,
+            "lexical": 0.5625,
+            "score": 0.16966845154533938
+          },
+          {
+            "id": "claim-evt-055@1454-1698",
+            "parent": "claim-evt-055",
+            "vector": 0.1619610323910533,
+            "chunk": 0.23811738545941746,
+            "parent_score": 0.14292194412396225,
+            "lexical": 0.5,
+            "score": 0.1619610323910533
+          },
+          {
+            "id": "claim-evt-067@1324-1622",
+            "parent": "claim-evt-067",
+            "vector": 0.14672362340579284,
+            "chunk": 0.1625696713222866,
+            "parent_score": 0.1427621114266694,
+            "lexical": 0.0,
+            "score": 0.14672362340579284
+          },
+          {
+            "id": "reviewed-luo-ji-profession",
+            "parent": "reviewed-luo-ji-profession",
+            "vector": 0.14462030521243746,
+            "chunk": 0.14462030521243746,
+            "parent_score": null,
+            "lexical": 0.25,
+            "score": 0.14462030521243746
+          },
+          {
+            "id": "claim-evt-053@223-500",
+            "parent": "claim-evt-053",
+            "vector": 0.11973508647388197,
+            "chunk": 0.18863071451579524,
+            "parent_score": 0.10251117946340364,
+            "lexical": 0.4375,
+            "score": 0.11973508647388197
+          },
+          {
+            "id": "claim-evt-029@451-730",
+            "parent": "claim-evt-029",
+            "vector": 0.11412496423322684,
+            "chunk": 0.15361412355774773,
+            "parent_score": 0.1042526744020966,
+            "lexical": 0.0,
+            "score": 0.11412496423322684
+          },
+          {
+            "id": "claim-evt-105@0-211",
+            "parent": "claim-evt-105",
+            "vector": 0.09737991234641091,
+            "chunk": 0.16995721294847455,
+            "parent_score": 0.07923558719589499,
+            "lexical": 0.0,
+            "score": 0.09737991234641091
+          },
+          {
+            "id": "claim-evt-108@1288-1574",
+            "parent": "claim-evt-108",
+            "vector": 0.09658550420032344,
+            "chunk": 0.2030086856966809,
+            "parent_score": 0.06997970882623408,
+            "lexical": 0.0,
+            "score": 0.09658550420032344
+          },
+          {
+            "id": "claim-evt-049@1121-1400",
+            "parent": "claim-evt-049",
+            "vector": 0.09568743752761448,
+            "chunk": 0.10992655321778623,
+            "parent_score": 0.09212765860507154,
+            "lexical": 0.0625,
+            "score": 0.09568743752761448
+          },
+          {
+            "id": "claim-evt-026@630-920",
+            "parent": "claim-evt-026",
+            "vector": 0.09514269346392026,
+            "chunk": 0.16180796699117808,
+            "parent_score": 0.0784763750821058,
+            "lexical": 0.125,
+            "score": 0.09514269346392026
+          },
+          {
+            "id": "claim-evt-106@1625-1925",
+            "parent": "claim-evt-106",
+            "vector": 0.08895230693125523,
+            "chunk": 0.10846522890932808,
+            "parent_score": 0.084074076436737,
+            "lexical": 0.125,
+            "score": 0.08895230693125523
+          },
+          {
+            "id": "claim-evt-107@1057-1300",
+            "parent": "claim-evt-107",
+            "vector": 0.08800390324176877,
+            "chunk": 0.11836971411628427,
+            "parent_score": 0.08041245052313989,
+            "lexical": 0.0,
+            "score": 0.08800390324176877
+          },
+          {
+            "id": "claim-evt-051@0-295",
+            "parent": "claim-evt-051",
+            "vector": 0.08516843764698796,
+            "chunk": 0.09899494936611665,
+            "parent_score": 0.08171180971720579,
+            "lexical": 0.0,
+            "score": 0.08516843764698796
+          },
+          {
+            "id": "claim-evt-119@821-1116",
+            "parent": "claim-evt-119",
+            "vector": 0.08342480519381121,
+            "chunk": 0.1399723287055766,
+            "parent_score": 0.06928792431586986,
+            "lexical": 0.125,
+            "score": 0.08342480519381121
+          },
+          {
+            "id": "claim-evt-052@1996-2245",
+            "parent": "claim-evt-052",
+            "vector": 0.0699648254882828,
+            "chunk": 0.08529240280096018,
+            "parent_score": 0.06613293116011346,
+            "lexical": 0.0625,
+            "score": 0.0699648254882828
+          },
+          {
+            "id": "claim-evt-068@649-949",
+            "parent": "claim-evt-068",
+            "vector": 0.06826937829802375,
+            "chunk": 0.09432807999511308,
+            "parent_score": 0.06175470287375141,
+            "lexical": 0.0,
+            "score": 0.06826937829802375
+          },
+          {
+            "id": "claim-evt-057@1760-2023",
+            "parent": "claim-evt-057",
+            "vector": 0.06675742382327883,
+            "chunk": 0.09435935174145671,
+            "parent_score": 0.059856941843734364,
+            "lexical": 0.125,
+            "score": 0.06675742382327883
+          },
+          {
+            "id": "claim-evt-095@2081-2272",
+            "parent": "claim-evt-095",
+            "vector": 0.0629632962075443,
+            "chunk": 0.12812263806704743,
+            "parent_score": 0.04667346074266852,
+            "lexical": 0.0625,
+            "score": 0.0629632962075443
+          },
+          {
+            "id": "claim-evt-117@548-776",
+            "parent": "claim-evt-117",
+            "vector": 0.06168692245006545,
+            "chunk": 0.10027894056973134,
+            "parent_score": 0.052038917920148975,
+            "lexical": 0.125,
+            "score": 0.06168692245006545
+          }
+        ]
+      },
+      {
+        "id": "identity_simplified_eval",
+        "split": "validation",
+        "expected": [
+          "claim-evt-115"
+        ],
+        "rank": 4,
+        "top20": [
+          {
+            "id": "claim-evt-114@1951-2182",
+            "parent": "claim-evt-114",
+            "vector": 0.1950628378070231,
+            "chunk": 0.18611166714926827,
+            "parent_score": 0.19730063047146182,
+            "lexical": 0.3,
+            "score": 0.1950628378070231
+          },
+          {
+            "id": "claim-evt-039@1574-1867",
+            "parent": "claim-evt-039",
+            "vector": 0.19094049053829124,
+            "chunk": 0.15336741876964044,
+            "parent_score": 0.20033375848045393,
+            "lexical": 0.1,
+            "score": 0.19094049053829124
+          },
+          {
+            "id": "claim-evt-071@806-1062",
+            "parent": "claim-evt-071",
+            "vector": 0.176503291180362,
+            "chunk": 0.15069094527877577,
+            "parent_score": 0.18295637765575856,
+            "lexical": 0.1,
+            "score": 0.176503291180362
+          },
+          {
+            "id": "claim-evt-115@1329-1624",
+            "parent": "claim-evt-115",
+            "vector": 0.16309145043092196,
+            "chunk": 0.12114942542923779,
+            "parent_score": 0.17357695668134301,
+            "lexical": 0.3,
+            "score": 0.16309145043092196
+          },
+          {
+            "id": "claim-evt-019@1296-1574",
+            "parent": "claim-evt-019",
+            "vector": 0.1630809492887334,
+            "chunk": 0.13805038349729812,
+            "parent_score": 0.16933859073659224,
+            "lexical": 0.3,
+            "score": 0.1630809492887334
+          },
+          {
+            "id": "claim-evt-018@210-502",
+            "parent": "claim-evt-018",
+            "vector": 0.16171308075785285,
+            "chunk": 0.21376461793842838,
+            "parent_score": 0.14870019646270896,
+            "lexical": 0.1,
+            "score": 0.16171308075785285
+          },
+          {
+            "id": "claim-evt-023@412-705",
+            "parent": "claim-evt-023",
+            "vector": 0.1539840561387401,
+            "chunk": 0.1364382080481293,
+            "parent_score": 0.1583705181613928,
+            "lexical": 0.4,
+            "score": 0.1539840561387401
+          },
+          {
+            "id": "claim-evt-015@2232-2368",
+            "parent": "claim-evt-015",
+            "vector": 0.14940038565671399,
+            "chunk": 0.12018504251546633,
+            "parent_score": 0.1567042214420259,
+            "lexical": 0.0,
+            "score": 0.14940038565671399
+          },
+          {
+            "id": "claim-evt-052@650-941",
+            "parent": "claim-evt-052",
+            "vector": 0.14665670222949334,
+            "chunk": 0.16313208693923603,
+            "parent_score": 0.14253785605205765,
+            "lexical": 0.4,
+            "score": 0.14665670222949334
+          },
+          {
+            "id": "claim-evt-078@1853-2150",
+            "parent": "claim-evt-078",
+            "vector": 0.14125591049636915,
+            "chunk": 0.1356563672725956,
+            "parent_score": 0.14265579630231254,
+            "lexical": 0.2,
+            "score": 0.14125591049636915
+          },
+          {
+            "id": "claim-evt-080@663-960",
+            "parent": "claim-evt-080",
+            "vector": 0.1390169365262393,
+            "chunk": 0.1448685779082066,
+            "parent_score": 0.13755402618074747,
+            "lexical": 0.2,
+            "score": 0.1390169365262393
+          },
+          {
+            "id": "claim-evt-037@668-959",
+            "parent": "claim-evt-037",
+            "vector": 0.13896824316052062,
+            "chunk": 0.12434512367769988,
+            "parent_score": 0.1426240230312258,
+            "lexical": 0.3,
+            "score": 0.13896824316052062
+          },
+          {
+            "id": "claim-evt-113@880-1157",
+            "parent": "claim-evt-113",
+            "vector": 0.13369565686865745,
+            "chunk": 0.17287295182088022,
+            "parent_score": 0.12390133313060175,
+            "lexical": 0.2,
+            "score": 0.13369565686865745
+          },
+          {
+            "id": "claim-evt-082@232-451",
+            "parent": "claim-evt-082",
+            "vector": 0.13212218454040214,
+            "chunk": 0.10623145515131183,
+            "parent_score": 0.13859486688767472,
+            "lexical": 0.2,
+            "score": 0.13212218454040214
+          },
+          {
+            "id": "claim-evt-041@1607-1906",
+            "parent": "claim-evt-041",
+            "vector": 0.13036631013568756,
+            "chunk": 0.1431047552460102,
+            "parent_score": 0.1271816988581069,
+            "lexical": 0.3,
+            "score": 0.13036631013568756
+          },
+          {
+            "id": "claim-evt-010@1520-1793",
+            "parent": "claim-evt-010",
+            "vector": 0.12977241544496734,
+            "chunk": 0.1725248421709032,
+            "parent_score": 0.11908430876348336,
+            "lexical": 0.3,
+            "score": 0.12977241544496734
+          },
+          {
+            "id": "claim-evt-112@0-174",
+            "parent": "claim-evt-112",
+            "vector": 0.12830003565835865,
+            "chunk": 0.16833285408535434,
+            "parent_score": 0.11829183105160973,
+            "lexical": 0.3,
+            "score": 0.12830003565835865
+          },
+          {
+            "id": "claim-evt-030@0-255",
+            "parent": "claim-evt-030",
+            "vector": 0.12740415887088366,
+            "chunk": 0.09367954652479607,
+            "parent_score": 0.13583531195740556,
+            "lexical": 0.1,
+            "score": 0.12740415887088366
+          },
+          {
+            "id": "claim-evt-123@1750-2037",
+            "parent": "claim-evt-123",
+            "vector": 0.12695232991775587,
+            "chunk": 0.1045372119681566,
+            "parent_score": 0.1325561094051557,
+            "lexical": 0.2,
+            "score": 0.12695232991775587
+          },
+          {
+            "id": "claim-evt-013@475-722",
+            "parent": "claim-evt-013",
+            "vector": 0.12688488422989888,
+            "chunk": 0.14284256782850144,
+            "parent_score": 0.12289546333024823,
+            "lexical": 0.2,
+            "score": 0.12688488422989888
+          }
+        ]
+      },
+      {
+        "id": "identity_traditional_eval",
+        "split": "validation",
+        "expected": [
+          "claim-evt-115"
+        ],
+        "rank": 10,
+        "top20": [
+          {
+            "id": "claim-evt-039@1574-1867",
+            "parent": "claim-evt-039",
+            "vector": 0.1471509339537173,
+            "chunk": 0.11335852691669075,
+            "parent_score": 0.15559903571297393,
+            "lexical": 0.0,
+            "score": 0.1471509339537173
+          },
+          {
+            "id": "claim-evt-071@1449-1728",
+            "parent": "claim-evt-071",
+            "vector": 0.14491344878213058,
+            "chunk": 0.1391068354122254,
+            "parent_score": 0.14636510212460685,
+            "lexical": 0.1,
+            "score": 0.14491344878213058
+          },
+          {
+            "id": "claim-evt-113@2232-2316",
+            "parent": "claim-evt-113",
+            "vector": 0.1365837055209009,
+            "chunk": 0.16122870389670754,
+            "parent_score": 0.13042245592694923,
+            "lexical": 0.1,
+            "score": 0.1365837055209009
+          },
+          {
+            "id": "claim-evt-112@0-174",
+            "parent": "claim-evt-112",
+            "vector": 0.1358159175684873,
+            "chunk": 0.14175398238766682,
+            "parent_score": 0.1343314013636924,
+            "lexical": 0.2,
+            "score": 0.1358159175684873
+          },
+          {
+            "id": "claim-evt-114@1711-2011",
+            "parent": "claim-evt-114",
+            "vector": 0.13265681831817455,
+            "chunk": 0.11927070271810421,
+            "parent_score": 0.13600334721819213,
+            "lexical": 0.0,
+            "score": 0.13265681831817455
+          },
+          {
+            "id": "claim-evt-086@1172-1467",
+            "parent": "claim-evt-086",
+            "vector": 0.13096577357409306,
+            "chunk": 0.14027519873184655,
+            "parent_score": 0.12863841728465467,
+            "lexical": 0.3,
+            "score": 0.13096577357409306
+          },
+          {
+            "id": "claim-evt-015@232-529",
+            "parent": "claim-evt-015",
+            "vector": 0.1223191199435146,
+            "chunk": 0.13581892738756662,
+            "parent_score": 0.11894416808250158,
+            "lexical": 0.1,
+            "score": 0.1223191199435146
+          },
+          {
+            "id": "claim-evt-019@1704-1975",
+            "parent": "claim-evt-019",
+            "vector": 0.12124065792663932,
+            "chunk": 0.12575426475263257,
+            "parent_score": 0.120112256220141,
+            "lexical": 0.0,
+            "score": 0.12124065792663932
+          },
+          {
+            "id": "claim-evt-041@925-1216",
+            "parent": "claim-evt-041",
+            "vector": 0.11619316016965546,
+            "chunk": 0.1545330458534483,
+            "parent_score": 0.10660818874870724,
+            "lexical": 0.1,
+            "score": 0.11619316016965546
+          },
+          {
+            "id": "claim-evt-115@435-710",
+            "parent": "claim-evt-115",
+            "vector": 0.11592480219722853,
+            "chunk": 0.1391491531711216,
+            "parent_score": 0.11011871445375526,
+            "lexical": 0.2,
+            "score": 0.11592480219722853
+          },
+          {
+            "id": "claim-evt-040@1534-1782",
+            "parent": "claim-evt-040",
+            "vector": 0.1153204645947704,
+            "chunk": 0.12086578036702424,
+            "parent_score": 0.11393413565170693,
+            "lexical": 0.2,
+            "score": 0.1153204645947704
+          },
+          {
+            "id": "claim-evt-076@419-718",
+            "parent": "claim-evt-076",
+            "vector": 0.11256555277778135,
+            "chunk": 0.10419087017033206,
+            "parent_score": 0.11465922342964366,
+            "lexical": 0.1,
+            "score": 0.11256555277778135
+          },
+          {
+            "id": "claim-evt-052@650-941",
+            "parent": "claim-evt-052",
+            "vector": 0.11224504818049516,
+            "chunk": 0.1317605317586137,
+            "parent_score": 0.10736617728596551,
+            "lexical": 0.3,
+            "score": 0.11224504818049516
+          },
+          {
+            "id": "claim-evt-123@1750-2037",
+            "parent": "claim-evt-123",
+            "vector": 0.11215540554881993,
+            "chunk": 0.11760436346417617,
+            "parent_score": 0.11079316606998087,
+            "lexical": 0.1,
+            "score": 0.11215540554881993
+          },
+          {
+            "id": "claim-evt-082@1701-1984",
+            "parent": "claim-evt-082",
+            "vector": 0.1008993173385797,
+            "chunk": 0.09641170085696733,
+            "parent_score": 0.10202122145898278,
+            "lexical": 0.3,
+            "score": 0.1008993173385797
+          },
+          {
+            "id": "claim-evt-013@475-722",
+            "parent": "claim-evt-013",
+            "vector": 0.09914055851467282,
+            "chunk": 0.1785532097856268,
+            "parent_score": 0.07928739569693434,
+            "lexical": 0.1,
+            "score": 0.09914055851467282
+          },
+          {
+            "id": "claim-evt-035@1215-1507",
+            "parent": "claim-evt-035",
+            "vector": 0.09638153603030673,
+            "chunk": 0.10317214083506576,
+            "parent_score": 0.09468388482911697,
+            "lexical": 0.2,
+            "score": 0.09638153603030673
+          },
+          {
+            "id": "claim-evt-111@1785-2039",
+            "parent": "claim-evt-111",
+            "vector": 0.09594204461368114,
+            "chunk": 0.10656806971479654,
+            "parent_score": 0.09328553833840227,
+            "lexical": 0.1,
+            "score": 0.09594204461368114
+          },
+          {
+            "id": "claim-evt-018@0-270",
+            "parent": "claim-evt-018",
+            "vector": 0.09523186298455202,
+            "chunk": 0.14399783710995562,
+            "parent_score": 0.08304036945320112,
+            "lexical": 0.2,
+            "score": 0.09523186298455202
+          },
+          {
+            "id": "claim-evt-017@1825-2119",
+            "parent": "claim-evt-017",
+            "vector": 0.09303219882096567,
+            "chunk": 0.13739297177359405,
+            "parent_score": 0.08194200558280858,
+            "lexical": 0.0,
+            "score": 0.09303219882096567
+          }
+        ]
+      },
+      {
+        "id": "unknown_eval",
+        "split": "validation",
+        "expected": [],
+        "rank": null,
+        "top20": [
+          {
+            "id": "claim-evt-113@1763-2061",
+            "parent": "claim-evt-113",
+            "vector": 0.15753246778751706,
+            "chunk": 0.1208036583515757,
+            "parent_score": 0.1667146701465024,
+            "lexical": 0.1,
+            "score": 0.15753246778751706
+          },
+          {
+            "id": "claim-evt-122@1485-1751",
+            "parent": "claim-evt-122",
+            "vector": 0.1492270142350339,
+            "chunk": 0.14924056556673002,
+            "parent_score": 0.14922362640210987,
+            "lexical": 0.2,
+            "score": 0.1492270142350339
+          },
+          {
+            "id": "claim-evt-003@1526-1815",
+            "parent": "claim-evt-003",
+            "vector": 0.12884750967029224,
+            "chunk": 0.10721125348377947,
+            "parent_score": 0.13425657371692043,
+            "lexical": 0.0,
+            "score": 0.12884750967029224
+          },
+          {
+            "id": "claim-evt-010@1100-1393",
+            "parent": "claim-evt-010",
+            "vector": 0.12779380680479427,
+            "chunk": 0.10660970638037665,
+            "parent_score": 0.13308983191089865,
+            "lexical": 0.1,
+            "score": 0.12779380680479427
+          },
+          {
+            "id": "claim-evt-094@1459-1704",
+            "parent": "claim-evt-094",
+            "vector": 0.12676160026928804,
+            "chunk": 0.09338522843510982,
+            "parent_score": 0.13510569322783259,
+            "lexical": 0.0,
+            "score": 0.12676160026928804
+          },
+          {
+            "id": "claim-evt-006@654-943",
+            "parent": "claim-evt-006",
+            "vector": 0.11537917846205274,
+            "chunk": 0.14657485726135108,
+            "parent_score": 0.10758025876222815,
+            "lexical": 0.1,
+            "score": 0.11537917846205274
+          },
+          {
+            "id": "claim-evt-089@1740-2037",
+            "parent": "claim-evt-089",
+            "vector": 0.10993950970680834,
+            "chunk": 0.12087453172719528,
+            "parent_score": 0.10720575420171159,
+            "lexical": 0.1,
+            "score": 0.10993950970680834
+          },
+          {
+            "id": "claim-evt-029@451-730",
+            "parent": "claim-evt-029",
+            "vector": 0.10888879061032551,
+            "chunk": 0.1357998819046582,
+            "parent_score": 0.10216101778674233,
+            "lexical": 0.0,
+            "score": 0.10888879061032551
+          },
+          {
+            "id": "claim-evt-009@403-695",
+            "parent": "claim-evt-009",
+            "vector": 0.10246020187862491,
+            "chunk": 0.13461512746841436,
+            "parent_score": 0.09442147048117754,
+            "lexical": 0.0,
+            "score": 0.10246020187862491
+          },
+          {
+            "id": "claim-evt-028@421-651",
+            "parent": "claim-evt-028",
+            "vector": 0.10090527711001145,
+            "chunk": 0.0834521408088557,
+            "parent_score": 0.10526856118530037,
+            "lexical": 0.1,
+            "score": 0.10090527711001145
+          },
+          {
+            "id": "claim-evt-052@881-1155",
+            "parent": "claim-evt-052",
+            "vector": 0.09000709082221937,
+            "chunk": 0.09947964545199206,
+            "parent_score": 0.08763895216477618,
+            "lexical": 0.2,
+            "score": 0.09000709082221937
+          },
+          {
+            "id": "claim-evt-108@233-481",
+            "parent": "claim-evt-108",
+            "vector": 0.08910212764913818,
+            "chunk": 0.12006672227371262,
+            "parent_score": 0.08136097899299456,
+            "lexical": 0.0,
+            "score": 0.08910212764913818
+          },
+          {
+            "id": "claim-evt-065@235-518",
+            "parent": "claim-evt-065",
+            "vector": 0.08780807485157405,
+            "chunk": 0.10401019349846874,
+            "parent_score": 0.08375754518985037,
+            "lexical": 0.1,
+            "score": 0.08780807485157405
+          },
+          {
+            "id": "claim-evt-058@1730-1970",
+            "parent": "claim-evt-058",
+            "vector": 0.08744178351609555,
+            "chunk": 0.15411617688293303,
+            "parent_score": 0.07077318517438619,
+            "lexical": 0.1,
+            "score": 0.08744178351609555
+          },
+          {
+            "id": "claim-evt-071@200-484",
+            "parent": "claim-evt-071",
+            "vector": 0.0864880531868889,
+            "chunk": 0.15526452904571808,
+            "parent_score": 0.0692939342221816,
+            "lexical": 0.1,
+            "score": 0.0864880531868889
+          },
+          {
+            "id": "claim-evt-070@2175-2393",
+            "parent": "claim-evt-070",
+            "vector": 0.08454340052137492,
+            "chunk": 0.14200477428076833,
+            "parent_score": 0.07017805708152657,
+            "lexical": 0.0,
+            "score": 0.08454340052137492
+          },
+          {
+            "id": "claim-evt-080@1537-1836",
+            "parent": "claim-evt-080",
+            "vector": 0.08443630733557356,
+            "chunk": 0.09198300474604171,
+            "parent_score": 0.0825496329829565,
+            "lexical": 0.1,
+            "score": 0.08443630733557356
+          },
+          {
+            "id": "claim-evt-019@445-741",
+            "parent": "claim-evt-019",
+            "vector": 0.08438727105862062,
+            "chunk": 0.10125507273468061,
+            "parent_score": 0.08017032063960562,
+            "lexical": 0.0,
+            "score": 0.08438727105862062
+          },
+          {
+            "id": "claim-evt-055@2100-2271",
+            "parent": "claim-evt-055",
+            "vector": 0.07709771100702159,
+            "chunk": 0.11456523975306349,
+            "parent_score": 0.06773082882051112,
+            "lexical": 0.0,
+            "score": 0.07709771100702159
+          },
+          {
+            "id": "claim-evt-027@1566-1830",
+            "parent": "claim-evt-027",
+            "vector": 0.07619854758730703,
+            "chunk": 0.08704555717713053,
+            "parent_score": 0.07348679518985116,
+            "lexical": 0.2,
+            "score": 0.07619854758730703
+          }
+        ]
+      }
+    ],
+    "0.1": [
+      {
+        "id": "profession_train",
+        "split": "development",
+        "expected": [
+          "reviewed-luo-ji-profession"
+        ],
+        "rank": 1,
+        "top20": [
+          {
+            "id": "reviewed-luo-ji-profession",
+            "parent": "reviewed-luo-ji-profession",
+            "vector": 0.27229057431858544,
+            "chunk": 0.27229057431858544,
+            "parent_score": null,
+            "lexical": 0.4444444444444444,
+            "score": 0.3167350187630299
+          },
+          {
+            "id": "claim-evt-077@1457-1729",
+            "parent": "claim-evt-077",
+            "vector": 0.11762071187117856,
+            "chunk": 0.11987297705688515,
+            "parent_score": 0.1170576455747519,
+            "lexical": 0.2222222222222222,
+            "score": 0.1398429340934008
+          },
+          {
+            "id": "claim-evt-111@1785-2039",
+            "parent": "claim-evt-111",
+            "vector": 0.10060124577272608,
+            "chunk": 0.0887356509416114,
+            "parent_score": 0.10356764448050475,
+            "lexical": 0.2222222222222222,
+            "score": 0.12282346799494831
+          },
+          {
+            "id": "claim-evt-038@824-1112",
+            "parent": "claim-evt-038",
+            "vector": 0.10774180838163165,
+            "chunk": 0.13041013273932528,
+            "parent_score": 0.10207472729220823,
+            "lexical": 0.1111111111111111,
+            "score": 0.11885291949274276
+          },
+          {
+            "id": "claim-evt-094@1459-1704",
+            "parent": "claim-evt-094",
+            "vector": 0.09482772468901446,
+            "chunk": 0.09532062476387965,
+            "parent_score": 0.09470449967029815,
+            "lexical": 0.2222222222222222,
+            "score": 0.11704994691123669
+          },
+          {
+            "id": "claim-evt-036@1049-1309",
+            "parent": "claim-evt-036",
+            "vector": 0.10564989504521505,
+            "chunk": 0.10105651043180543,
+            "parent_score": 0.10679824119856744,
+            "lexical": 0.1111111111111111,
+            "score": 0.11676100615632616
+          },
+          {
+            "id": "claim-evt-010@0-288",
+            "parent": "claim-evt-010",
+            "vector": 0.09449769830837267,
+            "chunk": 0.09861594056966569,
+            "parent_score": 0.0934681377430494,
+            "lexical": 0.2222222222222222,
+            "score": 0.11671992053059489
+          },
+          {
+            "id": "claim-evt-112@2021-2242",
+            "parent": "claim-evt-112",
+            "vector": 0.10460758916209735,
+            "chunk": 0.15575863599868883,
+            "parent_score": 0.09181982745294946,
+            "lexical": 0.1111111111111111,
+            "score": 0.11571870027320846
+          },
+          {
+            "id": "claim-evt-039@2042-2208",
+            "parent": "claim-evt-039",
+            "vector": 0.10332468634904034,
+            "chunk": 0.07935138178409232,
+            "parent_score": 0.10931801249027734,
+            "lexical": 0.1111111111111111,
+            "score": 0.11443579746015145
+          },
+          {
+            "id": "claim-evt-003@1526-1815",
+            "parent": "claim-evt-003",
+            "vector": 0.099777792257347,
+            "chunk": 0.11130384518677137,
+            "parent_score": 0.0968962790249909,
+            "lexical": 0.1111111111111111,
+            "score": 0.11088890336845811
+          },
+          {
+            "id": "claim-evt-008@698-983",
+            "parent": "claim-evt-008",
+            "vector": 0.08776523770438022,
+            "chunk": 0.09897594780811199,
+            "parent_score": 0.08496256017844726,
+            "lexical": 0.2222222222222222,
+            "score": 0.10998745992660244
+          },
+          {
+            "id": "claim-evt-115@650-942",
+            "parent": "claim-evt-115",
+            "vector": 0.08531172824638739,
+            "chunk": 0.07688517444384897,
+            "parent_score": 0.08741836669702199,
+            "lexical": 0.2222222222222222,
+            "score": 0.10753395046860961
+          },
+          {
+            "id": "claim-evt-110@0-217",
+            "parent": "claim-evt-110",
+            "vector": 0.08431454967943404,
+            "chunk": -0.008382373969649658,
+            "parent_score": 0.10748878059170495,
+            "lexical": 0.2222222222222222,
+            "score": 0.10653677190165627
+          },
+          {
+            "id": "claim-evt-096@192-469",
+            "parent": "claim-evt-096",
+            "vector": 0.09465022701301554,
+            "chunk": 0.09750955640481447,
+            "parent_score": 0.09393539466506579,
+            "lexical": 0.1111111111111111,
+            "score": 0.10576133812412665
+          },
+          {
+            "id": "claim-evt-119@1261-1537",
+            "parent": "claim-evt-119",
+            "vector": 0.09156982534948166,
+            "chunk": 0.13623421903119948,
+            "parent_score": 0.08040372692905219,
+            "lexical": 0.1111111111111111,
+            "score": 0.10268093646059277
+          },
+          {
+            "id": "claim-evt-125@0-283",
+            "parent": "claim-evt-125",
+            "vector": 0.08921428768378782,
+            "chunk": 0.051096251716456084,
+            "parent_score": 0.09874379667562075,
+            "lexical": 0.1111111111111111,
+            "score": 0.10032539879489893
+          },
+          {
+            "id": "claim-evt-099@223-510",
+            "parent": "claim-evt-099",
+            "vector": 0.08734140514681271,
+            "chunk": 0.10814761408717505,
+            "parent_score": 0.08213985291172213,
+            "lexical": 0.1111111111111111,
+            "score": 0.09845251625792382
+          },
+          {
+            "id": "claim-evt-097@1269-1565",
+            "parent": "claim-evt-097",
+            "vector": 0.06487874407820164,
+            "chunk": 0.07852703595022845,
+            "parent_score": 0.06146667111019494,
+            "lexical": 0.3333333333333333,
+            "score": 0.09821207741153498
+          },
+          {
+            "id": "claim-evt-026@191-476",
+            "parent": "claim-evt-026",
+            "vector": 0.06395618106742873,
+            "chunk": 0.10486450101861527,
+            "parent_score": 0.053729101079632094,
+            "lexical": 0.3333333333333333,
+            "score": 0.09728951440076206
+          },
+          {
+            "id": "claim-evt-049@1121-1400",
+            "parent": "claim-evt-049",
+            "vector": 0.0853434306067464,
+            "chunk": 0.13618759576872608,
+            "parent_score": 0.07263238931625147,
+            "lexical": 0.1111111111111111,
+            "score": 0.09645454171785751
+          }
+        ]
+      },
+      {
+        "id": "classmate_train",
+        "split": "development",
+        "expected": [
+          "reviewed-luo-ji-classmate"
+        ],
+        "rank": 1,
+        "top20": [
+          {
+            "id": "reviewed-luo-ji-classmate",
+            "parent": "reviewed-luo-ji-classmate",
+            "vector": 0.2501595914621521,
+            "chunk": 0.2501595914621521,
+            "parent_score": null,
+            "lexical": 0.4,
+            "score": 0.2901595914621521
+          },
+          {
+            "id": "claim-evt-125@223-431",
+            "parent": "claim-evt-125",
+            "vector": 0.11637888245603391,
+            "chunk": 0.11689736578863885,
+            "parent_score": 0.11624926162288265,
+            "lexical": 0.0,
+            "score": 0.11637888245603391
+          },
+          {
+            "id": "claim-evt-124@1097-1363",
+            "parent": "claim-evt-124",
+            "vector": 0.07966909580027286,
+            "chunk": 0.08067147136853582,
+            "parent_score": 0.07941850190820711,
+            "lexical": 0.0,
+            "score": 0.07966909580027286
+          },
+          {
+            "id": "claim-evt-006@432-714",
+            "parent": "claim-evt-006",
+            "vector": 0.07386399994912216,
+            "chunk": 0.1288464801594537,
+            "parent_score": 0.060118379896539266,
+            "lexical": 0.0,
+            "score": 0.07386399994912216
+          },
+          {
+            "id": "claim-evt-040@1534-1782",
+            "parent": "claim-evt-040",
+            "vector": 0.06671672167963533,
+            "chunk": 0.10013804040416859,
+            "parent_score": 0.05836139199850201,
+            "lexical": 0.0,
+            "score": 0.06671672167963533
+          },
+          {
+            "id": "claim-evt-121@1677-1944",
+            "parent": "claim-evt-121",
+            "vector": 0.05492790386384111,
+            "chunk": 0.049852220257017736,
+            "parent_score": 0.056196824765546945,
+            "lexical": 0.1,
+            "score": 0.06492790386384112
+          },
+          {
+            "id": "claim-evt-097@852-1115",
+            "parent": "claim-evt-097",
+            "vector": 0.06265743271058641,
+            "chunk": 0.10359722954017199,
+            "parent_score": 0.05242248350319001,
+            "lexical": 0.0,
+            "score": 0.06265743271058641
+          },
+          {
+            "id": "claim-evt-026@0-251",
+            "parent": "claim-evt-026",
+            "vector": 0.0549353368210367,
+            "chunk": 0.13180161915329625,
+            "parent_score": 0.0357187662379718,
+            "lexical": 0.0,
+            "score": 0.0549353368210367
+          },
+          {
+            "id": "claim-evt-094@222-512",
+            "parent": "claim-evt-094",
+            "vector": 0.05426300675246372,
+            "chunk": 0.08334189535837759,
+            "parent_score": 0.04699328460098525,
+            "lexical": 0.0,
+            "score": 0.05426300675246372
+          },
+          {
+            "id": "claim-evt-071@1899-2183",
+            "parent": "claim-evt-071",
+            "vector": 0.0535622423503508,
+            "chunk": 0.1292233433073908,
+            "parent_score": 0.0346469671110908,
+            "lexical": 0.0,
+            "score": 0.0535622423503508
+          },
+          {
+            "id": "reviewed-luo-ji-profession",
+            "parent": "reviewed-luo-ji-profession",
+            "vector": 0.04503773491110449,
+            "chunk": 0.04503773491110449,
+            "parent_score": null,
+            "lexical": 0.0,
+            "score": 0.04503773491110449
+          },
+          {
+            "id": "claim-evt-056@1638-1893",
+            "parent": "claim-evt-056",
+            "vector": 0.04375256133912808,
+            "chunk": 0.06557130346417728,
+            "parent_score": 0.038297875807865776,
+            "lexical": 0.0,
+            "score": 0.04375256133912808
+          },
+          {
+            "id": "claim-evt-031@1225-1523",
+            "parent": "claim-evt-031",
+            "vector": 0.043380161683424484,
+            "chunk": 0.09363120761347887,
+            "parent_score": 0.030817400200910883,
+            "lexical": 0.0,
+            "score": 0.043380161683424484
+          },
+          {
+            "id": "claim-evt-005@2205-2387",
+            "parent": "claim-evt-005",
+            "vector": 0.041939611824607266,
+            "chunk": 0.06255347431156046,
+            "parent_score": 0.03678614620286896,
+            "lexical": 0.0,
+            "score": 0.041939611824607266
+          },
+          {
+            "id": "claim-evt-116@0-287",
+            "parent": "claim-evt-116",
+            "vector": 0.040666347005607686,
+            "chunk": 0.09080242527234748,
+            "parent_score": 0.02813232743892273,
+            "lexical": 0.0,
+            "score": 0.040666347005607686
+          },
+          {
+            "id": "claim-evt-077@338-624",
+            "parent": "claim-evt-077",
+            "vector": 0.03990119781959787,
+            "chunk": 0.10484873886207245,
+            "parent_score": 0.02366431255897922,
+            "lexical": 0.0,
+            "score": 0.03990119781959787
+          },
+          {
+            "id": "claim-evt-120@205-382",
+            "parent": "claim-evt-120",
+            "vector": 0.0395818474343253,
+            "chunk": 0.1035759110443109,
+            "parent_score": 0.023583331531828906,
+            "lexical": 0.0,
+            "score": 0.0395818474343253
+          },
+          {
+            "id": "claim-evt-086@945-1232",
+            "parent": "claim-evt-086",
+            "vector": 0.03840107130273966,
+            "chunk": 0.09920299002317963,
+            "parent_score": 0.023200591622629666,
+            "lexical": 0.0,
+            "score": 0.03840107130273966
+          },
+          {
+            "id": "claim-evt-084@1366-1651",
+            "parent": "claim-evt-084",
+            "vector": 0.0371762680284663,
+            "chunk": 0.08379253069981943,
+            "parent_score": 0.025522202360628014,
+            "lexical": 0.0,
+            "score": 0.0371762680284663
+          },
+          {
+            "id": "claim-evt-009@863-1156",
+            "parent": "claim-evt-009",
+            "vector": 0.035748990408139086,
+            "chunk": 0.08260672755076923,
+            "parent_score": 0.02403455612248155,
+            "lexical": 0.0,
+            "score": 0.035748990408139086
+          }
+        ]
+      },
+      {
+        "id": "axioms_eval",
+        "split": "validation",
+        "expected": [
+          "reviewed-luo-ji-civilization-axioms"
+        ],
+        "rank": 1,
+        "top20": [
+          {
+            "id": "reviewed-luo-ji-civilization-axioms",
+            "parent": "reviewed-luo-ji-civilization-axioms",
+            "vector": 0.2189224326311058,
+            "chunk": 0.2189224326311058,
+            "parent_score": null,
+            "lexical": 0.5625,
+            "score": 0.2751724326311058
+          },
+          {
+            "id": "claim-evt-002@808-1101",
+            "parent": "claim-evt-002",
+            "vector": 0.16966845154533938,
+            "chunk": 0.26219637826135683,
+            "parent_score": 0.146536469866335,
+            "lexical": 0.5625,
+            "score": 0.22591845154533938
+          },
+          {
+            "id": "claim-evt-055@1454-1698",
+            "parent": "claim-evt-055",
+            "vector": 0.1619610323910533,
+            "chunk": 0.23811738545941746,
+            "parent_score": 0.14292194412396225,
+            "lexical": 0.5,
+            "score": 0.2119610323910533
+          },
+          {
+            "id": "reviewed-luo-ji-profession",
+            "parent": "reviewed-luo-ji-profession",
+            "vector": 0.14462030521243746,
+            "chunk": 0.14462030521243746,
+            "parent_score": null,
+            "lexical": 0.25,
+            "score": 0.16962030521243746
+          },
+          {
+            "id": "claim-evt-053@223-500",
+            "parent": "claim-evt-053",
+            "vector": 0.11973508647388197,
+            "chunk": 0.18863071451579524,
+            "parent_score": 0.10251117946340364,
+            "lexical": 0.4375,
+            "score": 0.16348508647388196
+          },
+          {
+            "id": "claim-evt-067@1324-1622",
+            "parent": "claim-evt-067",
+            "vector": 0.14672362340579284,
+            "chunk": 0.1625696713222866,
+            "parent_score": 0.1427621114266694,
+            "lexical": 0.0,
+            "score": 0.14672362340579284
+          },
+          {
+            "id": "claim-evt-029@451-730",
+            "parent": "claim-evt-029",
+            "vector": 0.11412496423322684,
+            "chunk": 0.15361412355774773,
+            "parent_score": 0.1042526744020966,
+            "lexical": 0.0,
+            "score": 0.11412496423322684
+          },
+          {
+            "id": "claim-evt-049@1460-1727",
+            "parent": "claim-evt-049",
+            "vector": 0.0936109178959471,
+            "chunk": 0.09954395505944927,
+            "parent_score": 0.09212765860507154,
+            "lexical": 0.1875,
+            "score": 0.1123609178959471
+          },
+          {
+            "id": "claim-evt-026@630-920",
+            "parent": "claim-evt-026",
+            "vector": 0.09514269346392026,
+            "chunk": 0.16180796699117808,
+            "parent_score": 0.0784763750821058,
+            "lexical": 0.125,
+            "score": 0.10764269346392026
+          },
+          {
+            "id": "claim-evt-106@1625-1925",
+            "parent": "claim-evt-106",
+            "vector": 0.08895230693125523,
+            "chunk": 0.10846522890932808,
+            "parent_score": 0.084074076436737,
+            "lexical": 0.125,
+            "score": 0.10145230693125523
+          },
+          {
+            "id": "claim-evt-051@1092-1357",
+            "parent": "claim-evt-051",
+            "vector": 0.08234133650284688,
+            "chunk": 0.0848594436454112,
+            "parent_score": 0.08171180971720579,
+            "lexical": 0.1875,
+            "score": 0.10109133650284688
+          },
+          {
+            "id": "claim-evt-105@0-211",
+            "parent": "claim-evt-105",
+            "vector": 0.09737991234641091,
+            "chunk": 0.16995721294847455,
+            "parent_score": 0.07923558719589499,
+            "lexical": 0.0,
+            "score": 0.09737991234641091
+          },
+          {
+            "id": "claim-evt-108@1288-1574",
+            "parent": "claim-evt-108",
+            "vector": 0.09658550420032344,
+            "chunk": 0.2030086856966809,
+            "parent_score": 0.06997970882623408,
+            "lexical": 0.0,
+            "score": 0.09658550420032344
+          },
+          {
+            "id": "claim-evt-119@821-1116",
+            "parent": "claim-evt-119",
+            "vector": 0.08342480519381121,
+            "chunk": 0.1399723287055766,
+            "parent_score": 0.06928792431586986,
+            "lexical": 0.125,
+            "score": 0.0959248051938112
+          },
+          {
+            "id": "claim-evt-107@1057-1300",
+            "parent": "claim-evt-107",
+            "vector": 0.08800390324176877,
+            "chunk": 0.11836971411628427,
+            "parent_score": 0.08041245052313989,
+            "lexical": 0.0,
+            "score": 0.08800390324176877
+          },
+          {
+            "id": "claim-evt-056@413-669",
+            "parent": "claim-evt-056",
+            "vector": 0.030587807405840897,
+            "chunk": 0.1529390370292045,
+            "parent_score": -5.421010862427522e-18,
+            "lexical": 0.5625,
+            "score": 0.0868378074058409
+          },
+          {
+            "id": "claim-evt-116@437-728",
+            "parent": "claim-evt-116",
+            "vector": 0.038591155114458466,
+            "chunk": 0.07439044702022275,
+            "parent_score": 0.029641332138017392,
+            "lexical": 0.4375,
+            "score": 0.08234115511445847
+          },
+          {
+            "id": "claim-evt-057@1760-2023",
+            "parent": "claim-evt-057",
+            "vector": 0.06675742382327883,
+            "chunk": 0.09435935174145671,
+            "parent_score": 0.059856941843734364,
+            "lexical": 0.125,
+            "score": 0.07925742382327883
+          },
+          {
+            "id": "claim-evt-052@1095-1385",
+            "parent": "claim-evt-052",
+            "vector": 0.0662669727287477,
+            "chunk": 0.06680313900328463,
+            "parent_score": 0.06613293116011346,
+            "lexical": 0.125,
+            "score": 0.07876697272874769
+          },
+          {
+            "id": "claim-evt-117@1150-1415",
+            "parent": "claim-evt-117",
+            "vector": 0.05825114070520589,
+            "chunk": 0.08310003184543352,
+            "parent_score": 0.052038917920148975,
+            "lexical": 0.1875,
+            "score": 0.07700114070520589
+          }
+        ]
+      },
+      {
+        "id": "identity_simplified_eval",
+        "split": "validation",
+        "expected": [
+          "claim-evt-115"
+        ],
+        "rank": 4,
+        "top20": [
+          {
+            "id": "claim-evt-114@1335-1570",
+            "parent": "claim-evt-114",
+            "vector": 0.1893916551188171,
+            "chunk": 0.15775575370823816,
+            "parent_score": 0.19730063047146182,
+            "lexical": 0.4,
+            "score": 0.2293916551188171
+          },
+          {
+            "id": "claim-evt-039@1807-2102",
+            "parent": "claim-evt-039",
+            "vector": 0.17998849014112003,
+            "chunk": 0.09860741678378437,
+            "parent_score": 0.20033375848045393,
+            "lexical": 0.3,
+            "score": 0.20998849014112003
+          },
+          {
+            "id": "claim-evt-023@412-705",
+            "parent": "claim-evt-023",
+            "vector": 0.1539840561387401,
+            "chunk": 0.1364382080481293,
+            "parent_score": 0.1583705181613928,
+            "lexical": 0.4,
+            "score": 0.19398405613874012
+          },
+          {
+            "id": "claim-evt-115@1329-1624",
+            "parent": "claim-evt-115",
+            "vector": 0.16309145043092196,
+            "chunk": 0.12114942542923779,
+            "parent_score": 0.17357695668134301,
+            "lexical": 0.3,
+            "score": 0.19309145043092196
+          },
+          {
+            "id": "claim-evt-019@1296-1574",
+            "parent": "claim-evt-019",
+            "vector": 0.1630809492887334,
+            "chunk": 0.13805038349729812,
+            "parent_score": 0.16933859073659224,
+            "lexical": 0.3,
+            "score": 0.1930809492887334
+          },
+          {
+            "id": "claim-evt-071@1449-1728",
+            "parent": "claim-evt-071",
+            "vector": 0.16912803882842556,
+            "chunk": 0.1138146835190935,
+            "parent_score": 0.18295637765575856,
+            "lexical": 0.2,
+            "score": 0.18912803882842555
+          },
+          {
+            "id": "claim-evt-018@0-270",
+            "parent": "claim-evt-018",
+            "vector": 0.15873098837196445,
+            "chunk": 0.19885415600898634,
+            "parent_score": 0.14870019646270896,
+            "lexical": 0.3,
+            "score": 0.18873098837196445
+          },
+          {
+            "id": "claim-evt-052@650-941",
+            "parent": "claim-evt-052",
+            "vector": 0.14665670222949334,
+            "chunk": 0.16313208693923603,
+            "parent_score": 0.14253785605205765,
+            "lexical": 0.4,
+            "score": 0.18665670222949335
+          },
+          {
+            "id": "claim-evt-015@469-746",
+            "parent": "claim-evt-015",
+            "vector": 0.14028557755360624,
+            "chunk": 0.0746110019999276,
+            "parent_score": 0.1567042214420259,
+            "lexical": 0.4,
+            "score": 0.18028557755360625
+          },
+          {
+            "id": "claim-evt-080@1776-2071",
+            "parent": "claim-evt-080",
+            "vector": 0.1362943258727563,
+            "chunk": 0.13125552464079154,
+            "parent_score": 0.13755402618074747,
+            "lexical": 0.4,
+            "score": 0.1762943258727563
+          },
+          {
+            "id": "claim-evt-037@0-287",
+            "parent": "claim-evt-037",
+            "vector": 0.13306843294978113,
+            "chunk": 0.09484607262400242,
+            "parent_score": 0.1426240230312258,
+            "lexical": 0.4,
+            "score": 0.17306843294978114
+          },
+          {
+            "id": "claim-evt-082@1045-1340",
+            "parent": "claim-evt-082",
+            "vector": 0.12232901924370379,
+            "chunk": 0.05726562866782001,
+            "parent_score": 0.13859486688767472,
+            "lexical": 0.5,
+            "score": 0.1723290192437038
+          },
+          {
+            "id": "claim-evt-078@1058-1327",
+            "parent": "claim-evt-078",
+            "vector": 0.1306219177923335,
+            "chunk": 0.08248640375241731,
+            "parent_score": 0.14265579630231254,
+            "lexical": 0.4,
+            "score": 0.17062191779233352
+          },
+          {
+            "id": "claim-evt-024@1230-1504",
+            "parent": "claim-evt-024",
+            "vector": 0.123463155120344,
+            "chunk": 0.13682596566545868,
+            "parent_score": 0.12012245248406532,
+            "lexical": 0.4,
+            "score": 0.163463155120344
+          },
+          {
+            "id": "claim-evt-041@1607-1906",
+            "parent": "claim-evt-041",
+            "vector": 0.13036631013568756,
+            "chunk": 0.1431047552460102,
+            "parent_score": 0.1271816988581069,
+            "lexical": 0.3,
+            "score": 0.16036631013568756
+          },
+          {
+            "id": "claim-evt-010@1520-1793",
+            "parent": "claim-evt-010",
+            "vector": 0.12977241544496734,
+            "chunk": 0.1725248421709032,
+            "parent_score": 0.11908430876348336,
+            "lexical": 0.3,
+            "score": 0.15977241544496734
+          },
+          {
+            "id": "claim-evt-119@1261-1537",
+            "parent": "claim-evt-119",
+            "vector": 0.11865848649536956,
+            "chunk": 0.11125616329057358,
+            "parent_score": 0.12050906729656854,
+            "lexical": 0.4,
+            "score": 0.15865848649536957
+          },
+          {
+            "id": "claim-evt-123@601-900",
+            "parent": "claim-evt-123",
+            "vector": 0.1183276430402729,
+            "chunk": 0.06141377758074179,
+            "parent_score": 0.1325561094051557,
+            "lexical": 0.4,
+            "score": 0.15832764304027291
+          },
+          {
+            "id": "claim-evt-112@0-174",
+            "parent": "claim-evt-112",
+            "vector": 0.12830003565835865,
+            "chunk": 0.16833285408535434,
+            "parent_score": 0.11829183105160973,
+            "lexical": 0.3,
+            "score": 0.15830003565835865
+          },
+          {
+            "id": "claim-evt-030@2100-2265",
+            "parent": "claim-evt-030",
+            "vector": 0.12653393991914058,
+            "chunk": 0.08932845176608062,
+            "parent_score": 0.13583531195740556,
+            "lexical": 0.3,
+            "score": 0.15653393991914058
+          }
+        ]
+      },
+      {
+        "id": "identity_traditional_eval",
+        "split": "validation",
+        "expected": [
+          "claim-evt-115"
+        ],
+        "rank": 9,
+        "top20": [
+          {
+            "id": "claim-evt-086@1172-1467",
+            "parent": "claim-evt-086",
+            "vector": 0.13096577357409306,
+            "chunk": 0.14027519873184655,
+            "parent_score": 0.12863841728465467,
+            "lexical": 0.3,
+            "score": 0.16096577357409306
+          },
+          {
+            "id": "claim-evt-039@1807-2102",
+            "parent": "claim-evt-039",
+            "vector": 0.14025641525578464,
+            "chunk": 0.07888593342702749,
+            "parent_score": 0.15559903571297393,
+            "lexical": 0.2,
+            "score": 0.16025641525578466
+          },
+          {
+            "id": "claim-evt-112@0-174",
+            "parent": "claim-evt-112",
+            "vector": 0.1358159175684873,
+            "chunk": 0.14175398238766682,
+            "parent_score": 0.1343314013636924,
+            "lexical": 0.2,
+            "score": 0.15581591756848728
+          },
+          {
+            "id": "claim-evt-071@1449-1728",
+            "parent": "claim-evt-071",
+            "vector": 0.14491344878213058,
+            "chunk": 0.1391068354122254,
+            "parent_score": 0.14636510212460685,
+            "lexical": 0.1,
+            "score": 0.1549134487821306
+          },
+          {
+            "id": "claim-evt-114@1951-2182",
+            "parent": "claim-evt-114",
+            "vector": 0.12815829115807761,
+            "chunk": 0.0967780669176195,
+            "parent_score": 0.13600334721819213,
+            "lexical": 0.2,
+            "score": 0.1481582911580776
+          },
+          {
+            "id": "claim-evt-113@2232-2316",
+            "parent": "claim-evt-113",
+            "vector": 0.1365837055209009,
+            "chunk": 0.16122870389670754,
+            "parent_score": 0.13042245592694923,
+            "lexical": 0.1,
+            "score": 0.14658370552090091
+          },
+          {
+            "id": "claim-evt-052@650-941",
+            "parent": "claim-evt-052",
+            "vector": 0.11224504818049516,
+            "chunk": 0.1317605317586137,
+            "parent_score": 0.10736617728596551,
+            "lexical": 0.3,
+            "score": 0.14224504818049516
+          },
+          {
+            "id": "claim-evt-015@469-746",
+            "parent": "claim-evt-015",
+            "vector": 0.10872097119326084,
+            "chunk": 0.0678281836362978,
+            "parent_score": 0.11894416808250158,
+            "lexical": 0.3,
+            "score": 0.13872097119326082
+          },
+          {
+            "id": "claim-evt-115@435-710",
+            "parent": "claim-evt-115",
+            "vector": 0.11592480219722853,
+            "chunk": 0.1391491531711216,
+            "parent_score": 0.11011871445375526,
+            "lexical": 0.2,
+            "score": 0.13592480219722852
+          },
+          {
+            "id": "claim-evt-040@1534-1782",
+            "parent": "claim-evt-040",
+            "vector": 0.1153204645947704,
+            "chunk": 0.12086578036702424,
+            "parent_score": 0.11393413565170693,
+            "lexical": 0.2,
+            "score": 0.1353204645947704
+          },
+          {
+            "id": "claim-evt-019@1915-2212",
+            "parent": "claim-evt-019",
+            "vector": 0.11351576579067439,
+            "chunk": 0.08712980407280795,
+            "parent_score": 0.120112256220141,
+            "lexical": 0.2,
+            "score": 0.1335157657906744
+          },
+          {
+            "id": "claim-evt-082@1045-1340",
+            "parent": "claim-evt-082",
+            "vector": 0.09307010290075024,
+            "chunk": 0.05726562866782001,
+            "parent_score": 0.10202122145898278,
+            "lexical": 0.4,
+            "score": 0.13307010290075025
+          },
+          {
+            "id": "claim-evt-076@1314-1597",
+            "parent": "claim-evt-076",
+            "vector": 0.10068262298077155,
+            "chunk": 0.04477622118528303,
+            "parent_score": 0.11465922342964366,
+            "lexical": 0.3,
+            "score": 0.13068262298077155
+          },
+          {
+            "id": "claim-evt-041@925-1216",
+            "parent": "claim-evt-041",
+            "vector": 0.11619316016965546,
+            "chunk": 0.1545330458534483,
+            "parent_score": 0.10660818874870724,
+            "lexical": 0.1,
+            "score": 0.12619316016965546
+          },
+          {
+            "id": "claim-evt-123@0-275",
+            "parent": "claim-evt-123",
+            "vector": 0.10224091956006523,
+            "chunk": 0.06803193352040265,
+            "parent_score": 0.11079316606998087,
+            "lexical": 0.2,
+            "score": 0.12224091956006523
+          },
+          {
+            "id": "claim-evt-035@1215-1507",
+            "parent": "claim-evt-035",
+            "vector": 0.09638153603030673,
+            "chunk": 0.10317214083506576,
+            "parent_score": 0.09468388482911697,
+            "lexical": 0.2,
+            "score": 0.11638153603030674
+          },
+          {
+            "id": "claim-evt-018@0-270",
+            "parent": "claim-evt-018",
+            "vector": 0.09523186298455202,
+            "chunk": 0.14399783710995562,
+            "parent_score": 0.08304036945320112,
+            "lexical": 0.2,
+            "score": 0.11523186298455203
+          },
+          {
+            "id": "claim-evt-072@1711-1988",
+            "parent": "claim-evt-072",
+            "vector": 0.08458366108483044,
+            "chunk": 0.0705882756660447,
+            "parent_score": 0.08808250743952688,
+            "lexical": 0.3,
+            "score": 0.11458366108483044
+          },
+          {
+            "id": "claim-evt-083@908-1198",
+            "parent": "claim-evt-083",
+            "vector": 0.0836849889616732,
+            "chunk": 0.07369119516510317,
+            "parent_score": 0.0861834374108157,
+            "lexical": 0.3,
+            "score": 0.1136849889616732
+          },
+          {
+            "id": "claim-evt-034@1574-1846",
+            "parent": "claim-evt-034",
+            "vector": 0.081843247631317,
+            "chunk": 0.07919614799304016,
+            "parent_score": 0.08250502254088621,
+            "lexical": 0.3,
+            "score": 0.111843247631317
+          }
+        ]
+      },
+      {
+        "id": "unknown_eval",
+        "split": "validation",
+        "expected": [],
+        "rank": null,
+        "top20": [
+          {
+            "id": "claim-evt-113@642-940",
+            "parent": "claim-evt-113",
+            "vector": 0.15039403495280776,
+            "chunk": 0.08511149417802916,
+            "parent_score": 0.1667146701465024,
+            "lexical": 0.3,
+            "score": 0.18039403495280776
+          },
+          {
+            "id": "claim-evt-122@1485-1751",
+            "parent": "claim-evt-122",
+            "vector": 0.1492270142350339,
+            "chunk": 0.14924056556673002,
+            "parent_score": 0.14922362640210987,
+            "lexical": 0.2,
+            "score": 0.1692270142350339
+          },
+          {
+            "id": "claim-evt-003@846-1146",
+            "parent": "claim-evt-003",
+            "vector": 0.1279212370051184,
+            "chunk": 0.10257989015791025,
+            "parent_score": 0.13425657371692043,
+            "lexical": 0.1,
+            "score": 0.1379212370051184
+          },
+          {
+            "id": "claim-evt-010@1100-1393",
+            "parent": "claim-evt-010",
+            "vector": 0.12779380680479427,
+            "chunk": 0.10660970638037665,
+            "parent_score": 0.13308983191089865,
+            "lexical": 0.1,
+            "score": 0.13779380680479428
+          },
+          {
+            "id": "claim-evt-094@669-918",
+            "parent": "claim-evt-094",
+            "vector": 0.1187571521177072,
+            "chunk": 0.05336298767720561,
+            "parent_score": 0.13510569322783259,
+            "lexical": 0.1,
+            "score": 0.1287571521177072
+          },
+          {
+            "id": "claim-evt-006@654-943",
+            "parent": "claim-evt-006",
+            "vector": 0.11537917846205274,
+            "chunk": 0.14657485726135108,
+            "parent_score": 0.10758025876222815,
+            "lexical": 0.1,
+            "score": 0.12537917846205274
+          },
+          {
+            "id": "claim-evt-089@878-1151",
+            "parent": "claim-evt-089",
+            "vector": 0.09241782930304027,
+            "chunk": 0.03326612970835494,
+            "parent_score": 0.10720575420171159,
+            "lexical": 0.3,
+            "score": 0.12241782930304027
+          },
+          {
+            "id": "claim-evt-009@1505-1781",
+            "parent": "claim-evt-009",
+            "vector": 0.09386289830682061,
+            "chunk": 0.09162860960939287,
+            "parent_score": 0.09442147048117754,
+            "lexical": 0.2,
+            "score": 0.11386289830682061
+          },
+          {
+            "id": "claim-evt-028@421-651",
+            "parent": "claim-evt-028",
+            "vector": 0.10090527711001145,
+            "chunk": 0.0834521408088557,
+            "parent_score": 0.10526856118530037,
+            "lexical": 0.1,
+            "score": 0.11090527711001144
+          },
+          {
+            "id": "claim-evt-029@216-511",
+            "parent": "claim-evt-029",
+            "vector": 0.10018158561263446,
+            "chunk": 0.09226385691620295,
+            "parent_score": 0.10216101778674233,
+            "lexical": 0.1,
+            "score": 0.11018158561263447
+          },
+          {
+            "id": "claim-evt-052@881-1155",
+            "parent": "claim-evt-052",
+            "vector": 0.09000709082221937,
+            "chunk": 0.09947964545199206,
+            "parent_score": 0.08763895216477618,
+            "lexical": 0.2,
+            "score": 0.11000709082221938
+          },
+          {
+            "id": "claim-evt-071@1899-2183",
+            "parent": "claim-evt-071",
+            "vector": 0.07998758260614953,
+            "chunk": 0.12276217614202127,
+            "parent_score": 0.0692939342221816,
+            "lexical": 0.2,
+            "score": 0.09998758260614954
+          },
+          {
+            "id": "claim-evt-065@235-518",
+            "parent": "claim-evt-065",
+            "vector": 0.08780807485157405,
+            "chunk": 0.10401019349846874,
+            "parent_score": 0.08375754518985037,
+            "lexical": 0.1,
+            "score": 0.09780807485157406
+          },
+          {
+            "id": "claim-evt-058@1730-1970",
+            "parent": "claim-evt-058",
+            "vector": 0.08744178351609555,
+            "chunk": 0.15411617688293303,
+            "parent_score": 0.07077318517438619,
+            "lexical": 0.1,
+            "score": 0.09744178351609556
+          },
+          {
+            "id": "claim-evt-080@1123-1381",
+            "parent": "claim-evt-080",
+            "vector": 0.07670542503128475,
+            "chunk": 0.05332859322459773,
+            "parent_score": 0.0825496329829565,
+            "lexical": 0.2,
+            "score": 0.09670542503128475
+          },
+          {
+            "id": "claim-evt-027@1566-1830",
+            "parent": "claim-evt-027",
+            "vector": 0.07619854758730703,
+            "chunk": 0.08704555717713053,
+            "parent_score": 0.07348679518985116,
+            "lexical": 0.2,
+            "score": 0.09619854758730703
+          },
+          {
+            "id": "claim-evt-108@1514-1801",
+            "parent": "claim-evt-108",
+            "vector": 0.08035714509677822,
+            "chunk": 0.0763418095119128,
+            "parent_score": 0.08136097899299456,
+            "lexical": 0.1,
+            "score": 0.09035714509677822
+          },
+          {
+            "id": "claim-evt-041@1607-1906",
+            "parent": "claim-evt-041",
+            "vector": 0.038189610713957794,
+            "chunk": 0.04927300467594331,
+            "parent_score": 0.035418762223461416,
+            "lexical": 0.5,
+            "score": 0.0881896107139578
+          },
+          {
+            "id": "claim-evt-074@964-1258",
+            "parent": "claim-evt-074",
+            "vector": 0.06692104228317983,
+            "chunk": 0.08421366849783188,
+            "parent_score": 0.0625978857295168,
+            "lexical": 0.2,
+            "score": 0.08692104228317983
+          },
+          {
+            "id": "claim-evt-004@425-710",
+            "parent": "claim-evt-004",
+            "vector": 0.06680112533953991,
+            "chunk": 0.09443492370778726,
+            "parent_score": 0.05989267574747808,
+            "lexical": 0.2,
+            "score": 0.08680112533953992
+          }
+        ]
+      }
+    ],
+    "0.2": [
+      {
+        "id": "profession_train",
+        "split": "development",
+        "expected": [
+          "reviewed-luo-ji-profession"
+        ],
+        "rank": 1,
+        "top20": [
+          {
+            "id": "reviewed-luo-ji-profession",
+            "parent": "reviewed-luo-ji-profession",
+            "vector": 0.27229057431858544,
+            "chunk": 0.27229057431858544,
+            "parent_score": null,
+            "lexical": 0.4444444444444444,
+            "score": 0.36117946320747435
+          },
+          {
+            "id": "claim-evt-077@1457-1729",
+            "parent": "claim-evt-077",
+            "vector": 0.11762071187117856,
+            "chunk": 0.11987297705688515,
+            "parent_score": 0.1170576455747519,
+            "lexical": 0.2222222222222222,
+            "score": 0.16206515631562302
+          },
+          {
+            "id": "claim-evt-111@1785-2039",
+            "parent": "claim-evt-111",
+            "vector": 0.10060124577272608,
+            "chunk": 0.0887356509416114,
+            "parent_score": 0.10356764448050475,
+            "lexical": 0.2222222222222222,
+            "score": 0.14504569021717054
+          },
+          {
+            "id": "claim-evt-094@1459-1704",
+            "parent": "claim-evt-094",
+            "vector": 0.09482772468901446,
+            "chunk": 0.09532062476387965,
+            "parent_score": 0.09470449967029815,
+            "lexical": 0.2222222222222222,
+            "score": 0.1392721691334589
+          },
+          {
+            "id": "claim-evt-010@0-288",
+            "parent": "claim-evt-010",
+            "vector": 0.09449769830837267,
+            "chunk": 0.09861594056966569,
+            "parent_score": 0.0934681377430494,
+            "lexical": 0.2222222222222222,
+            "score": 0.1389421427528171
+          },
+          {
+            "id": "claim-evt-008@0-293",
+            "parent": "claim-evt-008",
+            "vector": 0.0708248614904574,
+            "chunk": 0.014274066738497964,
+            "parent_score": 0.08496256017844726,
+            "lexical": 0.3333333333333333,
+            "score": 0.13749152815712407
+          },
+          {
+            "id": "claim-evt-097@1269-1565",
+            "parent": "claim-evt-097",
+            "vector": 0.06487874407820164,
+            "chunk": 0.07852703595022845,
+            "parent_score": 0.06146667111019494,
+            "lexical": 0.3333333333333333,
+            "score": 0.1315454107448683
+          },
+          {
+            "id": "claim-evt-026@191-476",
+            "parent": "claim-evt-026",
+            "vector": 0.06395618106742873,
+            "chunk": 0.10486450101861527,
+            "parent_score": 0.053729101079632094,
+            "lexical": 0.3333333333333333,
+            "score": 0.13062284773409538
+          },
+          {
+            "id": "claim-evt-038@824-1112",
+            "parent": "claim-evt-038",
+            "vector": 0.10774180838163165,
+            "chunk": 0.13041013273932528,
+            "parent_score": 0.10207472729220823,
+            "lexical": 0.1111111111111111,
+            "score": 0.12996403060385386
+          },
+          {
+            "id": "claim-evt-115@650-942",
+            "parent": "claim-evt-115",
+            "vector": 0.08531172824638739,
+            "chunk": 0.07688517444384897,
+            "parent_score": 0.08741836669702199,
+            "lexical": 0.2222222222222222,
+            "score": 0.12975617269083184
+          },
+          {
+            "id": "claim-evt-110@0-217",
+            "parent": "claim-evt-110",
+            "vector": 0.08431454967943404,
+            "chunk": -0.008382373969649658,
+            "parent_score": 0.10748878059170495,
+            "lexical": 0.2222222222222222,
+            "score": 0.12875899412387848
+          },
+          {
+            "id": "claim-evt-036@1049-1309",
+            "parent": "claim-evt-036",
+            "vector": 0.10564989504521505,
+            "chunk": 0.10105651043180543,
+            "parent_score": 0.10679824119856744,
+            "lexical": 0.1111111111111111,
+            "score": 0.12787211726743727
+          },
+          {
+            "id": "claim-evt-112@2021-2242",
+            "parent": "claim-evt-112",
+            "vector": 0.10460758916209735,
+            "chunk": 0.15575863599868883,
+            "parent_score": 0.09181982745294946,
+            "lexical": 0.1111111111111111,
+            "score": 0.12682981138431956
+          },
+          {
+            "id": "claim-evt-039@2042-2208",
+            "parent": "claim-evt-039",
+            "vector": 0.10332468634904034,
+            "chunk": 0.07935138178409232,
+            "parent_score": 0.10931801249027734,
+            "lexical": 0.1111111111111111,
+            "score": 0.12554690857126255
+          },
+          {
+            "id": "claim-evt-003@1526-1815",
+            "parent": "claim-evt-003",
+            "vector": 0.099777792257347,
+            "chunk": 0.11130384518677137,
+            "parent_score": 0.0968962790249909,
+            "lexical": 0.1111111111111111,
+            "score": 0.12200001447956922
+          },
+          {
+            "id": "claim-evt-096@192-469",
+            "parent": "claim-evt-096",
+            "vector": 0.09465022701301554,
+            "chunk": 0.09750955640481447,
+            "parent_score": 0.09393539466506579,
+            "lexical": 0.1111111111111111,
+            "score": 0.11687244923523776
+          },
+          {
+            "id": "claim-evt-119@1261-1537",
+            "parent": "claim-evt-119",
+            "vector": 0.09156982534948166,
+            "chunk": 0.13623421903119948,
+            "parent_score": 0.08040372692905219,
+            "lexical": 0.1111111111111111,
+            "score": 0.11379204757170389
+          },
+          {
+            "id": "claim-evt-125@0-283",
+            "parent": "claim-evt-125",
+            "vector": 0.08921428768378782,
+            "chunk": 0.051096251716456084,
+            "parent_score": 0.09874379667562075,
+            "lexical": 0.1111111111111111,
+            "score": 0.11143650990601005
+          },
+          {
+            "id": "claim-evt-099@223-510",
+            "parent": "claim-evt-099",
+            "vector": 0.08734140514681271,
+            "chunk": 0.10814761408717505,
+            "parent_score": 0.08213985291172213,
+            "lexical": 0.1111111111111111,
+            "score": 0.10956362736903494
+          },
+          {
+            "id": "claim-evt-016@1314-1508",
+            "parent": "claim-evt-016",
+            "vector": 0.06364586094727832,
+            "chunk": 0.09759000729485334,
+            "parent_score": 0.055159824360384566,
+            "lexical": 0.2222222222222222,
+            "score": 0.10809030539172276
+          }
+        ]
+      },
+      {
+        "id": "classmate_train",
+        "split": "development",
+        "expected": [
+          "reviewed-luo-ji-classmate"
+        ],
+        "rank": 1,
+        "top20": [
+          {
+            "id": "reviewed-luo-ji-classmate",
+            "parent": "reviewed-luo-ji-classmate",
+            "vector": 0.2501595914621521,
+            "chunk": 0.2501595914621521,
+            "parent_score": null,
+            "lexical": 0.4,
+            "score": 0.3301595914621521
+          },
+          {
+            "id": "claim-evt-125@223-431",
+            "parent": "claim-evt-125",
+            "vector": 0.11637888245603391,
+            "chunk": 0.11689736578863885,
+            "parent_score": 0.11624926162288265,
+            "lexical": 0.0,
+            "score": 0.11637888245603391
+          },
+          {
+            "id": "claim-evt-124@463-719",
+            "parent": "claim-evt-124",
+            "vector": 0.05575308652860388,
+            "chunk": -0.03890857498980905,
+            "parent_score": 0.07941850190820711,
+            "lexical": 0.2,
+            "score": 0.0957530865286039
+          },
+          {
+            "id": "claim-evt-121@1677-1944",
+            "parent": "claim-evt-121",
+            "vector": 0.05492790386384111,
+            "chunk": 0.049852220257017736,
+            "parent_score": 0.056196824765546945,
+            "lexical": 0.1,
+            "score": 0.07492790386384111
+          },
+          {
+            "id": "claim-evt-006@432-714",
+            "parent": "claim-evt-006",
+            "vector": 0.07386399994912216,
+            "chunk": 0.1288464801594537,
+            "parent_score": 0.060118379896539266,
+            "lexical": 0.0,
+            "score": 0.07386399994912216
+          },
+          {
+            "id": "claim-evt-001@1533-1805",
+            "parent": "claim-evt-001",
+            "vector": -0.010885160019267823,
+            "chunk": -0.019130412280981775,
+            "parent_score": -0.008823846953839335,
+            "lexical": 0.4,
+            "score": 0.06911483998073219
+          },
+          {
+            "id": "claim-evt-040@1534-1782",
+            "parent": "claim-evt-040",
+            "vector": 0.06671672167963533,
+            "chunk": 0.10013804040416859,
+            "parent_score": 0.05836139199850201,
+            "lexical": 0.0,
+            "score": 0.06671672167963533
+          },
+          {
+            "id": "claim-evt-097@852-1115",
+            "parent": "claim-evt-097",
+            "vector": 0.06265743271058641,
+            "chunk": 0.10359722954017199,
+            "parent_score": 0.05242248350319001,
+            "lexical": 0.0,
+            "score": 0.06265743271058641
+          },
+          {
+            "id": "claim-evt-026@0-251",
+            "parent": "claim-evt-026",
+            "vector": 0.0549353368210367,
+            "chunk": 0.13180161915329625,
+            "parent_score": 0.0357187662379718,
+            "lexical": 0.0,
+            "score": 0.0549353368210367
+          },
+          {
+            "id": "claim-evt-094@222-512",
+            "parent": "claim-evt-094",
+            "vector": 0.05426300675246372,
+            "chunk": 0.08334189535837759,
+            "parent_score": 0.04699328460098525,
+            "lexical": 0.0,
+            "score": 0.05426300675246372
+          },
+          {
+            "id": "claim-evt-071@1899-2183",
+            "parent": "claim-evt-071",
+            "vector": 0.0535622423503508,
+            "chunk": 0.1292233433073908,
+            "parent_score": 0.0346469671110908,
+            "lexical": 0.0,
+            "score": 0.0535622423503508
+          },
+          {
+            "id": "reviewed-luo-ji-profession",
+            "parent": "reviewed-luo-ji-profession",
+            "vector": 0.04503773491110449,
+            "chunk": 0.04503773491110449,
+            "parent_score": null,
+            "lexical": 0.0,
+            "score": 0.04503773491110449
+          },
+          {
+            "id": "claim-evt-056@1638-1893",
+            "parent": "claim-evt-056",
+            "vector": 0.04375256133912808,
+            "chunk": 0.06557130346417728,
+            "parent_score": 0.038297875807865776,
+            "lexical": 0.0,
+            "score": 0.04375256133912808
+          },
+          {
+            "id": "claim-evt-031@1225-1523",
+            "parent": "claim-evt-031",
+            "vector": 0.043380161683424484,
+            "chunk": 0.09363120761347887,
+            "parent_score": 0.030817400200910883,
+            "lexical": 0.0,
+            "score": 0.043380161683424484
+          },
+          {
+            "id": "claim-evt-005@2205-2387",
+            "parent": "claim-evt-005",
+            "vector": 0.041939611824607266,
+            "chunk": 0.06255347431156046,
+            "parent_score": 0.03678614620286896,
+            "lexical": 0.0,
+            "score": 0.041939611824607266
+          },
+          {
+            "id": "claim-evt-116@0-287",
+            "parent": "claim-evt-116",
+            "vector": 0.040666347005607686,
+            "chunk": 0.09080242527234748,
+            "parent_score": 0.02813232743892273,
+            "lexical": 0.0,
+            "score": 0.040666347005607686
+          },
+          {
+            "id": "claim-evt-077@338-624",
+            "parent": "claim-evt-077",
+            "vector": 0.03990119781959787,
+            "chunk": 0.10484873886207245,
+            "parent_score": 0.02366431255897922,
+            "lexical": 0.0,
+            "score": 0.03990119781959787
+          },
+          {
+            "id": "claim-evt-120@205-382",
+            "parent": "claim-evt-120",
+            "vector": 0.0395818474343253,
+            "chunk": 0.1035759110443109,
+            "parent_score": 0.023583331531828906,
+            "lexical": 0.0,
+            "score": 0.0395818474343253
+          },
+          {
+            "id": "claim-evt-086@945-1232",
+            "parent": "claim-evt-086",
+            "vector": 0.03840107130273966,
+            "chunk": 0.09920299002317963,
+            "parent_score": 0.023200591622629666,
+            "lexical": 0.0,
+            "score": 0.03840107130273966
+          },
+          {
+            "id": "claim-evt-084@1366-1651",
+            "parent": "claim-evt-084",
+            "vector": 0.0371762680284663,
+            "chunk": 0.08379253069981943,
+            "parent_score": 0.025522202360628014,
+            "lexical": 0.0,
+            "score": 0.0371762680284663
+          }
+        ]
+      },
+      {
+        "id": "axioms_eval",
+        "split": "validation",
+        "expected": [
+          "reviewed-luo-ji-civilization-axioms"
+        ],
+        "rank": 1,
+        "top20": [
+          {
+            "id": "reviewed-luo-ji-civilization-axioms",
+            "parent": "reviewed-luo-ji-civilization-axioms",
+            "vector": 0.2189224326311058,
+            "chunk": 0.2189224326311058,
+            "parent_score": null,
+            "lexical": 0.5625,
+            "score": 0.3314224326311058
+          },
+          {
+            "id": "claim-evt-002@808-1101",
+            "parent": "claim-evt-002",
+            "vector": 0.16966845154533938,
+            "chunk": 0.26219637826135683,
+            "parent_score": 0.146536469866335,
+            "lexical": 0.5625,
+            "score": 0.28216845154533937
+          },
+          {
+            "id": "claim-evt-055@1454-1698",
+            "parent": "claim-evt-055",
+            "vector": 0.1619610323910533,
+            "chunk": 0.23811738545941746,
+            "parent_score": 0.14292194412396225,
+            "lexical": 0.5,
+            "score": 0.2619610323910533
+          },
+          {
+            "id": "claim-evt-053@223-500",
+            "parent": "claim-evt-053",
+            "vector": 0.11973508647388197,
+            "chunk": 0.18863071451579524,
+            "parent_score": 0.10251117946340364,
+            "lexical": 0.4375,
+            "score": 0.20723508647388197
+          },
+          {
+            "id": "reviewed-luo-ji-profession",
+            "parent": "reviewed-luo-ji-profession",
+            "vector": 0.14462030521243746,
+            "chunk": 0.14462030521243746,
+            "parent_score": null,
+            "lexical": 0.25,
+            "score": 0.19462030521243745
+          },
+          {
+            "id": "claim-evt-067@2020-2299",
+            "parent": "claim-evt-067",
+            "vector": 0.12730497665433801,
+            "chunk": 0.06547643756501244,
+            "parent_score": 0.1427621114266694,
+            "lexical": 0.125,
+            "score": 0.152304976654338
+          },
+          {
+            "id": "claim-evt-056@413-669",
+            "parent": "claim-evt-056",
+            "vector": 0.030587807405840897,
+            "chunk": 0.1529390370292045,
+            "parent_score": -5.421010862427522e-18,
+            "lexical": 0.5625,
+            "score": 0.1430878074058409
+          },
+          {
+            "id": "claim-evt-049@1460-1727",
+            "parent": "claim-evt-049",
+            "vector": 0.0936109178959471,
+            "chunk": 0.09954395505944927,
+            "parent_score": 0.09212765860507154,
+            "lexical": 0.1875,
+            "score": 0.1311109178959471
+          },
+          {
+            "id": "claim-evt-116@437-728",
+            "parent": "claim-evt-116",
+            "vector": 0.038591155114458466,
+            "chunk": 0.07439044702022275,
+            "parent_score": 0.029641332138017392,
+            "lexical": 0.4375,
+            "score": 0.12609115511445848
+          },
+          {
+            "id": "claim-evt-026@630-920",
+            "parent": "claim-evt-026",
+            "vector": 0.09514269346392026,
+            "chunk": 0.16180796699117808,
+            "parent_score": 0.0784763750821058,
+            "lexical": 0.125,
+            "score": 0.12014269346392026
+          },
+          {
+            "id": "claim-evt-106@0-276",
+            "parent": "claim-evt-106",
+            "vector": 0.08246497957478373,
+            "chunk": 0.07602859212697055,
+            "parent_score": 0.084074076436737,
+            "lexical": 0.1875,
+            "score": 0.11996497957478373
+          },
+          {
+            "id": "claim-evt-051@1092-1357",
+            "parent": "claim-evt-051",
+            "vector": 0.08234133650284688,
+            "chunk": 0.0848594436454112,
+            "parent_score": 0.08171180971720579,
+            "lexical": 0.1875,
+            "score": 0.11984133650284688
+          },
+          {
+            "id": "claim-evt-029@216-511",
+            "parent": "claim-evt-029",
+            "vector": 0.10654805533960682,
+            "chunk": 0.11572957908964766,
+            "parent_score": 0.1042526744020966,
+            "lexical": 0.0625,
+            "score": 0.11904805533960681
+          },
+          {
+            "id": "claim-evt-119@821-1116",
+            "parent": "claim-evt-119",
+            "vector": 0.08342480519381121,
+            "chunk": 0.1399723287055766,
+            "parent_score": 0.06928792431586986,
+            "lexical": 0.125,
+            "score": 0.1084248051938112
+          },
+          {
+            "id": "claim-evt-117@1595-1895",
+            "parent": "claim-evt-117",
+            "vector": 0.04565357172259587,
+            "chunk": 0.02011218693238343,
+            "parent_score": 0.052038917920148975,
+            "lexical": 0.3125,
+            "score": 0.10815357172259588
+          },
+          {
+            "id": "claim-evt-108@652-941",
+            "parent": "claim-evt-108",
+            "vector": 0.06377152253198153,
+            "chunk": 0.03893877735497127,
+            "parent_score": 0.06997970882623408,
+            "lexical": 0.1875,
+            "score": 0.10127152253198153
+          },
+          {
+            "id": "claim-evt-107@1698-1970",
+            "parent": "claim-evt-107",
+            "vector": 0.07542567150682201,
+            "chunk": 0.05547855544155052,
+            "parent_score": 0.08041245052313989,
+            "lexical": 0.125,
+            "score": 0.10042567150682202
+          },
+          {
+            "id": "claim-evt-061@869-1135",
+            "parent": "claim-evt-061",
+            "vector": 0.04748413712801436,
+            "chunk": 0.05654424770689123,
+            "parent_score": 0.04521910948329514,
+            "lexical": 0.25,
+            "score": 0.09748413712801436
+          },
+          {
+            "id": "claim-evt-105@0-211",
+            "parent": "claim-evt-105",
+            "vector": 0.09737991234641091,
+            "chunk": 0.16995721294847455,
+            "parent_score": 0.07923558719589499,
+            "lexical": 0.0,
+            "score": 0.09737991234641091
+          },
+          {
+            "id": "claim-evt-057@1760-2023",
+            "parent": "claim-evt-057",
+            "vector": 0.06675742382327883,
+            "chunk": 0.09435935174145671,
+            "parent_score": 0.059856941843734364,
+            "lexical": 0.125,
+            "score": 0.09175742382327884
+          }
+        ]
+      },
+      {
+        "id": "identity_simplified_eval",
+        "split": "validation",
+        "expected": [
+          "claim-evt-115"
+        ],
+        "rank": 5,
+        "top20": [
+          {
+            "id": "claim-evt-114@1335-1570",
+            "parent": "claim-evt-114",
+            "vector": 0.1893916551188171,
+            "chunk": 0.15775575370823816,
+            "parent_score": 0.19730063047146182,
+            "lexical": 0.4,
+            "score": 0.26939165511881713
+          },
+          {
+            "id": "claim-evt-039@1807-2102",
+            "parent": "claim-evt-039",
+            "vector": 0.17998849014112003,
+            "chunk": 0.09860741678378437,
+            "parent_score": 0.20033375848045393,
+            "lexical": 0.3,
+            "score": 0.23998849014112003
+          },
+          {
+            "id": "claim-evt-023@412-705",
+            "parent": "claim-evt-023",
+            "vector": 0.1539840561387401,
+            "chunk": 0.1364382080481293,
+            "parent_score": 0.1583705181613928,
+            "lexical": 0.4,
+            "score": 0.23398405613874013
+          },
+          {
+            "id": "claim-evt-052@650-941",
+            "parent": "claim-evt-052",
+            "vector": 0.14665670222949334,
+            "chunk": 0.16313208693923603,
+            "parent_score": 0.14253785605205765,
+            "lexical": 0.4,
+            "score": 0.22665670222949336
+          },
+          {
+            "id": "claim-evt-115@1329-1624",
+            "parent": "claim-evt-115",
+            "vector": 0.16309145043092196,
+            "chunk": 0.12114942542923779,
+            "parent_score": 0.17357695668134301,
+            "lexical": 0.3,
+            "score": 0.22309145043092196
+          },
+          {
+            "id": "claim-evt-019@1296-1574",
+            "parent": "claim-evt-019",
+            "vector": 0.1630809492887334,
+            "chunk": 0.13805038349729812,
+            "parent_score": 0.16933859073659224,
+            "lexical": 0.3,
+            "score": 0.2230809492887334
+          },
+          {
+            "id": "claim-evt-082@1045-1340",
+            "parent": "claim-evt-082",
+            "vector": 0.12232901924370379,
+            "chunk": 0.05726562866782001,
+            "parent_score": 0.13859486688767472,
+            "lexical": 0.5,
+            "score": 0.2223290192437038
+          },
+          {
+            "id": "claim-evt-015@469-746",
+            "parent": "claim-evt-015",
+            "vector": 0.14028557755360624,
+            "chunk": 0.0746110019999276,
+            "parent_score": 0.1567042214420259,
+            "lexical": 0.4,
+            "score": 0.22028557755360625
+          },
+          {
+            "id": "claim-evt-018@0-270",
+            "parent": "claim-evt-018",
+            "vector": 0.15873098837196445,
+            "chunk": 0.19885415600898634,
+            "parent_score": 0.14870019646270896,
+            "lexical": 0.3,
+            "score": 0.21873098837196445
+          },
+          {
+            "id": "claim-evt-080@1776-2071",
+            "parent": "claim-evt-080",
+            "vector": 0.1362943258727563,
+            "chunk": 0.13125552464079154,
+            "parent_score": 0.13755402618074747,
+            "lexical": 0.4,
+            "score": 0.21629432587275632
+          },
+          {
+            "id": "claim-evt-071@1899-2183",
+            "parent": "claim-evt-071",
+            "vector": 0.15455360580203908,
+            "chunk": 0.0409425183871612,
+            "parent_score": 0.18295637765575856,
+            "lexical": 0.3,
+            "score": 0.21455360580203908
+          },
+          {
+            "id": "claim-evt-037@0-287",
+            "parent": "claim-evt-037",
+            "vector": 0.13306843294978113,
+            "chunk": 0.09484607262400242,
+            "parent_score": 0.1426240230312258,
+            "lexical": 0.4,
+            "score": 0.21306843294978114
+          },
+          {
+            "id": "claim-evt-078@1058-1327",
+            "parent": "claim-evt-078",
+            "vector": 0.1306219177923335,
+            "chunk": 0.08248640375241731,
+            "parent_score": 0.14265579630231254,
+            "lexical": 0.4,
+            "score": 0.21062191779233352
+          },
+          {
+            "id": "claim-evt-024@1230-1504",
+            "parent": "claim-evt-024",
+            "vector": 0.123463155120344,
+            "chunk": 0.13682596566545868,
+            "parent_score": 0.12012245248406532,
+            "lexical": 0.4,
+            "score": 0.20346315512034402
+          },
+          {
+            "id": "claim-evt-119@1261-1537",
+            "parent": "claim-evt-119",
+            "vector": 0.11865848649536956,
+            "chunk": 0.11125616329057358,
+            "parent_score": 0.12050906729656854,
+            "lexical": 0.4,
+            "score": 0.19865848649536957
+          },
+          {
+            "id": "claim-evt-123@601-900",
+            "parent": "claim-evt-123",
+            "vector": 0.1183276430402729,
+            "chunk": 0.06141377758074179,
+            "parent_score": 0.1325561094051557,
+            "lexical": 0.4,
+            "score": 0.19832764304027292
+          },
+          {
+            "id": "claim-evt-041@1607-1906",
+            "parent": "claim-evt-041",
+            "vector": 0.13036631013568756,
+            "chunk": 0.1431047552460102,
+            "parent_score": 0.1271816988581069,
+            "lexical": 0.3,
+            "score": 0.19036631013568756
+          },
+          {
+            "id": "claim-evt-010@1520-1793",
+            "parent": "claim-evt-010",
+            "vector": 0.12977241544496734,
+            "chunk": 0.1725248421709032,
+            "parent_score": 0.11908430876348336,
+            "lexical": 0.3,
+            "score": 0.18977241544496734
+          },
+          {
+            "id": "claim-evt-112@0-174",
+            "parent": "claim-evt-112",
+            "vector": 0.12830003565835865,
+            "chunk": 0.16833285408535434,
+            "parent_score": 0.11829183105160973,
+            "lexical": 0.3,
+            "score": 0.18830003565835865
+          },
+          {
+            "id": "claim-evt-030@2100-2265",
+            "parent": "claim-evt-030",
+            "vector": 0.12653393991914058,
+            "chunk": 0.08932845176608062,
+            "parent_score": 0.13583531195740556,
+            "lexical": 0.3,
+            "score": 0.18653393991914058
+          }
+        ]
+      },
+      {
+        "id": "identity_traditional_eval",
+        "split": "validation",
+        "expected": [
+          "claim-evt-115"
+        ],
+        "rank": 12,
+        "top20": [
+          {
+            "id": "claim-evt-086@1172-1467",
+            "parent": "claim-evt-086",
+            "vector": 0.13096577357409306,
+            "chunk": 0.14027519873184655,
+            "parent_score": 0.12863841728465467,
+            "lexical": 0.3,
+            "score": 0.19096577357409306
+          },
+          {
+            "id": "claim-evt-039@1807-2102",
+            "parent": "claim-evt-039",
+            "vector": 0.14025641525578464,
+            "chunk": 0.07888593342702749,
+            "parent_score": 0.15559903571297393,
+            "lexical": 0.2,
+            "score": 0.18025641525578465
+          },
+          {
+            "id": "claim-evt-112@0-174",
+            "parent": "claim-evt-112",
+            "vector": 0.1358159175684873,
+            "chunk": 0.14175398238766682,
+            "parent_score": 0.1343314013636924,
+            "lexical": 0.2,
+            "score": 0.1758159175684873
+          },
+          {
+            "id": "claim-evt-082@1045-1340",
+            "parent": "claim-evt-082",
+            "vector": 0.09307010290075024,
+            "chunk": 0.05726562866782001,
+            "parent_score": 0.10202122145898278,
+            "lexical": 0.4,
+            "score": 0.17307010290075026
+          },
+          {
+            "id": "claim-evt-052@650-941",
+            "parent": "claim-evt-052",
+            "vector": 0.11224504818049516,
+            "chunk": 0.1317605317586137,
+            "parent_score": 0.10736617728596551,
+            "lexical": 0.3,
+            "score": 0.17224504818049516
+          },
+          {
+            "id": "claim-evt-015@469-746",
+            "parent": "claim-evt-015",
+            "vector": 0.10872097119326084,
+            "chunk": 0.0678281836362978,
+            "parent_score": 0.11894416808250158,
+            "lexical": 0.3,
+            "score": 0.16872097119326085
+          },
+          {
+            "id": "claim-evt-114@1951-2182",
+            "parent": "claim-evt-114",
+            "vector": 0.12815829115807761,
+            "chunk": 0.0967780669176195,
+            "parent_score": 0.13600334721819213,
+            "lexical": 0.2,
+            "score": 0.16815829115807762
+          },
+          {
+            "id": "claim-evt-071@1449-1728",
+            "parent": "claim-evt-071",
+            "vector": 0.14491344878213058,
+            "chunk": 0.1391068354122254,
+            "parent_score": 0.14636510212460685,
+            "lexical": 0.1,
+            "score": 0.1649134487821306
+          },
+          {
+            "id": "claim-evt-040@654-951",
+            "parent": "claim-evt-040",
+            "vector": 0.10157790198808633,
+            "chunk": 0.052152967333603924,
+            "parent_score": 0.11393413565170693,
+            "lexical": 0.3,
+            "score": 0.16157790198808633
+          },
+          {
+            "id": "claim-evt-076@1314-1597",
+            "parent": "claim-evt-076",
+            "vector": 0.10068262298077155,
+            "chunk": 0.04477622118528303,
+            "parent_score": 0.11465922342964366,
+            "lexical": 0.3,
+            "score": 0.16068262298077154
+          },
+          {
+            "id": "claim-evt-113@0-267",
+            "parent": "claim-evt-113",
+            "vector": 0.11837313885800947,
+            "chunk": 0.0701758705822504,
+            "parent_score": 0.13042245592694923,
+            "lexical": 0.2,
+            "score": 0.15837313885800947
+          },
+          {
+            "id": "claim-evt-115@435-710",
+            "parent": "claim-evt-115",
+            "vector": 0.11592480219722853,
+            "chunk": 0.1391491531711216,
+            "parent_score": 0.11011871445375526,
+            "lexical": 0.2,
+            "score": 0.15592480219722854
+          },
+          {
+            "id": "claim-evt-019@1915-2212",
+            "parent": "claim-evt-019",
+            "vector": 0.11351576579067439,
+            "chunk": 0.08712980407280795,
+            "parent_score": 0.120112256220141,
+            "lexical": 0.2,
+            "score": 0.15351576579067439
+          },
+          {
+            "id": "claim-evt-072@1711-1988",
+            "parent": "claim-evt-072",
+            "vector": 0.08458366108483044,
+            "chunk": 0.0705882756660447,
+            "parent_score": 0.08808250743952688,
+            "lexical": 0.3,
+            "score": 0.14458366108483045
+          },
+          {
+            "id": "claim-evt-083@908-1198",
+            "parent": "claim-evt-083",
+            "vector": 0.0836849889616732,
+            "chunk": 0.07369119516510317,
+            "parent_score": 0.0861834374108157,
+            "lexical": 0.3,
+            "score": 0.1436849889616732
+          },
+          {
+            "id": "claim-evt-123@0-275",
+            "parent": "claim-evt-123",
+            "vector": 0.10224091956006523,
+            "chunk": 0.06803193352040265,
+            "parent_score": 0.11079316606998087,
+            "lexical": 0.2,
+            "score": 0.14224091956006524
+          },
+          {
+            "id": "claim-evt-041@1607-1906",
+            "parent": "claim-evt-041",
+            "vector": 0.10219893116440337,
+            "chunk": 0.08456190082718784,
+            "parent_score": 0.10660818874870724,
+            "lexical": 0.2,
+            "score": 0.14219893116440338
+          },
+          {
+            "id": "claim-evt-034@1574-1846",
+            "parent": "claim-evt-034",
+            "vector": 0.081843247631317,
+            "chunk": 0.07919614799304016,
+            "parent_score": 0.08250502254088621,
+            "lexical": 0.3,
+            "score": 0.141843247631317
+          },
+          {
+            "id": "claim-evt-078@1058-1327",
+            "parent": "claim-evt-078",
+            "vector": 0.0782317027314113,
+            "chunk": 0.10998187166988975,
+            "parent_score": 0.07029416049679169,
+            "lexical": 0.3,
+            "score": 0.1382317027314113
+          },
+          {
+            "id": "claim-evt-035@1215-1507",
+            "parent": "claim-evt-035",
+            "vector": 0.09638153603030673,
+            "chunk": 0.10317214083506576,
+            "parent_score": 0.09468388482911697,
+            "lexical": 0.2,
+            "score": 0.13638153603030673
+          }
+        ]
+      },
+      {
+        "id": "unknown_eval",
+        "split": "validation",
+        "expected": [],
+        "rank": null,
+        "top20": [
+          {
+            "id": "claim-evt-113@642-940",
+            "parent": "claim-evt-113",
+            "vector": 0.15039403495280776,
+            "chunk": 0.08511149417802916,
+            "parent_score": 0.1667146701465024,
+            "lexical": 0.3,
+            "score": 0.21039403495280776
+          },
+          {
+            "id": "claim-evt-122@1485-1751",
+            "parent": "claim-evt-122",
+            "vector": 0.1492270142350339,
+            "chunk": 0.14924056556673002,
+            "parent_score": 0.14922362640210987,
+            "lexical": 0.2,
+            "score": 0.1892270142350339
+          },
+          {
+            "id": "claim-evt-010@0-288",
+            "parent": "claim-evt-010",
+            "vector": 0.11245270965764348,
+            "chunk": 0.029904220644622784,
+            "parent_score": 0.13308983191089865,
+            "lexical": 0.2,
+            "score": 0.1524527096576435
+          },
+          {
+            "id": "claim-evt-089@878-1151",
+            "parent": "claim-evt-089",
+            "vector": 0.09241782930304027,
+            "chunk": 0.03326612970835494,
+            "parent_score": 0.10720575420171159,
+            "lexical": 0.3,
+            "score": 0.15241782930304026
+          },
+          {
+            "id": "claim-evt-003@846-1146",
+            "parent": "claim-evt-003",
+            "vector": 0.1279212370051184,
+            "chunk": 0.10257989015791025,
+            "parent_score": 0.13425657371692043,
+            "lexical": 0.1,
+            "score": 0.1479212370051184
+          },
+          {
+            "id": "claim-evt-006@883-1171",
+            "parent": "claim-evt-006",
+            "vector": 0.10374916401870166,
+            "chunk": 0.08842478504459568,
+            "parent_score": 0.10758025876222815,
+            "lexical": 0.2,
+            "score": 0.14374916401870166
+          },
+          {
+            "id": "claim-evt-094@669-918",
+            "parent": "claim-evt-094",
+            "vector": 0.1187571521177072,
+            "chunk": 0.05336298767720561,
+            "parent_score": 0.13510569322783259,
+            "lexical": 0.1,
+            "score": 0.1387571521177072
+          },
+          {
+            "id": "claim-evt-041@1607-1906",
+            "parent": "claim-evt-041",
+            "vector": 0.038189610713957794,
+            "chunk": 0.04927300467594331,
+            "parent_score": 0.035418762223461416,
+            "lexical": 0.5,
+            "score": 0.1381896107139578
+          },
+          {
+            "id": "claim-evt-009@1505-1781",
+            "parent": "claim-evt-009",
+            "vector": 0.09386289830682061,
+            "chunk": 0.09162860960939287,
+            "parent_score": 0.09442147048117754,
+            "lexical": 0.2,
+            "score": 0.13386289830682063
+          },
+          {
+            "id": "claim-evt-052@881-1155",
+            "parent": "claim-evt-052",
+            "vector": 0.09000709082221937,
+            "chunk": 0.09947964545199206,
+            "parent_score": 0.08763895216477618,
+            "lexical": 0.2,
+            "score": 0.1300070908222194
+          },
+          {
+            "id": "claim-evt-028@421-651",
+            "parent": "claim-evt-028",
+            "vector": 0.10090527711001145,
+            "chunk": 0.0834521408088557,
+            "parent_score": 0.10526856118530037,
+            "lexical": 0.1,
+            "score": 0.12090527711001145
+          },
+          {
+            "id": "claim-evt-029@216-511",
+            "parent": "claim-evt-029",
+            "vector": 0.10018158561263446,
+            "chunk": 0.09226385691620295,
+            "parent_score": 0.10216101778674233,
+            "lexical": 0.1,
+            "score": 0.12018158561263446
+          },
+          {
+            "id": "claim-evt-071@1899-2183",
+            "parent": "claim-evt-071",
+            "vector": 0.07998758260614953,
+            "chunk": 0.12276217614202127,
+            "parent_score": 0.0692939342221816,
+            "lexical": 0.2,
+            "score": 0.11998758260614954
+          },
+          {
+            "id": "claim-evt-080@1123-1381",
+            "parent": "claim-evt-080",
+            "vector": 0.07670542503128475,
+            "chunk": 0.05332859322459773,
+            "parent_score": 0.0825496329829565,
+            "lexical": 0.2,
+            "score": 0.11670542503128475
+          },
+          {
+            "id": "claim-evt-027@1566-1830",
+            "parent": "claim-evt-027",
+            "vector": 0.07619854758730703,
+            "chunk": 0.08704555717713053,
+            "parent_score": 0.07348679518985116,
+            "lexical": 0.2,
+            "score": 0.11619854758730704
+          },
+          {
+            "id": "claim-evt-040@891-1183",
+            "parent": "claim-evt-040",
+            "vector": 0.03176245081622913,
+            "chunk": 0.03147830790259576,
+            "parent_score": 0.03183348654463747,
+            "lexical": 0.4,
+            "score": 0.11176245081622915
+          },
+          {
+            "id": "claim-evt-065@235-518",
+            "parent": "claim-evt-065",
+            "vector": 0.08780807485157405,
+            "chunk": 0.10401019349846874,
+            "parent_score": 0.08375754518985037,
+            "lexical": 0.1,
+            "score": 0.10780807485157405
+          },
+          {
+            "id": "claim-evt-058@1730-1970",
+            "parent": "claim-evt-058",
+            "vector": 0.08744178351609555,
+            "chunk": 0.15411617688293303,
+            "parent_score": 0.07077318517438619,
+            "lexical": 0.1,
+            "score": 0.10744178351609555
+          },
+          {
+            "id": "claim-evt-074@964-1258",
+            "parent": "claim-evt-074",
+            "vector": 0.06692104228317983,
+            "chunk": 0.08421366849783188,
+            "parent_score": 0.0625978857295168,
+            "lexical": 0.2,
+            "score": 0.10692104228317983
+          },
+          {
+            "id": "claim-evt-004@425-710",
+            "parent": "claim-evt-004",
+            "vector": 0.06680112533953991,
+            "chunk": 0.09443492370778726,
+            "parent_score": 0.05989267574747808,
+            "lexical": 0.2,
+            "score": 0.10680112533953992
+          }
+        ]
+      }
+    ],
+    "0.4": [
+      {
+        "id": "profession_train",
+        "split": "development",
+        "expected": [
+          "reviewed-luo-ji-profession"
+        ],
+        "rank": 1,
+        "top20": [
+          {
+            "id": "reviewed-luo-ji-profession",
+            "parent": "reviewed-luo-ji-profession",
+            "vector": 0.27229057431858544,
+            "chunk": 0.27229057431858544,
+            "parent_score": null,
+            "lexical": 0.4444444444444444,
+            "score": 0.4500683520963632
+          },
+          {
+            "id": "claim-evt-077@1457-1729",
+            "parent": "claim-evt-077",
+            "vector": 0.11762071187117856,
+            "chunk": 0.11987297705688515,
+            "parent_score": 0.1170576455747519,
+            "lexical": 0.2222222222222222,
+            "score": 0.20650960076006747
+          },
+          {
+            "id": "claim-evt-008@0-293",
+            "parent": "claim-evt-008",
+            "vector": 0.0708248614904574,
+            "chunk": 0.014274066738497964,
+            "parent_score": 0.08496256017844726,
+            "lexical": 0.3333333333333333,
+            "score": 0.20415819482379072
+          },
+          {
+            "id": "claim-evt-097@1269-1565",
+            "parent": "claim-evt-097",
+            "vector": 0.06487874407820164,
+            "chunk": 0.07852703595022845,
+            "parent_score": 0.06146667111019494,
+            "lexical": 0.3333333333333333,
+            "score": 0.19821207741153496
+          },
+          {
+            "id": "claim-evt-026@191-476",
+            "parent": "claim-evt-026",
+            "vector": 0.06395618106742873,
+            "chunk": 0.10486450101861527,
+            "parent_score": 0.053729101079632094,
+            "lexical": 0.3333333333333333,
+            "score": 0.19728951440076206
+          },
+          {
+            "id": "claim-evt-111@1785-2039",
+            "parent": "claim-evt-111",
+            "vector": 0.10060124577272608,
+            "chunk": 0.0887356509416114,
+            "parent_score": 0.10356764448050475,
+            "lexical": 0.2222222222222222,
+            "score": 0.18949013466161496
+          },
+          {
+            "id": "claim-evt-094@1459-1704",
+            "parent": "claim-evt-094",
+            "vector": 0.09482772468901446,
+            "chunk": 0.09532062476387965,
+            "parent_score": 0.09470449967029815,
+            "lexical": 0.2222222222222222,
+            "score": 0.18371661357790336
+          },
+          {
+            "id": "claim-evt-010@0-288",
+            "parent": "claim-evt-010",
+            "vector": 0.09449769830837267,
+            "chunk": 0.09861594056966569,
+            "parent_score": 0.0934681377430494,
+            "lexical": 0.2222222222222222,
+            "score": 0.18338658719726156
+          },
+          {
+            "id": "claim-evt-115@650-942",
+            "parent": "claim-evt-115",
+            "vector": 0.08531172824638739,
+            "chunk": 0.07688517444384897,
+            "parent_score": 0.08741836669702199,
+            "lexical": 0.2222222222222222,
+            "score": 0.1742006171352763
+          },
+          {
+            "id": "claim-evt-038@1272-1543",
+            "parent": "claim-evt-038",
+            "vector": 0.08457584105136562,
+            "chunk": 0.014580296087995109,
+            "parent_score": 0.10207472729220823,
+            "lexical": 0.2222222222222222,
+            "score": 0.17346472994025453
+          },
+          {
+            "id": "claim-evt-110@0-217",
+            "parent": "claim-evt-110",
+            "vector": 0.08431454967943404,
+            "chunk": -0.008382373969649658,
+            "parent_score": 0.10748878059170495,
+            "lexical": 0.2222222222222222,
+            "score": 0.17320343856832293
+          },
+          {
+            "id": "claim-evt-073@466-764",
+            "parent": "claim-evt-073",
+            "vector": 0.03689820651765281,
+            "chunk": 0.06458960487645374,
+            "parent_score": 0.029975356927952578,
+            "lexical": 0.3333333333333333,
+            "score": 0.17023153985098616
+          },
+          {
+            "id": "claim-evt-119@599-881",
+            "parent": "claim-evt-119",
+            "vector": 0.06696372020834099,
+            "chunk": 0.013203693325496157,
+            "parent_score": 0.08040372692905219,
+            "lexical": 0.2222222222222222,
+            "score": 0.15585260909722987
+          },
+          {
+            "id": "claim-evt-016@1314-1508",
+            "parent": "claim-evt-016",
+            "vector": 0.06364586094727832,
+            "chunk": 0.09759000729485334,
+            "parent_score": 0.055159824360384566,
+            "lexical": 0.2222222222222222,
+            "score": 0.15253474983616722
+          },
+          {
+            "id": "claim-evt-069@466-761",
+            "parent": "claim-evt-069",
+            "vector": 0.01888191437886878,
+            "chunk": 0.06399901394871461,
+            "parent_score": 0.007602639486407319,
+            "lexical": 0.3333333333333333,
+            "score": 0.1522152477122021
+          },
+          {
+            "id": "claim-evt-036@1049-1309",
+            "parent": "claim-evt-036",
+            "vector": 0.10564989504521505,
+            "chunk": 0.10105651043180543,
+            "parent_score": 0.10679824119856744,
+            "lexical": 0.1111111111111111,
+            "score": 0.1500943394896595
+          },
+          {
+            "id": "claim-evt-112@2021-2242",
+            "parent": "claim-evt-112",
+            "vector": 0.10460758916209735,
+            "chunk": 0.15575863599868883,
+            "parent_score": 0.09181982745294946,
+            "lexical": 0.1111111111111111,
+            "score": 0.1490520336065418
+          },
+          {
+            "id": "claim-evt-007@228-513",
+            "parent": "claim-evt-007",
+            "vector": 0.05923387611492992,
+            "chunk": 0.06127129263730326,
+            "parent_score": 0.05872452198433658,
+            "lexical": 0.2222222222222222,
+            "score": 0.14812276500381882
+          },
+          {
+            "id": "claim-evt-039@2042-2208",
+            "parent": "claim-evt-039",
+            "vector": 0.10332468634904034,
+            "chunk": 0.07935138178409232,
+            "parent_score": 0.10931801249027734,
+            "lexical": 0.1111111111111111,
+            "score": 0.14776913079348478
+          },
+          {
+            "id": "claim-evt-004@425-710",
+            "parent": "claim-evt-004",
+            "vector": 0.058330034109472934,
+            "chunk": 0.062284109890304994,
+            "parent_score": 0.05734151516426491,
+            "lexical": 0.2222222222222222,
+            "score": 0.1472189229983618
+          }
+        ]
+      },
+      {
+        "id": "classmate_train",
+        "split": "development",
+        "expected": [
+          "reviewed-luo-ji-classmate"
+        ],
+        "rank": 1,
+        "top20": [
+          {
+            "id": "reviewed-luo-ji-classmate",
+            "parent": "reviewed-luo-ji-classmate",
+            "vector": 0.2501595914621521,
+            "chunk": 0.2501595914621521,
+            "parent_score": null,
+            "lexical": 0.4,
+            "score": 0.41015959146215214
+          },
+          {
+            "id": "claim-evt-001@1533-1805",
+            "parent": "claim-evt-001",
+            "vector": -0.010885160019267823,
+            "chunk": -0.019130412280981775,
+            "parent_score": -0.008823846953839335,
+            "lexical": 0.4,
+            "score": 0.14911483998073222
+          },
+          {
+            "id": "claim-evt-124@463-719",
+            "parent": "claim-evt-124",
+            "vector": 0.05575308652860388,
+            "chunk": -0.03890857498980905,
+            "parent_score": 0.07941850190820711,
+            "lexical": 0.2,
+            "score": 0.1357530865286039
+          },
+          {
+            "id": "claim-evt-125@223-431",
+            "parent": "claim-evt-125",
+            "vector": 0.11637888245603391,
+            "chunk": 0.11689736578863885,
+            "parent_score": 0.11624926162288265,
+            "lexical": 0.0,
+            "score": 0.11637888245603391
+          },
+          {
+            "id": "claim-evt-121@1677-1944",
+            "parent": "claim-evt-121",
+            "vector": 0.05492790386384111,
+            "chunk": 0.049852220257017736,
+            "parent_score": 0.056196824765546945,
+            "lexical": 0.1,
+            "score": 0.09492790386384112
+          },
+          {
+            "id": "claim-evt-006@432-714",
+            "parent": "claim-evt-006",
+            "vector": 0.07386399994912216,
+            "chunk": 0.1288464801594537,
+            "parent_score": 0.060118379896539266,
+            "lexical": 0.0,
+            "score": 0.07386399994912216
+          },
+          {
+            "id": "claim-evt-040@1534-1782",
+            "parent": "claim-evt-040",
+            "vector": 0.06671672167963533,
+            "chunk": 0.10013804040416859,
+            "parent_score": 0.05836139199850201,
+            "lexical": 0.0,
+            "score": 0.06671672167963533
+          },
+          {
+            "id": "claim-evt-097@852-1115",
+            "parent": "claim-evt-097",
+            "vector": 0.06265743271058641,
+            "chunk": 0.10359722954017199,
+            "parent_score": 0.05242248350319001,
+            "lexical": 0.0,
+            "score": 0.06265743271058641
+          },
+          {
+            "id": "claim-evt-116@1533-1796",
+            "parent": "claim-evt-116",
+            "vector": 0.01868652942514329,
+            "chunk": -0.01909666262997447,
+            "parent_score": 0.02813232743892273,
+            "lexical": 0.1,
+            "score": 0.0586865294251433
+          },
+          {
+            "id": "claim-evt-120@1394-1679",
+            "parent": "claim-evt-120",
+            "vector": 0.01668766172283475,
+            "chunk": -0.010895017513141885,
+            "parent_score": 0.023583331531828906,
+            "lexical": 0.1,
+            "score": 0.05668766172283476
+          },
+          {
+            "id": "claim-evt-026@0-251",
+            "parent": "claim-evt-026",
+            "vector": 0.0549353368210367,
+            "chunk": 0.13180161915329625,
+            "parent_score": 0.0357187662379718,
+            "lexical": 0.0,
+            "score": 0.0549353368210367
+          },
+          {
+            "id": "claim-evt-094@222-512",
+            "parent": "claim-evt-094",
+            "vector": 0.05426300675246372,
+            "chunk": 0.08334189535837759,
+            "parent_score": 0.04699328460098525,
+            "lexical": 0.0,
+            "score": 0.05426300675246372
+          },
+          {
+            "id": "claim-evt-071@1899-2183",
+            "parent": "claim-evt-071",
+            "vector": 0.0535622423503508,
+            "chunk": 0.1292233433073908,
+            "parent_score": 0.0346469671110908,
+            "lexical": 0.0,
+            "score": 0.0535622423503508
+          },
+          {
+            "id": "claim-evt-113@1763-2061",
+            "parent": "claim-evt-113",
+            "vector": 0.013466068937503498,
+            "chunk": 0.05086469825329503,
+            "parent_score": 0.004116411608555614,
+            "lexical": 0.1,
+            "score": 0.053466068937503504
+          },
+          {
+            "id": "reviewed-luo-ji-profession",
+            "parent": "reviewed-luo-ji-profession",
+            "vector": 0.04503773491110449,
+            "chunk": 0.04503773491110449,
+            "parent_score": null,
+            "lexical": 0.0,
+            "score": 0.04503773491110449
+          },
+          {
+            "id": "claim-evt-056@1638-1893",
+            "parent": "claim-evt-056",
+            "vector": 0.04375256133912808,
+            "chunk": 0.06557130346417728,
+            "parent_score": 0.038297875807865776,
+            "lexical": 0.0,
+            "score": 0.04375256133912808
+          },
+          {
+            "id": "claim-evt-031@1225-1523",
+            "parent": "claim-evt-031",
+            "vector": 0.043380161683424484,
+            "chunk": 0.09363120761347887,
+            "parent_score": 0.030817400200910883,
+            "lexical": 0.0,
+            "score": 0.043380161683424484
+          },
+          {
+            "id": "claim-evt-005@2205-2387",
+            "parent": "claim-evt-005",
+            "vector": 0.041939611824607266,
+            "chunk": 0.06255347431156046,
+            "parent_score": 0.03678614620286896,
+            "lexical": 0.0,
+            "score": 0.041939611824607266
+          },
+          {
+            "id": "claim-evt-077@338-624",
+            "parent": "claim-evt-077",
+            "vector": 0.03990119781959787,
+            "chunk": 0.10484873886207245,
+            "parent_score": 0.02366431255897922,
+            "lexical": 0.0,
+            "score": 0.03990119781959787
+          },
+          {
+            "id": "claim-evt-086@945-1232",
+            "parent": "claim-evt-086",
+            "vector": 0.03840107130273966,
+            "chunk": 0.09920299002317963,
+            "parent_score": 0.023200591622629666,
+            "lexical": 0.0,
+            "score": 0.03840107130273966
+          }
+        ]
+      },
+      {
+        "id": "axioms_eval",
+        "split": "validation",
+        "expected": [
+          "reviewed-luo-ji-civilization-axioms"
+        ],
+        "rank": 1,
+        "top20": [
+          {
+            "id": "reviewed-luo-ji-civilization-axioms",
+            "parent": "reviewed-luo-ji-civilization-axioms",
+            "vector": 0.2189224326311058,
+            "chunk": 0.2189224326311058,
+            "parent_score": null,
+            "lexical": 0.5625,
+            "score": 0.4439224326311058
+          },
+          {
+            "id": "claim-evt-002@808-1101",
+            "parent": "claim-evt-002",
+            "vector": 0.16966845154533938,
+            "chunk": 0.26219637826135683,
+            "parent_score": 0.146536469866335,
+            "lexical": 0.5625,
+            "score": 0.39466845154533936
+          },
+          {
+            "id": "claim-evt-055@1454-1698",
+            "parent": "claim-evt-055",
+            "vector": 0.1619610323910533,
+            "chunk": 0.23811738545941746,
+            "parent_score": 0.14292194412396225,
+            "lexical": 0.5,
+            "score": 0.3619610323910533
+          },
+          {
+            "id": "claim-evt-053@223-500",
+            "parent": "claim-evt-053",
+            "vector": 0.11973508647388197,
+            "chunk": 0.18863071451579524,
+            "parent_score": 0.10251117946340364,
+            "lexical": 0.4375,
+            "score": 0.29473508647388197
+          },
+          {
+            "id": "claim-evt-056@413-669",
+            "parent": "claim-evt-056",
+            "vector": 0.030587807405840897,
+            "chunk": 0.1529390370292045,
+            "parent_score": -5.421010862427522e-18,
+            "lexical": 0.5625,
+            "score": 0.2555878074058409
+          },
+          {
+            "id": "reviewed-luo-ji-profession",
+            "parent": "reviewed-luo-ji-profession",
+            "vector": 0.14462030521243746,
+            "chunk": 0.14462030521243746,
+            "parent_score": null,
+            "lexical": 0.25,
+            "score": 0.24462030521243747
+          },
+          {
+            "id": "claim-evt-116@437-728",
+            "parent": "claim-evt-116",
+            "vector": 0.038591155114458466,
+            "chunk": 0.07439044702022275,
+            "parent_score": 0.029641332138017392,
+            "lexical": 0.4375,
+            "score": 0.21359115511445848
+          },
+          {
+            "id": "claim-evt-067@2020-2299",
+            "parent": "claim-evt-067",
+            "vector": 0.12730497665433801,
+            "chunk": 0.06547643756501244,
+            "parent_score": 0.1427621114266694,
+            "lexical": 0.125,
+            "score": 0.17730497665433803
+          },
+          {
+            "id": "claim-evt-117@1595-1895",
+            "parent": "claim-evt-117",
+            "vector": 0.04565357172259587,
+            "chunk": 0.02011218693238343,
+            "parent_score": 0.052038917920148975,
+            "lexical": 0.3125,
+            "score": 0.17065357172259588
+          },
+          {
+            "id": "claim-evt-049@1460-1727",
+            "parent": "claim-evt-049",
+            "vector": 0.0936109178959471,
+            "chunk": 0.09954395505944927,
+            "parent_score": 0.09212765860507154,
+            "lexical": 0.1875,
+            "score": 0.16861091789594712
+          },
+          {
+            "id": "claim-evt-106@845-1115",
+            "parent": "claim-evt-106",
+            "vector": 0.06725926114938961,
+            "chunk": -8.673617379884035e-19,
+            "parent_score": 0.084074076436737,
+            "lexical": 0.25,
+            "score": 0.1672592611493896
+          },
+          {
+            "id": "claim-evt-051@1092-1357",
+            "parent": "claim-evt-051",
+            "vector": 0.08234133650284688,
+            "chunk": 0.0848594436454112,
+            "parent_score": 0.08171180971720579,
+            "lexical": 0.1875,
+            "score": 0.15734133650284687
+          },
+          {
+            "id": "claim-evt-007@683-951",
+            "parent": "claim-evt-007",
+            "vector": 0.023634174651315613,
+            "chunk": 0.04192851386213853,
+            "parent_score": 0.019060589848609883,
+            "lexical": 0.3125,
+            "score": 0.14863417465131562
+          },
+          {
+            "id": "claim-evt-061@869-1135",
+            "parent": "claim-evt-061",
+            "vector": 0.04748413712801436,
+            "chunk": 0.05654424770689123,
+            "parent_score": 0.04521910948329514,
+            "lexical": 0.25,
+            "score": 0.14748413712801436
+          },
+          {
+            "id": "claim-evt-026@630-920",
+            "parent": "claim-evt-026",
+            "vector": 0.09514269346392026,
+            "chunk": 0.16180796699117808,
+            "parent_score": 0.0784763750821058,
+            "lexical": 0.125,
+            "score": 0.14514269346392028
+          },
+          {
+            "id": "claim-evt-119@1261-1537",
+            "parent": "claim-evt-119",
+            "vector": 0.06637439416659406,
+            "chunk": 0.05472027356949087,
+            "parent_score": 0.06928792431586986,
+            "lexical": 0.1875,
+            "score": 0.1413743941665941
+          },
+          {
+            "id": "claim-evt-108@652-941",
+            "parent": "claim-evt-108",
+            "vector": 0.06377152253198153,
+            "chunk": 0.03893877735497127,
+            "parent_score": 0.06997970882623408,
+            "lexical": 0.1875,
+            "score": 0.13877152253198155
+          },
+          {
+            "id": "claim-evt-123@215-471",
+            "parent": "claim-evt-123",
+            "vector": 0.034706527672150024,
+            "chunk": 0.0051011113981903325,
+            "parent_score": 0.042107881740639945,
+            "lexical": 0.25,
+            "score": 0.13470652767215002
+          },
+          {
+            "id": "claim-evt-029@216-511",
+            "parent": "claim-evt-029",
+            "vector": 0.10654805533960682,
+            "chunk": 0.11572957908964766,
+            "parent_score": 0.1042526744020966,
+            "lexical": 0.0625,
+            "score": 0.1315480553396068
+          },
+          {
+            "id": "claim-evt-091@1297-1581",
+            "parent": "claim-evt-091",
+            "vector": 0.05081376350695399,
+            "chunk": 0.07201890023945967,
+            "parent_score": 0.045512479323827564,
+            "lexical": 0.1875,
+            "score": 0.125813763506954
+          }
+        ]
+      },
+      {
+        "id": "identity_simplified_eval",
+        "split": "validation",
+        "expected": [
+          "claim-evt-115"
+        ],
+        "rank": 11,
+        "top20": [
+          {
+            "id": "claim-evt-114@1335-1570",
+            "parent": "claim-evt-114",
+            "vector": 0.1893916551188171,
+            "chunk": 0.15775575370823816,
+            "parent_score": 0.19730063047146182,
+            "lexical": 0.4,
+            "score": 0.3493916551188171
+          },
+          {
+            "id": "claim-evt-082@1045-1340",
+            "parent": "claim-evt-082",
+            "vector": 0.12232901924370379,
+            "chunk": 0.05726562866782001,
+            "parent_score": 0.13859486688767472,
+            "lexical": 0.5,
+            "score": 0.32232901924370383
+          },
+          {
+            "id": "claim-evt-023@412-705",
+            "parent": "claim-evt-023",
+            "vector": 0.1539840561387401,
+            "chunk": 0.1364382080481293,
+            "parent_score": 0.1583705181613928,
+            "lexical": 0.4,
+            "score": 0.31398405613874014
+          },
+          {
+            "id": "claim-evt-052@650-941",
+            "parent": "claim-evt-052",
+            "vector": 0.14665670222949334,
+            "chunk": 0.16313208693923603,
+            "parent_score": 0.14253785605205765,
+            "lexical": 0.4,
+            "score": 0.30665670222949337
+          },
+          {
+            "id": "claim-evt-015@469-746",
+            "parent": "claim-evt-015",
+            "vector": 0.14028557755360624,
+            "chunk": 0.0746110019999276,
+            "parent_score": 0.1567042214420259,
+            "lexical": 0.4,
+            "score": 0.3002855775536063
+          },
+          {
+            "id": "claim-evt-039@1807-2102",
+            "parent": "claim-evt-039",
+            "vector": 0.17998849014112003,
+            "chunk": 0.09860741678378437,
+            "parent_score": 0.20033375848045393,
+            "lexical": 0.3,
+            "score": 0.29998849014112006
+          },
+          {
+            "id": "claim-evt-080@1776-2071",
+            "parent": "claim-evt-080",
+            "vector": 0.1362943258727563,
+            "chunk": 0.13125552464079154,
+            "parent_score": 0.13755402618074747,
+            "lexical": 0.4,
+            "score": 0.29629432587275634
+          },
+          {
+            "id": "claim-evt-037@0-287",
+            "parent": "claim-evt-037",
+            "vector": 0.13306843294978113,
+            "chunk": 0.09484607262400242,
+            "parent_score": 0.1426240230312258,
+            "lexical": 0.4,
+            "score": 0.29306843294978113
+          },
+          {
+            "id": "claim-evt-078@1058-1327",
+            "parent": "claim-evt-078",
+            "vector": 0.1306219177923335,
+            "chunk": 0.08248640375241731,
+            "parent_score": 0.14265579630231254,
+            "lexical": 0.4,
+            "score": 0.29062191779233354
+          },
+          {
+            "id": "claim-evt-024@1230-1504",
+            "parent": "claim-evt-024",
+            "vector": 0.123463155120344,
+            "chunk": 0.13682596566545868,
+            "parent_score": 0.12012245248406532,
+            "lexical": 0.4,
+            "score": 0.28346315512034403
+          },
+          {
+            "id": "claim-evt-115@1329-1624",
+            "parent": "claim-evt-115",
+            "vector": 0.16309145043092196,
+            "chunk": 0.12114942542923779,
+            "parent_score": 0.17357695668134301,
+            "lexical": 0.3,
+            "score": 0.283091450430922
+          },
+          {
+            "id": "claim-evt-019@1296-1574",
+            "parent": "claim-evt-019",
+            "vector": 0.1630809492887334,
+            "chunk": 0.13805038349729812,
+            "parent_score": 0.16933859073659224,
+            "lexical": 0.3,
+            "score": 0.2830809492887334
+          },
+          {
+            "id": "claim-evt-018@0-270",
+            "parent": "claim-evt-018",
+            "vector": 0.15873098837196445,
+            "chunk": 0.19885415600898634,
+            "parent_score": 0.14870019646270896,
+            "lexical": 0.3,
+            "score": 0.2787309883719644
+          },
+          {
+            "id": "claim-evt-119@1261-1537",
+            "parent": "claim-evt-119",
+            "vector": 0.11865848649536956,
+            "chunk": 0.11125616329057358,
+            "parent_score": 0.12050906729656854,
+            "lexical": 0.4,
+            "score": 0.2786584864953696
+          },
+          {
+            "id": "claim-evt-123@601-900",
+            "parent": "claim-evt-123",
+            "vector": 0.1183276430402729,
+            "chunk": 0.06141377758074179,
+            "parent_score": 0.1325561094051557,
+            "lexical": 0.4,
+            "score": 0.2783276430402729
+          },
+          {
+            "id": "claim-evt-077@1457-1729",
+            "parent": "claim-evt-077",
+            "vector": 0.07655205510422526,
+            "chunk": 0.07452191420457333,
+            "parent_score": 0.07705959032913824,
+            "lexical": 0.5,
+            "score": 0.27655205510422526
+          },
+          {
+            "id": "claim-evt-071@1899-2183",
+            "parent": "claim-evt-071",
+            "vector": 0.15455360580203908,
+            "chunk": 0.0409425183871612,
+            "parent_score": 0.18295637765575856,
+            "lexical": 0.3,
+            "score": 0.2745536058020391
+          },
+          {
+            "id": "claim-evt-040@654-951",
+            "parent": "claim-evt-040",
+            "vector": 0.10195868996636893,
+            "chunk": 0.039114725500202945,
+            "parent_score": 0.11766968108291043,
+            "lexical": 0.4,
+            "score": 0.26195868996636895
+          },
+          {
+            "id": "claim-evt-076@1314-1597",
+            "parent": "claim-evt-076",
+            "vector": 0.09617144041960522,
+            "chunk": 0.04477622118528303,
+            "parent_score": 0.10902024522818576,
+            "lexical": 0.4,
+            "score": 0.25617144041960527
+          },
+          {
+            "id": "claim-evt-020@1295-1580",
+            "parent": "claim-evt-020",
+            "vector": 0.09358314632573,
+            "chunk": 0.03673591791853226,
+            "parent_score": 0.10779495342752943,
+            "lexical": 0.4,
+            "score": 0.25358314632573004
+          }
+        ]
+      },
+      {
+        "id": "identity_traditional_eval",
+        "split": "validation",
+        "expected": [
+          "claim-evt-115"
+        ],
+        "rank": 17,
+        "top20": [
+          {
+            "id": "claim-evt-082@1045-1340",
+            "parent": "claim-evt-082",
+            "vector": 0.09307010290075024,
+            "chunk": 0.05726562866782001,
+            "parent_score": 0.10202122145898278,
+            "lexical": 0.4,
+            "score": 0.25307010290075027
+          },
+          {
+            "id": "claim-evt-086@1172-1467",
+            "parent": "claim-evt-086",
+            "vector": 0.13096577357409306,
+            "chunk": 0.14027519873184655,
+            "parent_score": 0.12863841728465467,
+            "lexical": 0.3,
+            "score": 0.25096577357409305
+          },
+          {
+            "id": "claim-evt-052@650-941",
+            "parent": "claim-evt-052",
+            "vector": 0.11224504818049516,
+            "chunk": 0.1317605317586137,
+            "parent_score": 0.10736617728596551,
+            "lexical": 0.3,
+            "score": 0.23224504818049516
+          },
+          {
+            "id": "claim-evt-015@469-746",
+            "parent": "claim-evt-015",
+            "vector": 0.10872097119326084,
+            "chunk": 0.0678281836362978,
+            "parent_score": 0.11894416808250158,
+            "lexical": 0.3,
+            "score": 0.22872097119326085
+          },
+          {
+            "id": "claim-evt-040@654-951",
+            "parent": "claim-evt-040",
+            "vector": 0.10157790198808633,
+            "chunk": 0.052152967333603924,
+            "parent_score": 0.11393413565170693,
+            "lexical": 0.3,
+            "score": 0.22157790198808633
+          },
+          {
+            "id": "claim-evt-076@1314-1597",
+            "parent": "claim-evt-076",
+            "vector": 0.10068262298077155,
+            "chunk": 0.04477622118528303,
+            "parent_score": 0.11465922342964366,
+            "lexical": 0.3,
+            "score": 0.22068262298077154
+          },
+          {
+            "id": "claim-evt-039@1807-2102",
+            "parent": "claim-evt-039",
+            "vector": 0.14025641525578464,
+            "chunk": 0.07888593342702749,
+            "parent_score": 0.15559903571297393,
+            "lexical": 0.2,
+            "score": 0.22025641525578465
+          },
+          {
+            "id": "claim-evt-112@0-174",
+            "parent": "claim-evt-112",
+            "vector": 0.1358159175684873,
+            "chunk": 0.14175398238766682,
+            "parent_score": 0.1343314013636924,
+            "lexical": 0.2,
+            "score": 0.2158159175684873
+          },
+          {
+            "id": "claim-evt-119@821-1116",
+            "parent": "claim-evt-119",
+            "vector": 0.05528389751971457,
+            "chunk": 0.04158130517449055,
+            "parent_score": 0.05870954560602057,
+            "lexical": 0.4,
+            "score": 0.2152838975197146
+          },
+          {
+            "id": "claim-evt-114@1951-2182",
+            "parent": "claim-evt-114",
+            "vector": 0.12815829115807761,
+            "chunk": 0.0967780669176195,
+            "parent_score": 0.13600334721819213,
+            "lexical": 0.2,
+            "score": 0.20815829115807763
+          },
+          {
+            "id": "claim-evt-072@1711-1988",
+            "parent": "claim-evt-072",
+            "vector": 0.08458366108483044,
+            "chunk": 0.0705882756660447,
+            "parent_score": 0.08808250743952688,
+            "lexical": 0.3,
+            "score": 0.20458366108483045
+          },
+          {
+            "id": "claim-evt-071@1899-2183",
+            "parent": "claim-evt-071",
+            "vector": 0.12391583476421236,
+            "chunk": 0.03411876532263434,
+            "parent_score": 0.14636510212460685,
+            "lexical": 0.2,
+            "score": 0.20391583476421238
+          },
+          {
+            "id": "claim-evt-083@908-1198",
+            "parent": "claim-evt-083",
+            "vector": 0.0836849889616732,
+            "chunk": 0.07369119516510317,
+            "parent_score": 0.0861834374108157,
+            "lexical": 0.3,
+            "score": 0.2036849889616732
+          },
+          {
+            "id": "claim-evt-034@1574-1846",
+            "parent": "claim-evt-034",
+            "vector": 0.081843247631317,
+            "chunk": 0.07919614799304016,
+            "parent_score": 0.08250502254088621,
+            "lexical": 0.3,
+            "score": 0.201843247631317
+          },
+          {
+            "id": "claim-evt-113@0-267",
+            "parent": "claim-evt-113",
+            "vector": 0.11837313885800947,
+            "chunk": 0.0701758705822504,
+            "parent_score": 0.13042245592694923,
+            "lexical": 0.2,
+            "score": 0.1983731388580095
+          },
+          {
+            "id": "claim-evt-078@1058-1327",
+            "parent": "claim-evt-078",
+            "vector": 0.0782317027314113,
+            "chunk": 0.10998187166988975,
+            "parent_score": 0.07029416049679169,
+            "lexical": 0.3,
+            "score": 0.1982317027314113
+          },
+          {
+            "id": "claim-evt-115@435-710",
+            "parent": "claim-evt-115",
+            "vector": 0.11592480219722853,
+            "chunk": 0.1391491531711216,
+            "parent_score": 0.11011871445375526,
+            "lexical": 0.2,
+            "score": 0.19592480219722855
+          },
+          {
+            "id": "claim-evt-019@1915-2212",
+            "parent": "claim-evt-019",
+            "vector": 0.11351576579067439,
+            "chunk": 0.08712980407280795,
+            "parent_score": 0.120112256220141,
+            "lexical": 0.2,
+            "score": 0.19351576579067442
+          },
+          {
+            "id": "claim-evt-032@218-516",
+            "parent": "claim-evt-032",
+            "vector": 0.07122210300464193,
+            "chunk": 0.01871785628431875,
+            "parent_score": 0.08434816468472273,
+            "lexical": 0.3,
+            "score": 0.19122210300464193
+          },
+          {
+            "id": "claim-evt-033@660-917",
+            "parent": "claim-evt-033",
+            "vector": 0.06950112862183719,
+            "chunk": 0.05694851778506871,
+            "parent_score": 0.0726392813310293,
+            "lexical": 0.3,
+            "score": 0.18950112862183718
+          }
+        ]
+      },
+      {
+        "id": "unknown_eval",
+        "split": "validation",
+        "expected": [],
+        "rank": null,
+        "top20": [
+          {
+            "id": "claim-evt-113@642-940",
+            "parent": "claim-evt-113",
+            "vector": 0.15039403495280776,
+            "chunk": 0.08511149417802916,
+            "parent_score": 0.1667146701465024,
+            "lexical": 0.3,
+            "score": 0.2703940349528078
+          },
+          {
+            "id": "claim-evt-041@1607-1906",
+            "parent": "claim-evt-041",
+            "vector": 0.038189610713957794,
+            "chunk": 0.04927300467594331,
+            "parent_score": 0.035418762223461416,
+            "lexical": 0.5,
+            "score": 0.2381896107139578
+          },
+          {
+            "id": "claim-evt-122@1485-1751",
+            "parent": "claim-evt-122",
+            "vector": 0.1492270142350339,
+            "chunk": 0.14924056556673002,
+            "parent_score": 0.14922362640210987,
+            "lexical": 0.2,
+            "score": 0.22922701423503392
+          },
+          {
+            "id": "claim-evt-089@878-1151",
+            "parent": "claim-evt-089",
+            "vector": 0.09241782930304027,
+            "chunk": 0.03326612970835494,
+            "parent_score": 0.10720575420171159,
+            "lexical": 0.3,
+            "score": 0.21241782930304026
+          },
+          {
+            "id": "claim-evt-010@0-288",
+            "parent": "claim-evt-010",
+            "vector": 0.11245270965764348,
+            "chunk": 0.029904220644622784,
+            "parent_score": 0.13308983191089865,
+            "lexical": 0.2,
+            "score": 0.1924527096576435
+          },
+          {
+            "id": "claim-evt-040@891-1183",
+            "parent": "claim-evt-040",
+            "vector": 0.03176245081622913,
+            "chunk": 0.03147830790259576,
+            "parent_score": 0.03183348654463747,
+            "lexical": 0.4,
+            "score": 0.19176245081622917
+          },
+          {
+            "id": "claim-evt-006@883-1171",
+            "parent": "claim-evt-006",
+            "vector": 0.10374916401870166,
+            "chunk": 0.08842478504459568,
+            "parent_score": 0.10758025876222815,
+            "lexical": 0.2,
+            "score": 0.18374916401870167
+          },
+          {
+            "id": "claim-evt-009@1505-1781",
+            "parent": "claim-evt-009",
+            "vector": 0.09386289830682061,
+            "chunk": 0.09162860960939287,
+            "parent_score": 0.09442147048117754,
+            "lexical": 0.2,
+            "score": 0.1738628983068206
+          },
+          {
+            "id": "claim-evt-052@881-1155",
+            "parent": "claim-evt-052",
+            "vector": 0.09000709082221937,
+            "chunk": 0.09947964545199206,
+            "parent_score": 0.08763895216477618,
+            "lexical": 0.2,
+            "score": 0.17000709082221938
+          },
+          {
+            "id": "claim-evt-003@846-1146",
+            "parent": "claim-evt-003",
+            "vector": 0.1279212370051184,
+            "chunk": 0.10257989015791025,
+            "parent_score": 0.13425657371692043,
+            "lexical": 0.1,
+            "score": 0.1679212370051184
+          },
+          {
+            "id": "claim-evt-117@1355-1655",
+            "parent": "claim-evt-117",
+            "vector": 0.00436054681907321,
+            "chunk": 0.07085869901683166,
+            "parent_score": -0.012263991230366401,
+            "lexical": 0.4,
+            "score": 0.16436054681907325
+          },
+          {
+            "id": "claim-evt-004@1927-2214",
+            "parent": "claim-evt-004",
+            "vector": 0.04267496489123993,
+            "chunk": -0.026195878533712663,
+            "parent_score": 0.05989267574747808,
+            "lexical": 0.3,
+            "score": 0.16267496489123992
+          },
+          {
+            "id": "claim-evt-071@1899-2183",
+            "parent": "claim-evt-071",
+            "vector": 0.07998758260614953,
+            "chunk": 0.12276217614202127,
+            "parent_score": 0.0692939342221816,
+            "lexical": 0.2,
+            "score": 0.15998758260614954
+          },
+          {
+            "id": "claim-evt-094@669-918",
+            "parent": "claim-evt-094",
+            "vector": 0.1187571521177072,
+            "chunk": 0.05336298767720561,
+            "parent_score": 0.13510569322783259,
+            "lexical": 0.1,
+            "score": 0.1587571521177072
+          },
+          {
+            "id": "claim-evt-080@1123-1381",
+            "parent": "claim-evt-080",
+            "vector": 0.07670542503128475,
+            "chunk": 0.05332859322459773,
+            "parent_score": 0.0825496329829565,
+            "lexical": 0.2,
+            "score": 0.15670542503128476
+          },
+          {
+            "id": "claim-evt-027@1566-1830",
+            "parent": "claim-evt-027",
+            "vector": 0.07619854758730703,
+            "chunk": 0.08704555717713053,
+            "parent_score": 0.07348679518985116,
+            "lexical": 0.2,
+            "score": 0.15619854758730706
+          },
+          {
+            "id": "claim-evt-032@889-1154",
+            "parent": "claim-evt-032",
+            "vector": 0.027215348878111934,
+            "chunk": 0.05621049088364142,
+            "parent_score": 0.019966563376729564,
+            "lexical": 0.3,
+            "score": 0.14721534887811194
+          },
+          {
+            "id": "claim-evt-074@964-1258",
+            "parent": "claim-evt-074",
+            "vector": 0.06692104228317983,
+            "chunk": 0.08421366849783188,
+            "parent_score": 0.0625978857295168,
+            "lexical": 0.2,
+            "score": 0.14692104228317984
+          },
+          {
+            "id": "claim-evt-016@1314-1508",
+            "parent": "claim-evt-016",
+            "vector": 0.024809392488848555,
+            "chunk": 0.051787955522155454,
+            "parent_score": 0.018064751730521827,
+            "lexical": 0.3,
+            "score": 0.14480939248884855
+          },
+          {
+            "id": "claim-evt-008@2094-2200",
+            "parent": "claim-evt-008",
+            "vector": 0.06337463713896181,
+            "chunk": 0.07455250649740336,
+            "parent_score": 0.060580169799351415,
+            "lexical": 0.2,
+            "score": 0.1433746371389618
+          }
+        ]
+      }
+    ]
+  }
+}

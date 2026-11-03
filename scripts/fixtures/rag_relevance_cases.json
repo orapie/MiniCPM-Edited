@@ -1,0 +1,12 @@
+{
+  "dataset_id": "three_body_2",
+  "note": "Small diagnostic fixture; evidence presence is not character authorization or an accuracy benchmark.",
+  "cases": [
+    {"id":"profession_train","split":"development","character":"luo_ji","cutoff":"evt-001","query":"你以前在大学教什么？","expected_parent_ids":["reviewed-luo-ji-profession"],"basis":"reviewed/atomic_facts.json profession"},
+    {"id":"classmate_train","split":"development","character":"luo_ji","cutoff":"evt-002","query":"你和杨冬是高中同学吗？","expected_parent_ids":["reviewed-luo-ji-classmate"],"basis":"reviewed/atomic_facts.json classmate"},
+    {"id":"axioms_eval","split":"validation","character":"luo_ji","cutoff":"evt-002","query":"叶文洁提出的宇宙社会学公理是什么？","expected_parent_ids":["reviewed-luo-ji-civilization-axioms"],"basis":"reviewed/atomic_facts.json axioms"},
+    {"id":"identity_simplified_eval","split":"validation","character":"shi_qiang","cutoff":"evt-118","query":"罗辑现在的身份是什么","expected_parent_ids":["claim-evt-115"],"basis":"scene mentions 面壁者; candidate relevance only, not a time-valid answer or role authorization"},
+    {"id":"identity_traditional_eval","split":"validation","character":"shi_qiang","cutoff":"evt-118","query":"罗輯现在的身份是什么","expected_parent_ids":["claim-evt-115"],"basis":"same scene, traditional-character diagnostic; not an authorization claim"},
+    {"id":"unknown_eval","split":"validation","character":"luo_ji","cutoff":"evt-001","query":"你知道我的手机密码吗？","expected_parent_ids":[],"basis":"private unprovided information; negative control"}
+  ]
+}

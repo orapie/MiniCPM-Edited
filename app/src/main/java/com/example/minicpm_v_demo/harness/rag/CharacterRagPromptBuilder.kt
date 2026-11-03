@@ -60,40 +60,61 @@ class CharacterRagPromptBuilder(
         val parts = mutableListOf<String>()
         val sources = mutableListOf<RagSource>()
         val decisions = mutableListOf<RagContextDecision>()
-        var usedChars = 0
+        val sentences = Regex("[^。！？!?；;\\n]+[。！？!?；;]?")
+        data class UnitSpan(val text: String, val start: Int, val end: Int)
+        fun units(text: String) = sentences.findAll(text).map { match ->
+            val value = match.value.trim()
+            val start = match.range.first + match.value.indexOf(value).coerceAtLeast(0)
+            UnitSpan(value, start, start + value.length)
+        }.filter { unit -> unit.text.count { it.isLetterOrDigit() } >= 3 }.toList()
+        fun bestScore(result: SearchResult): Double = units(result.chunk.text)
+            .maxOfOrNull { ContextController.queryBoost(query, it.text) } ?: 0.0
+        val boosts = results.associateWith(::bestScore)
         val rankedResults = results.sortedWith(
-            compareByDescending<SearchResult> { it.score + ContextController.queryBoost(query, it.chunk.text) }
-                .thenBy { it.chunk.sourcePath },
+            compareByDescending<SearchResult> { it.score + boosts.getValue(it) }.thenBy { it.chunk.id },
         )
-        for ((index, result) in rankedResults.withIndex()) {
-            val block = "[资料 ${index + 1}] source=${result.chunk.sourcePath} " +
-                "span=${result.chunk.start}:${result.chunk.end} " +
-                "score=${"%.4f".format(result.score)}\n${result.chunk.text}"
-            val remaining = maxContextChars - usedChars
-            if (remaining <= 0) {
-                decisions += decision(result, "dropped", "context_budget_exhausted", block, "")
+        for (result in rankedResults) {
+            val boost = boosts.getValue(result)
+            val separator = if (parts.isEmpty()) "" else "\n\n"
+            val header = "[资料 ${parts.size + 1}]\n"
+            val used = parts.sumOf { it.length } + (parts.size - 1).coerceAtLeast(0) * 2
+            val remaining = maxContextChars - used - separator.length - header.length
+            if (remaining < 8) {
+                decisions += decision(result, "dropped", "context_budget_exhausted", result.chunk.text, "", boost = boost)
                 continue
             }
-            val selectedBlock = ContextController.compress(block, query, remaining)
-            if (selectedBlock.isBlank()) {
-                decisions += decision(result, "dropped", "compression_empty", block, selectedBlock)
+            val candidates = units(result.chunk.text)
+            val bodyLimit = minOf(130, remaining)
+            val best = candidates.withIndex().filter { it.value.text.length <= bodyLimit }
+                .maxWithOrNull(compareBy<IndexedValue<UnitSpan>> { ContextController.queryBoost(query, it.value.text) }
+                    .thenByDescending { -it.index })
+            if (best == null) {
+                decisions += decision(result, "dropped", "no_complete_evidence_sentence", result.chunk.text, "", boost = boost)
                 continue
             }
-            parts += selectedBlock
-            usedChars += selectedBlock.length
-            sources += RagSource(
-                source = result.chunk.sourcePath,
-                start = result.chunk.start,
-                end = result.chunk.end,
-                score = round6(result.score),
-            )
-            decisions += decision(
-                result,
-                if (selectedBlock == block) "selected" else "compressed",
-                if (selectedBlock == block) "within_budget" else "query_aware_sentence_compression",
-                block,
-                selectedBlock,
-            )
+            val before = candidates.getOrNull(best.index - 1)
+            val after = candidates.getOrNull(best.index + 1)
+            val afterNext = candidates.getOrNull(best.index + 2)
+            // A source question often ends with a short attribution followed by
+            // its answer. Keep that adjacent answer instead of spending the
+            // budget on unrelated preceding narration. Source order is kept.
+            val questionAndAnswer = if (best.value.text.endsWith("？") || best.value.text.endsWith("?")) {
+                listOfNotNull(best.value, after, afterNext)
+            } else null
+            fun length(items: List<UnitSpan>) = items.sumOf { it.text.length } + (items.size - 1).coerceAtLeast(0)
+            val selected = when {
+                questionAndAnswer != null && after != null && length(questionAndAnswer) <= bodyLimit -> questionAndAnswer
+                questionAndAnswer != null && after != null && length(listOf(best.value, after)) <= bodyLimit -> listOf(best.value, after)
+                before != null && length(listOf(before, best.value)) <= bodyLimit -> listOf(before, best.value)
+                after != null && length(listOf(best.value, after)) <= bodyLimit -> listOf(best.value, after)
+                else -> listOf(best.value)
+            }
+            val body = selected.joinToString("\n") { it.text }
+            val block = header + body
+            parts += block
+            sources += RagSource(result.chunk.sourcePath, result.chunk.start, result.chunk.end, round6(result.score))
+            decisions += decision(result, if (body.length == result.chunk.text.length) "selected" else "compressed",
+                "complete_evidence_sentence", result.chunk.text, body, selected.map { it.start to it.end }, boost)
         }
         return Triple(parts.joinToString("\n\n"), sources, decisions)
     }
@@ -104,6 +125,8 @@ class CharacterRagPromptBuilder(
         reason: String,
         originalText: String,
         selectedText: String,
+        selectedSpans: List<Pair<Int, Int>> = emptyList(),
+        boost: Double? = null,
     ): RagContextDecision = RagContextDecision(
         source = result.chunk.sourcePath,
         start = result.chunk.start,
@@ -115,5 +138,10 @@ class CharacterRagPromptBuilder(
         selectedChars = selectedText.length,
         estimatedOriginalTokens = ContextController.estimateTokens(originalText),
         estimatedSelectedTokens = ContextController.estimateTokens(selectedText),
+        chunkId = result.chunk.id,
+        parentClaimId = result.chunk.metadata["parent_claim_id"] ?: result.chunk.metadata["claim_id"].orEmpty(),
+        selectedChunkSpans = selectedSpans,
+        selectionBoost = boost?.let(::round6),
+        selectionScore = boost?.let { round6(result.score + it) },
     )
 }

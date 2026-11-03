@@ -115,6 +115,25 @@ def hash_embedding(text):
     return [value / length for value in vector] if length else vector
 
 
+def scene_windows(text, target=300, overlap=60):
+    """Code-point ranges; sentence-aligned when possible, with bounded overlap."""
+    require(target > 0 and 0 <= overlap < target, "Invalid scene window configuration")
+    start = 0
+    while start < len(text):
+        hard_end = min(start + target, len(text))
+        end = hard_end
+        if hard_end < len(text):
+            boundary = max((text.rfind(mark, start + target // 2, hard_end)
+                            for mark in "。！？!?；;\n"), default=-1)
+            if boundary >= start + target // 2:
+                end = boundary + 1
+        if text[start:end].strip():
+            yield start, end
+        if end == len(text):
+            break
+        start = max(start + 1, end - overlap)
+
+
 def build_vector_index(common, claims, evidence, atomic, reviews):
     proof_by_claim = {item["claim_id"]: item for item in evidence}
     reviews_by_id = {item["claim_id"]: item for item in reviews["facts"]}
@@ -127,11 +146,23 @@ def build_vector_index(common, claims, evidence, atomic, reviews):
                         "source_database_sha256": common["source_database_sha256"]}
             if kind == "reviewed_fact":
                 metadata.update(character_id=proof["character_id"], parent_claim_id=claim["parent_claim_id"])
-            chunk = {"id": claim["claim_id"], "text": claim["statement"],
-                     "source_path": "database/" + PATHS["v2_database"],
-                     "start": proof["line_start"], "end": proof["line_end"], "metadata": metadata}
-            items.append({"chunk": chunk, "embedding": hash_embedding(chunk["text"])})
-    return {"schema_version": "1.1", "dataset_id": common["dataset_id"],
+            statement = claim["statement"]
+            ranges = list(scene_windows(statement)) if kind == "scene_candidate" else [(0, len(statement))]
+            for start, end in ranges:
+                chunk_id = f"{claim['claim_id']}@{start}-{end}" if kind == "scene_candidate" else claim["claim_id"]
+                fields = dict(metadata)
+                if kind == "scene_candidate":
+                    fields.update(parent_claim_id=claim["claim_id"], segmentation_version="scene-window-v1",
+                                  offset_unit="unicode_code_point", offset_start=str(start), offset_end=str(end))
+                line_start = (proof["line_start"] + statement[:start].count("\n")) if kind == "scene_candidate" else proof["line_start"]
+                line_end = (proof["line_start"] + statement[:max(start, end - 1)].count("\n")) if kind == "scene_candidate" else proof["line_end"]
+                chunk = {"id": chunk_id, "text": statement[start:end],
+                         "source_path": "database/" + PATHS["v2_database"],
+                         "start": line_start, "end": line_end, "metadata": fields}
+                items.append({"chunk": chunk, "embedding": hash_embedding(chunk["text"])})
+    return {"schema_version": "1.2", "parent_embeddings": {
+                claim["claim_id"]: hash_embedding(claim["statement"]) for claim in claims},
+            "dataset_id": common["dataset_id"],
             "dataset_version": common["dataset_version"], "source_database_sha256": common["source_database_sha256"],
             "embedding": EMBEDDING, "items": sorted(items, key=lambda item: item["chunk"]["id"])}
 

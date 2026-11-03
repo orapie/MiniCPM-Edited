@@ -47,6 +47,9 @@ class AndroidRagOrchestratorTest {
         assertTrue(result.stageLogs.any { it.stage == RagPromptStage.EXTERNAL_CONTEXT_COMPILED && it.status == RagPromptStageStatus.EMITTED })
         assertTrue(result.turnTrace.external.vectorSearchExecuted)
         assertTrue(result.turnTrace.external.vectorCollection.startsWith("database:"))
+        assertEquals("1.2", result.turnTrace.external.indexVersion)
+        assertEquals(result.turnTrace.external.vectorCandidateIds.size, result.turnTrace.external.vectorCandidateScores.size)
+        assertTrue(result.turnTrace.external.decisionReasonCodes.any { it.contains("parent=") && it.contains("chars=") })
         assertTrue(debug.promptChars <= 900)
         assertFalse(result.turnTrace.toDiagnosticText().contains(query))
         assertFalse(result.turnTrace.toJsonLine().contains("大学教社会学"))
@@ -63,9 +66,9 @@ class AndroidRagOrchestratorTest {
     }
     @Test fun characterReferenceChangesWithQuestionAndIsBounded() {
         val first = orchestrator().compile("罗輯现在的身份是什么", RagMode.CHARACTER_RAG, "shi_qiang", "evt-118")
-        val second = orchestrator().compile("大学社会学", RagMode.CHARACTER_RAG, "shi_qiang", "evt-118")
+        val second = orchestrator().compile("大学社会学", RagMode.CHARACTER_RAG, "luo_ji", "evt-001")
         for (result in listOf(first, second)) {
-            assertTrue(result.contextText.isNotBlank())
+            assertTrue("No context: ${result.turnTrace.external.decisionReasonCodes}", result.contextText.isNotBlank())
             assertTrue(result.contextText.length <= 620) // includes separators between blocks
             assertTrue(result.sources.all { it.source.startsWith("database/") })
             assertTrue(result.turnTrace.external.injectedSourceIds.isNotEmpty())

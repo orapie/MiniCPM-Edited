@@ -7,7 +7,7 @@
     "v2": true,
     "vector": true
   },
-  "dataset_fingerprint": "4d972793125e2867292b3b9944614d3060f1ffce54c716306ba8842f06605a44",
+  "dataset_fingerprint": "8145513ad935bd449fe50d72ebb95e895097ef835e8d415e7c033e77796ae84e",
   "dataset_id": "three_body_2",
   "dataset_version": "2026-10-27-phase1",
   "default_character_id": "luo_ji",
@@ -66,7 +66,7 @@
     },
     {
       "path": "runtime/android/vector/index.json",
-      "sha256": "fda7fca70cef8ed372301cf614dd85a422249622c19568d570cdabf026b281b9"
+      "sha256": "96518f9c80cce0ced1b245fb4863cef29344df2d7444ef06112c343122807f38"
     },
     {
       "path": "story/story_events.jsonl",

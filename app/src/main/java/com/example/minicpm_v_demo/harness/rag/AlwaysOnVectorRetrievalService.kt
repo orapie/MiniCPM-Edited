@@ -51,8 +51,16 @@ class AlwaysOnVectorRetrievalService(
                     collection = ragSearchService.collectionName,
                     candidateLimit = candidateLimit,
                     candidateIds = results.map { result -> result.chunk.stableId() },
+                    candidateScores = results.map { round6(it.score) },
+                    candidateScoreDetails = results.map { result ->
+                        listOf(result.chunk.stableId(), result.chunkScore?.let(::round6)?.toString() ?: "none",
+                            result.parentScore?.let(::round6)?.toString() ?: "none",
+                            result.lexicalScore?.let(::round6)?.toString() ?: "none", round6(result.score).toString())
+                            .joinToString(":")
+                    },
                     elapsedMs = elapsedMs(startedAtNanos),
                     backend = ragSearchService.embeddingBackendName,
+                    indexVersion = ragSearchService.indexSchemaVersion,
                 ),
                 results = results,
             )
@@ -68,6 +76,7 @@ class AlwaysOnVectorRetrievalService(
                     candidateIds = emptyList(),
                     elapsedMs = elapsedMs(startedAtNanos),
                     backend = ragSearchService.embeddingBackendName,
+                    indexVersion = ragSearchService.indexSchemaVersion,
                     failureCode = error.javaClass.simpleName,
                 ),
                 results = emptyList(),
@@ -94,9 +103,12 @@ data class VectorRetrievalAttempt(
     val collection: String,
     val candidateLimit: Int,
     val candidateIds: List<String>,
+    val candidateScores: List<Double> = emptyList(),
+    val candidateScoreDetails: List<String> = emptyList(),
     val elapsedMs: Long,
     val backend: String,
     val failureCode: String? = null,
+    val indexVersion: String = "unknown",
 ) {
     companion object {
         fun notRequested(backend: String = "not_requested"): VectorRetrievalAttempt = VectorRetrievalAttempt(

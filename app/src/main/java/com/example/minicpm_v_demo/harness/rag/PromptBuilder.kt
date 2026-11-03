@@ -21,6 +21,12 @@ data class RagContextDecision(
     val selectedChars: Int,
     val estimatedOriginalTokens: Int,
     val estimatedSelectedTokens: Int,
+    val chunkId: String = "",
+    val parentClaimId: String = "",
+    /** Half-open UTF-16 offsets relative to the original retrieved chunk. */
+    val selectedChunkSpans: List<Pair<Int, Int>> = emptyList(),
+    val selectionBoost: Double? = null,
+    val selectionScore: Double? = null,
 )
 
 data class CompiledRagPrompt(
@@ -129,6 +135,8 @@ class PromptBuilder(
         selectedChars = selectedText.length,
         estimatedOriginalTokens = ContextController.estimateTokens(originalText),
         estimatedSelectedTokens = ContextController.estimateTokens(selectedText),
+        chunkId = result.chunk.id,
+        parentClaimId = result.chunk.metadata["parent_claim_id"] ?: result.chunk.metadata["claim_id"].orEmpty(),
     )
 }
 

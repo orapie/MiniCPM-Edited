@@ -15,7 +15,7 @@
 - `runtime/android/scene_candidates.json`：125 条原场景事实和 229 条关联边的忠实导出，只能用于候选召回。
 - `runtime/android/knowledge_fallback.json`：3 条经显式对话审查的短事实及授权边，保留 `canon/source_span_verified` 来源属性。
 - `runtime/android/compatibility_report.json`：来源、授权、长度与未完成能力的审计报告。
-- `runtime/android/vector/index.json`：384 维 hash n-gram 向量索引，含 125 条场景候选和 3 条已审查事实；所有条目仍要求角色授权检查。
+- `runtime/android/vector/index.json`：384 维 hash n-gram 向量索引，含 125 条场景切出的短片段和 3 条已审查事实；场景片段仅为参考资料，并不自动获得角色授权。当前格式 1.2 须由新版 APK 读取。
 
 从仓库根目录执行：
 

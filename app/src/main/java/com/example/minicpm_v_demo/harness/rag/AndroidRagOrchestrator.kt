@@ -177,12 +177,15 @@ class AndroidRagOrchestrator(
                         .associate { it.chunk.id to it.score },
                 ),
             )
+            val references = CharacterReferenceFilter.filter(vectorRetrieval.results, databaseBundle?.validated,
+                characterId, characterPrompt.debug.storyCutoff)
             val prompt = characterRagPromptBuilder.build(
                 characterMessages = characterPrompt.messages,
                 userInput = userInput,
-                results = vectorRetrieval.results,
+                results = references.allowed,
                 characterDebug = characterPrompt.debug,
             )
+            val referenceDecisions = references.rejected + prompt.contextDecisions
             val rendered = renderer.render(prompt.messages)
             val externalStage = if (prompt.contextText.isNotBlank()) {
                 RagPromptStageLog.emitted(RagPromptStage.EXTERNAL_CONTEXT_COMPILED,
@@ -199,7 +202,7 @@ class AndroidRagOrchestrator(
                 contextText = prompt.contextText,
                 characterDebug = prompt.characterDebug,
                 mode = mode,
-                contextDecisions = prompt.contextDecisions,
+                contextDecisions = referenceDecisions,
                 stageLogs = stageLogs,
                 turnTrace = RagTurnTrace.create(
                     mode = mode,
@@ -210,7 +213,7 @@ class AndroidRagOrchestrator(
                     vectorRetrieval = vectorRetrieval.attempt,
                     externalInjectionRequested = externalInjectionRequested,
                     sources = prompt.sources,
-                    contextDecisions = prompt.contextDecisions,
+                    contextDecisions = referenceDecisions,
                     characterDebug = prompt.characterDebug,
                     databaseManifest = databaseBundle?.manifest,
                 ),

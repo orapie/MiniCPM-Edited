@@ -7,6 +7,7 @@ class RagSearchService(
     private val embeddingModel: EmbeddingModel = HashEmbeddingModel(),
     val collectionName: String = "synthetic_test",
 ) {
+    val indexSchemaVersion: String get() = index.schemaVersion
     /** Diagnostic-only identifier; no query text or vector values are exposed. */
     val embeddingBackendName: String
         get() = when (embeddingModel) {

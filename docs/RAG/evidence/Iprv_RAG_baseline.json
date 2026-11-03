@@ -1,0 +1,391 @@
+{
+  "dataset_id": "three_body_2",
+  "schema": "1.1",
+  "index_sha256": "fda7fca70cef8ed372301cf614dd85a422249622c19568d570cdabf026b281b9",
+  "index_bytes": 2298788,
+  "index_load_ms": 18.83,
+  "cases": [
+    {
+      "id": "profession_train",
+      "split": "development",
+      "character": "luo_ji",
+      "cutoff": "evt-001",
+      "expected": [
+        "reviewed-luo-ji-profession"
+      ],
+      "rank": 1,
+      "top20": [
+        {
+          "id": "reviewed-luo-ji-profession",
+          "parent": "reviewed-luo-ji-profession",
+          "score": 0.272291
+        },
+        {
+          "id": "claim-evt-077",
+          "parent": "claim-evt-077",
+          "score": 0.117058
+        },
+        {
+          "id": "claim-evt-039",
+          "parent": "claim-evt-039",
+          "score": 0.109318
+        },
+        {
+          "id": "claim-evt-110",
+          "parent": "claim-evt-110",
+          "score": 0.107489
+        },
+        {
+          "id": "claim-evt-036",
+          "parent": "claim-evt-036",
+          "score": 0.106798
+        },
+        {
+          "id": "claim-evt-111",
+          "parent": "claim-evt-111",
+          "score": 0.103568
+        },
+        {
+          "id": "claim-evt-038",
+          "parent": "claim-evt-038",
+          "score": 0.102075
+        }
+      ],
+      "negative_has_candidates": null,
+      "elapsed_ms": 2.248
+    },
+    {
+      "id": "classmate_train",
+      "split": "development",
+      "character": "luo_ji",
+      "cutoff": "evt-002",
+      "expected": [
+        "reviewed-luo-ji-classmate"
+      ],
+      "rank": 1,
+      "top20": [
+        {
+          "id": "reviewed-luo-ji-classmate",
+          "parent": "reviewed-luo-ji-classmate",
+          "score": 0.25016
+        },
+        {
+          "id": "claim-evt-125",
+          "parent": "claim-evt-125",
+          "score": 0.116249
+        }
+      ],
+      "negative_has_candidates": null,
+      "elapsed_ms": 1.773
+    },
+    {
+      "id": "axioms_eval",
+      "split": "validation",
+      "character": "luo_ji",
+      "cutoff": "evt-002",
+      "expected": [
+        "reviewed-luo-ji-civilization-axioms"
+      ],
+      "rank": 1,
+      "top20": [
+        {
+          "id": "reviewed-luo-ji-civilization-axioms",
+          "parent": "reviewed-luo-ji-civilization-axioms",
+          "score": 0.218922
+        },
+        {
+          "id": "claim-evt-002",
+          "parent": "claim-evt-002",
+          "score": 0.146536
+        },
+        {
+          "id": "reviewed-luo-ji-profession",
+          "parent": "reviewed-luo-ji-profession",
+          "score": 0.14462
+        },
+        {
+          "id": "claim-evt-055",
+          "parent": "claim-evt-055",
+          "score": 0.142922
+        },
+        {
+          "id": "claim-evt-067",
+          "parent": "claim-evt-067",
+          "score": 0.142762
+        },
+        {
+          "id": "claim-evt-029",
+          "parent": "claim-evt-029",
+          "score": 0.104253
+        },
+        {
+          "id": "claim-evt-053",
+          "parent": "claim-evt-053",
+          "score": 0.102511
+        }
+      ],
+      "negative_has_candidates": null,
+      "elapsed_ms": 1.768
+    },
+    {
+      "id": "identity_simplified_eval",
+      "split": "validation",
+      "character": "shi_qiang",
+      "cutoff": "evt-118",
+      "expected": [
+        "claim-evt-115"
+      ],
+      "rank": 4,
+      "top20": [
+        {
+          "id": "claim-evt-039",
+          "parent": "claim-evt-039",
+          "score": 0.200334
+        },
+        {
+          "id": "claim-evt-114",
+          "parent": "claim-evt-114",
+          "score": 0.197301
+        },
+        {
+          "id": "claim-evt-071",
+          "parent": "claim-evt-071",
+          "score": 0.182956
+        },
+        {
+          "id": "claim-evt-115",
+          "parent": "claim-evt-115",
+          "score": 0.173577
+        },
+        {
+          "id": "claim-evt-019",
+          "parent": "claim-evt-019",
+          "score": 0.169339
+        },
+        {
+          "id": "claim-evt-023",
+          "parent": "claim-evt-023",
+          "score": 0.158371
+        },
+        {
+          "id": "claim-evt-015",
+          "parent": "claim-evt-015",
+          "score": 0.156704
+        },
+        {
+          "id": "claim-evt-018",
+          "parent": "claim-evt-018",
+          "score": 0.1487
+        },
+        {
+          "id": "claim-evt-078",
+          "parent": "claim-evt-078",
+          "score": 0.142656
+        },
+        {
+          "id": "claim-evt-037",
+          "parent": "claim-evt-037",
+          "score": 0.142624
+        },
+        {
+          "id": "claim-evt-052",
+          "parent": "claim-evt-052",
+          "score": 0.142538
+        },
+        {
+          "id": "claim-evt-082",
+          "parent": "claim-evt-082",
+          "score": 0.138595
+        },
+        {
+          "id": "claim-evt-080",
+          "parent": "claim-evt-080",
+          "score": 0.137554
+        },
+        {
+          "id": "claim-evt-030",
+          "parent": "claim-evt-030",
+          "score": 0.135835
+        },
+        {
+          "id": "claim-evt-123",
+          "parent": "claim-evt-123",
+          "score": 0.132556
+        },
+        {
+          "id": "claim-evt-041",
+          "parent": "claim-evt-041",
+          "score": 0.127182
+        },
+        {
+          "id": "claim-evt-083",
+          "parent": "claim-evt-083",
+          "score": 0.125358
+        },
+        {
+          "id": "claim-evt-113",
+          "parent": "claim-evt-113",
+          "score": 0.123901
+        },
+        {
+          "id": "claim-evt-013",
+          "parent": "claim-evt-013",
+          "score": 0.122895
+        },
+        {
+          "id": "claim-evt-119",
+          "parent": "claim-evt-119",
+          "score": 0.120509
+        }
+      ],
+      "negative_has_candidates": null,
+      "elapsed_ms": 1.797
+    },
+    {
+      "id": "identity_traditional_eval",
+      "split": "validation",
+      "character": "shi_qiang",
+      "cutoff": "evt-118",
+      "expected": [
+        "claim-evt-115"
+      ],
+      "rank": 12,
+      "top20": [
+        {
+          "id": "claim-evt-039",
+          "parent": "claim-evt-039",
+          "score": 0.155599
+        },
+        {
+          "id": "claim-evt-071",
+          "parent": "claim-evt-071",
+          "score": 0.146365
+        },
+        {
+          "id": "claim-evt-114",
+          "parent": "claim-evt-114",
+          "score": 0.136003
+        },
+        {
+          "id": "claim-evt-112",
+          "parent": "claim-evt-112",
+          "score": 0.134331
+        },
+        {
+          "id": "claim-evt-113",
+          "parent": "claim-evt-113",
+          "score": 0.130422
+        },
+        {
+          "id": "claim-evt-086",
+          "parent": "claim-evt-086",
+          "score": 0.128638
+        },
+        {
+          "id": "claim-evt-019",
+          "parent": "claim-evt-019",
+          "score": 0.120112
+        },
+        {
+          "id": "claim-evt-015",
+          "parent": "claim-evt-015",
+          "score": 0.118944
+        },
+        {
+          "id": "claim-evt-076",
+          "parent": "claim-evt-076",
+          "score": 0.114659
+        },
+        {
+          "id": "claim-evt-040",
+          "parent": "claim-evt-040",
+          "score": 0.113934
+        },
+        {
+          "id": "claim-evt-123",
+          "parent": "claim-evt-123",
+          "score": 0.110793
+        },
+        {
+          "id": "claim-evt-115",
+          "parent": "claim-evt-115",
+          "score": 0.110119
+        },
+        {
+          "id": "claim-evt-052",
+          "parent": "claim-evt-052",
+          "score": 0.107366
+        },
+        {
+          "id": "claim-evt-041",
+          "parent": "claim-evt-041",
+          "score": 0.106608
+        },
+        {
+          "id": "claim-evt-082",
+          "parent": "claim-evt-082",
+          "score": 0.102021
+        }
+      ],
+      "negative_has_candidates": null,
+      "elapsed_ms": 1.743
+    },
+    {
+      "id": "unknown_eval",
+      "split": "validation",
+      "character": "luo_ji",
+      "cutoff": "evt-001",
+      "expected": [],
+      "rank": null,
+      "top20": [
+        {
+          "id": "claim-evt-113",
+          "parent": "claim-evt-113",
+          "score": 0.166715
+        },
+        {
+          "id": "claim-evt-122",
+          "parent": "claim-evt-122",
+          "score": 0.149224
+        },
+        {
+          "id": "claim-evt-094",
+          "parent": "claim-evt-094",
+          "score": 0.135106
+        },
+        {
+          "id": "claim-evt-003",
+          "parent": "claim-evt-003",
+          "score": 0.134257
+        },
+        {
+          "id": "claim-evt-010",
+          "parent": "claim-evt-010",
+          "score": 0.13309
+        },
+        {
+          "id": "claim-evt-006",
+          "parent": "claim-evt-006",
+          "score": 0.10758
+        },
+        {
+          "id": "claim-evt-089",
+          "parent": "claim-evt-089",
+          "score": 0.107206
+        },
+        {
+          "id": "claim-evt-028",
+          "parent": "claim-evt-028",
+          "score": 0.105269
+        },
+        {
+          "id": "claim-evt-029",
+          "parent": "claim-evt-029",
+          "score": 0.102161
+        }
+      ],
+      "negative_has_candidates": true,
+      "elapsed_ms": 1.804
+    }
+  ]
+}

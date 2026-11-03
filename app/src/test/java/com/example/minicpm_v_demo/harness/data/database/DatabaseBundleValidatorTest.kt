@@ -153,6 +153,46 @@ class DatabaseBundleValidatorTest {
         fails("dimension/value") { DatabaseBundleValidator.validate(paths) }
     }
 
+    @Test
+    fun rejectsEditedFragmentAfterFileHashRefresh() = withCopy { paths ->
+        val file = paths.resolve("runtime/android/vector/index.json")
+        val root = SimpleJsonParser(file.readText()).parse().asJsonObject("index").toMutableMap()
+        val items = root["items"].asJsonArray("items").toMutableList()
+        val index = items.indexOfFirst { raw ->
+            val chunk = raw.asJsonObject("item")["chunk"].asJsonObject("chunk")
+            chunk["metadata"].asJsonObject("metadata")["record_kind"] == "scene_candidate"
+        }
+        val item = items[index].asJsonObject("item").toMutableMap()
+        val chunk = item["chunk"].asJsonObject("chunk").toMutableMap()
+        chunk["text"] = chunk["text"].toString() + "篡改"
+        item["chunk"] = chunk
+        items[index] = item
+        root["items"] = items
+        file.writeText(jsonObject(root))
+        refreshFileHash(paths, "runtime/android/vector/index.json")
+        fails("Vector text/evidence mismatch") { DatabaseBundleValidator.validate(paths) }
+    }
+
+    @Test
+    fun rejectsChangedNormalizedEmbeddingAfterFileHashRefresh() = withCopy { paths ->
+        val file = paths.resolve("runtime/android/vector/index.json")
+        val root = SimpleJsonParser(file.readText()).parse().asJsonObject("index").toMutableMap()
+        val items = root["items"].asJsonArray("items").toMutableList()
+        val item = items.first().asJsonObject("item").toMutableMap()
+        val vector = item["embedding"].asJsonArray("embedding").toMutableList()
+        val first = vector[0]
+        val other = vector.indexOfFirst { it != first }
+        require(other > 0)
+        vector[0] = vector[other]
+        vector[other] = first
+        item["embedding"] = vector
+        items[0] = item
+        root["items"] = items
+        file.writeText(jsonObject(root))
+        refreshFileHash(paths, "runtime/android/vector/index.json")
+        fails("Vector embedding mismatch") { DatabaseBundleValidator.validate(paths) }
+    }
+
     private fun withCopy(block: (DatabaseDataPaths) -> Unit) {
         val temp = Files.createTempDirectory("database-contract-test").toFile()
         try {

@@ -46,6 +46,21 @@ class DatabaseRetrievalDeviceTest {
     @Test fun damagedPayload() = scenarios.changedInstalledPayloadCannotCreateNewConsumers()
     @Test fun unknownIdentity() = scenarios.foreignCharacterOrTraversalCannotSelectAnotherRoot()
 
+    @Test fun referenceTimeAndBudget() {
+        val orchestrator = scenarios.orchestrator()
+        val early = orchestrator.compile("你知道我的手机密码吗？", RagMode.CHARACTER_RAG, "luo_ji", "evt-001")
+        val cutoff = scenarios.bundle.validated.cutoffs.getValue("evt-001")
+        assertTrue(early.sources.all { it.end.toLong() <= cutoff })
+        assertTrue(early.contextDecisions.any { it.reason == "reference_after_or_crosses_cutoff" })
+        assertTrue(early.contextText.length <= 600)
+        val identity = orchestrator.compile("罗辑现在的身份是什么", RagMode.CHARACTER_RAG, "shi_qiang", "evt-118")
+        assertTrue(identity.contextText.length <= 600)
+        assertTrue(identity.contextDecisions.filter { it.decision != "dropped" }.all { it.selectedChars >= 3 })
+        assertTrue(identity.rendered.splitPrompt.userPrompt.contains("罗辑现在的身份是什么"))
+        assertTrue(identity.turnTrace.external.vectorCandidateScoreDetails.isNotEmpty())
+        assertTrue(identity.turnTrace.external.vectorCandidateScoreDetails.all { it.split(':').size == 5 })
+    }
+
     @Test fun legacyBaitFilesHaveZeroOpenEvents() {
         val files = listOf("harness/rag/index.json", "character/manifest.json", "harness/characters/characters/luo_ji.json")
             .map { File(root, it).apply { parentFile!!.mkdirs(); writeText("大学社会学 世界杯 LEGACY_BAIT") } }

@@ -53,6 +53,8 @@ data class RagTurnTrace(
         append(" dataset=").append(datasetId).append(" fingerprint=").append(datasetFingerprint)
         append(" indexFingerprint=").append(indexFingerprint)
         append(" candidates=").append(external.vectorCandidateIds.joinToString("+"))
+        append(" candidateScores=").append(external.vectorCandidateScoreDetails.joinToString("+"))
+        append(" contextDecisions=").append(external.decisionReasonCodes.joinToString("+"))
         append(" authorized=").append(authorizedFactIds.joinToString("+"))
         append(" injected=").append(character?.selectedItemIds.orEmpty().joinToString("+"))
         append(" rejected=").append(rejectedFactReasons.joinToString("+"))
@@ -69,6 +71,8 @@ data class RagTurnTrace(
         append("userSha: ").append(userFingerprint).append(" (chars=").append(userChars).append(")\n")
         append("renderedChars: ").append(renderedChars).append(", contextChars: ").append(contextChars).append('\n')
         append("external: ").append(external.compact()).append('\n')
+        append("candidateScores (id:chunk:parent:lexical:final): ")
+            .append(external.vectorCandidateScoreDetails.joinToString("+" )).append('\n')
         append("databaseStatus: ").append(databaseStatusCodes.joinToString("+")).append('\n')
         append("dataset: ").append(datasetId).append(" / ").append(datasetFingerprint).append('\n')
         append("indexFingerprint: ").append(indexFingerprint).append('\n')
@@ -159,13 +163,20 @@ data class RagTurnTrace(
                 vectorCollection = vectorRetrieval.collection,
                 vectorCandidateLimit = vectorRetrieval.candidateLimit,
                 vectorCandidateIds = vectorRetrieval.candidateIds,
+                vectorCandidateScores = vectorRetrieval.candidateScores,
+                vectorCandidateScoreDetails = vectorRetrieval.candidateScoreDetails,
                 vectorElapsedMs = vectorRetrieval.elapsedMs,
                 vectorBackend = vectorRetrieval.backend,
+                indexVersion = vectorRetrieval.indexVersion,
                 vectorFailureCode = vectorRetrieval.failureCode,
                 externalInjectionRequested = externalInjectionRequested,
                 injectedSourceIds = sources.map { source -> source.stableId() },
                 decisionReasonCodes = contextDecisions.map { decision ->
-                    "${decision.stableId()}:${decision.decision}:${decision.reason}"
+                    "${decision.chunkId.ifBlank { decision.stableId() }}:parent=${decision.parentClaimId}:" +
+                        "source=${decision.stableId()}:${decision.decision}:${decision.reason}:score=${decision.score}:" +
+                        "chars=${decision.selectedChars}/${decision.originalChars}:" +
+                        "spansUtf16=${decision.selectedChunkSpans.joinToString(",") { "${it.first}-${it.second}" }}:" +
+                        "selectionBoost=${decision.selectionBoost ?: "none"}:selectionScore=${decision.selectionScore ?: "none"}"
                 },
             ),
             character = characterDebug?.let(CharacterRagTrace::from),
@@ -202,15 +213,18 @@ data class ExternalRagTrace(
     val vectorCollection: String,
     val vectorCandidateLimit: Int,
     val vectorCandidateIds: List<String>,
+    val vectorCandidateScores: List<Double>,
+    val vectorCandidateScoreDetails: List<String> = emptyList(),
     val vectorElapsedMs: Long,
     val vectorBackend: String,
+    val indexVersion: String,
     val vectorFailureCode: String?,
     val externalInjectionRequested: Boolean,
     val injectedSourceIds: List<String>,
     val decisionReasonCodes: List<String>,
 ) {
     fun compact(): String = "vectorExecuted=$vectorSearchExecuted,collection=$vectorCollection," +
-        "candidates=${vectorCandidateIds.size}/$vectorCandidateLimit,backend=$vectorBackend," +
+        "candidates=${vectorCandidateIds.size}/$vectorCandidateLimit,backend=$vectorBackend,indexVersion=$indexVersion," +
         "elapsedMs=$vectorElapsedMs,failure=${vectorFailureCode ?: "none"}," +
         "injectRequested=$externalInjectionRequested," +
         "injected=${injectedSourceIds.ifEmpty { listOf("none") }.joinToString("+")}," +
@@ -224,9 +238,16 @@ data class ExternalRagTrace(
         out.append(",\"vectorCandidateLimit\":").append(vectorCandidateLimit)
         out.append(",\"vectorCandidateIds\":")
         out.jsonArray(vectorCandidateIds)
+        out.append(",\"vectorCandidateScores\":[")
+        out.append(vectorCandidateScores.joinToString(","))
+        out.append(']')
+        out.append(",\"vectorCandidateScoreDetails\":")
+        out.jsonArray(vectorCandidateScoreDetails)
         out.append(",\"vectorElapsedMs\":").append(vectorElapsedMs)
         out.append(',')
         out.jsonField("vectorBackend", vectorBackend)
+        out.append(',')
+        out.jsonField("indexVersion", indexVersion)
         out.append(',')
         if (vectorFailureCode == null) {
             out.append("\"vectorFailureCode\":null")

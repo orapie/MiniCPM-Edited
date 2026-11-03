@@ -1,0 +1,284 @@
+{
+  "schema_version": "1.0",
+  "dataset_id": "three_body_2",
+  "sqlite_sha256": "45c3ddedf21d72ad0399821f40a900632d845a77c2b9005d30bdf65627bd98c9",
+  "split_policy": "按目标角色和证据 scene_id 分组隔离；本初始样本仅采用 entity_ids 互不重叠的正例；同义改写归同组。标签由 Codex 对照来源初审，尚未经独立人工角色知情审核。",
+  "limits": [
+    "相关证据非穷举；不能将未标出的候选一律计为错误",
+    "旧事实候选仅做定位，不能自动赋权",
+    "当前 negative 属于审查假设而非证明数据库绝无相关信息",
+    "不能使用训练数据中的预测问题作为验证集"
+  ],
+  "cases": [
+    {
+      "id": "classmate_dev",
+      "split": "development",
+      "category": "relationship",
+      "character": "luo_ji",
+      "cutoff": "evt-001",
+      "query": "你和杨冬是什么关系？",
+      "expected_evidence_ids": [
+        "evd-27cb1755df99f56c"
+      ],
+      "expected_answer_substring": "杨冬的高中同学",
+      "source": {
+        "source_id": "three_body_2.txt",
+        "line_start": 15,
+        "line_end": 23,
+        "scene_id": "scene-0001",
+        "event_id": "evt-001",
+        "claim_id": "claim-d7147e05fd33fc6d"
+      },
+      "entity_ids": [
+        "luo_ji"
+      ],
+      "basis": "已逐条对照库内 quote 和原文行范围；能否作为该角色知识需另行审核",
+      "label_status": "codex_source_review_pending_human_epistemic_review"
+    },
+    {
+      "id": "profession_dev",
+      "split": "development",
+      "category": "profession",
+      "character": "luo_ji",
+      "cutoff": "evt-001",
+      "query": "你以前在大学教什么？",
+      "expected_evidence_ids": [
+        "evd-3056d0c06fe12d9c"
+      ],
+      "expected_answer_substring": "大学里教社会学",
+      "source": {
+        "source_id": "three_body_2.txt",
+        "line_start": 24,
+        "line_end": 31,
+        "scene_id": "scene-0001",
+        "event_id": "evt-001",
+        "claim_id": "claim-f9ca52dda058f914"
+      },
+      "entity_ids": [
+        "luo_ji"
+      ],
+      "basis": "已逐条对照库内 quote 和原文行范围；能否作为该角色知识需另行审核",
+      "label_status": "codex_source_review_pending_human_epistemic_review"
+    },
+    {
+      "id": "profession_paraphrase_dev",
+      "split": "development",
+      "category": "profession",
+      "character": "luo_ji",
+      "cutoff": "evt-001",
+      "query": "你当时在高校讲授哪门学科？",
+      "expected_evidence_ids": [
+        "evd-3056d0c06fe12d9c"
+      ],
+      "expected_answer_substring": "大学里教社会学",
+      "source": {
+        "source_id": "three_body_2.txt",
+        "line_start": 24,
+        "line_end": 31,
+        "scene_id": "scene-0001",
+        "event_id": "evt-001",
+        "claim_id": "claim-f9ca52dda058f914"
+      },
+      "entity_ids": [
+        "luo_ji"
+      ],
+      "basis": "已逐条对照库内 quote 和原文行范围；能否作为该角色知识需另行审核",
+      "label_status": "codex_source_review_pending_human_epistemic_review"
+    },
+    {
+      "id": "axioms_dev",
+      "split": "development",
+      "category": "event",
+      "character": "luo_ji",
+      "cutoff": "evt-002",
+      "query": "叶文洁向你说的第一条公理是什么？",
+      "expected_evidence_ids": [
+        "evd-dc393efd32a0b95d"
+      ],
+      "expected_answer_substring": "生存是文明的第一需要",
+      "source": {
+        "source_id": "three_body_2.txt",
+        "line_start": 44,
+        "line_end": 49,
+        "scene_id": "scene-0002",
+        "event_id": "evt-002",
+        "claim_id": "claim-999a75f75d5d90b6"
+      },
+      "entity_ids": [
+        "luo_ji"
+      ],
+      "basis": "已逐条对照库内 quote 和原文行范围；能否作为该角色知识需另行审核",
+      "label_status": "codex_source_review_pending_human_epistemic_review"
+    },
+    {
+      "id": "ding_object_eval",
+      "split": "validation",
+      "category": "object",
+      "character": "ding_yi",
+      "cutoff": "evt-032",
+      "query": "你要求对方赔偿什么纪念版物品？",
+      "expected_evidence_ids": [
+        "evd-c27390caaa8ddcee"
+      ],
+      "expected_answer_substring": "登喜路纪念版",
+      "source": {
+        "source_id": "three_body_2.txt",
+        "line_start": 1180,
+        "line_end": 1192,
+        "scene_id": "scene-0037",
+        "event_id": "evt-032",
+        "claim_id": "claim-ff812286785d320f"
+      },
+      "entity_ids": [
+        "ding_yi"
+      ],
+      "basis": "已逐条对照库内 quote 和原文行范围；能否作为该角色知识需另行审核",
+      "label_status": "codex_source_review_pending_human_epistemic_review"
+    },
+    {
+      "id": "ding_material_eval",
+      "split": "validation",
+      "category": "event",
+      "character": "ding_yi",
+      "cutoff": "evt-113",
+      "query": "水滴的物质由什么力固定？",
+      "expected_evidence_ids": [
+        "evd-6db9f52eba593d78"
+      ],
+      "expected_answer_substring": "只有一种：强互作用力",
+      "source": {
+        "source_id": "three_body_2.txt",
+        "line_start": 3903,
+        "line_end": 3908,
+        "scene_id": "scene-0118",
+        "event_id": "evt-101",
+        "claim_id": "claim-60ab318c1d5d90ea"
+      },
+      "entity_ids": [
+        "ding_yi"
+      ],
+      "basis": "已逐条对照库内 quote 和原文行范围；能否作为该角色知识需另行审核",
+      "label_status": "codex_source_review_pending_human_epistemic_review"
+    },
+    {
+      "id": "zhang_event_eval",
+      "split": "validation",
+      "category": "event",
+      "character": "zhang_beihai",
+      "cutoff": "evt-009",
+      "query": "你告诉父亲加入了什么军队？",
+      "expected_evidence_ids": [
+        "evd-b08d8c7663d94354"
+      ],
+      "expected_answer_substring": "我加入太空军了",
+      "source": {
+        "source_id": "three_body_2.txt",
+        "line_start": 471,
+        "line_end": 477,
+        "scene_id": "scene-0014",
+        "event_id": "evt-009",
+        "claim_id": "claim-ba8fa6842fa1dae7"
+      },
+      "entity_ids": [
+        "zhang_beihai"
+      ],
+      "basis": "已逐条对照库内 quote 和原文行范围；能否作为该角色知识需另行审核",
+      "label_status": "codex_source_review_pending_human_epistemic_review"
+    },
+    {
+      "id": "zhang_event_rephrase_eval",
+      "split": "validation",
+      "category": "event",
+      "character": "zhang_beihai",
+      "cutoff": "evt-009",
+      "query": "你向父亲说自己参军加入了哪支部队？",
+      "expected_evidence_ids": [
+        "evd-b08d8c7663d94354"
+      ],
+      "expected_answer_substring": "我加入太空军了",
+      "source": {
+        "source_id": "three_body_2.txt",
+        "line_start": 471,
+        "line_end": 477,
+        "scene_id": "scene-0014",
+        "event_id": "evt-009",
+        "claim_id": "claim-ba8fa6842fa1dae7"
+      },
+      "entity_ids": [
+        "zhang_beihai"
+      ],
+      "basis": "已逐条对照库内 quote 和原文行范围；能否作为该角色知识需另行审核",
+      "label_status": "codex_source_review_pending_human_epistemic_review"
+    },
+    {
+      "id": "zhang_third_person_eval",
+      "split": "validation",
+      "category": "third_person",
+      "character": "zhang_beihai",
+      "cutoff": "evt-004",
+      "query": "你的父亲曾是吴岳的什么人？",
+      "expected_evidence_ids": [
+        "evd-2223292d69d775fa"
+      ],
+      "expected_answer_substring": "他们的上级",
+      "source": {
+        "source_id": "three_body_2.txt",
+        "line_start": 137,
+        "line_end": 142,
+        "scene_id": "scene-0004",
+        "event_id": "evt-004",
+        "claim_id": "claim-f2805da78fd09f27"
+      },
+      "entity_ids": [
+        "zhang_beihai"
+      ],
+      "basis": "已逐条对照库内 quote 和原文行范围；能否作为该角色知识需另行审核",
+      "label_status": "codex_source_review_pending_human_epistemic_review"
+    },
+    {
+      "id": "unknown_password_eval",
+      "split": "validation",
+      "character": "ding_yi",
+      "cutoff": "evt-113",
+      "category": "no_answer",
+      "query": "你知道我的手机密码吗？",
+      "expected_evidence_ids": [],
+      "expected_answer_substring": null,
+      "source": null,
+      "entity_ids": [],
+      "basis": "负例仅标注题目所述资料未提供或剧情尚未发生；不得据此推断全库不存在任何相关文字",
+      "label_status": "requires_human_epistemic_review"
+    },
+    {
+      "id": "unknown_inventory_eval",
+      "split": "validation",
+      "character": "zhang_beihai",
+      "cutoff": "evt-009",
+      "category": "no_answer",
+      "query": "你知道我口袋里有什么吗？",
+      "expected_evidence_ids": [],
+      "expected_answer_substring": null,
+      "source": null,
+      "entity_ids": [],
+      "basis": "负例仅标注题目所述资料未提供或剧情尚未发生；不得据此推断全库不存在任何相关文字",
+      "label_status": "requires_human_epistemic_review"
+    },
+    {
+      "id": "unknown_before_event_eval",
+      "split": "validation",
+      "character": "ding_yi",
+      "cutoff": "evt-005",
+      "category": "future",
+      "query": "你刚才说水滴是由什么力固定的？",
+      "expected_evidence_ids": [],
+      "expected_answer_substring": null,
+      "source": null,
+      "entity_ids": [],
+      "basis": "负例仅标注题目所述资料未提供或剧情尚未发生；不得据此推断全库不存在任何相关文字",
+      "label_status": "requires_human_epistemic_review",
+      "forbidden_future_evidence_ids": [
+        "evd-6db9f52eba593d78"
+      ]
+    }
+  ]
+}

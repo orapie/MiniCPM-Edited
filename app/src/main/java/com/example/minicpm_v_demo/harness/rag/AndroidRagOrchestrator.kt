@@ -42,7 +42,9 @@ class AndroidRagOrchestrator(
         AlwaysOnVectorRetrievalService(ragSearchService),
     private val vectorRetrievalFeatureFlags: VectorRetrievalFeatureFlags = VectorRetrievalFeatureFlags(),
     private val databaseBundle: DatabaseBundleHandle? = null,
-) {
+) : AutoCloseable {
+    override fun close() = ragSearchService.close()
+    private val characterCutoffs by lazy { characterCompiler.availableCharacters().associate { it.npcId to it.knowledgeScope.storyCutoff } }
     fun availableCharacters(): List<CharacterCard> {
         requireCurrentBundle()
         return characterCompiler.availableCharacters()
@@ -157,10 +159,15 @@ class AndroidRagOrchestrator(
         } else {
             // Reviewed facts remain character knowledge; vector hits are also
             // supplied separately as untrusted reference material for this turn.
+            val maxSourceEnd = databaseBundle?.let { bundle ->
+                val cutoff = storyCutoff ?: characterCutoffs[characterId] ?: error("database_unknown_cutoff")
+                bundle.validated.cutoffs[cutoff] ?: error("database_unknown_cutoff")
+            }
             val vectorRetrieval = retrieveForActiveRagTurn(
                 userInput = userInput,
                 candidateLimit = maxOf(topK * 8, 20),
                 minScore = CHARACTER_RAG_MIN_SCORE,
+                maxSourceEnd = maxSourceEnd,
             )
             val externalInjectionRequested = vectorRetrieval.attempt.executed
             val characterPrompt = characterCompiler.buildNpcPrompt(
@@ -225,6 +232,7 @@ class AndroidRagOrchestrator(
         userInput: String,
         candidateLimit: Int,
         minScore: Double,
+        maxSourceEnd: Long? = null,
     ): AlwaysOnVectorRetrievalResult {
         if (!vectorRetrievalFeatureFlags.alwaysOnVectorRetrieval) {
             return AlwaysOnVectorRetrievalResult(
@@ -232,7 +240,7 @@ class AndroidRagOrchestrator(
                 results = emptyList(),
             )
         }
-        return alwaysOnVectorRetrievalService.searchAlways(userInput, candidateLimit, minScore)
+        return alwaysOnVectorRetrievalService.searchAlways(userInput, candidateLimit, minScore, maxSourceEnd)
     }
 
     private fun finalStageLogs(
@@ -266,7 +274,7 @@ class AndroidRagOrchestrator(
             flags: VectorRetrievalFeatureFlags = VectorRetrievalFeatureFlags()): AndroidRagOrchestrator {
             require(DatabaseBundleValidator.validate(bundle.paths).manifest.datasetFingerprint ==
                 bundle.manifest.datasetFingerprint) { "database_handle_identity_changed" }
-            return AndroidRagOrchestrator(RagSearchService.fromBundle(bundle),
+            return AndroidRagOrchestrator(RagSearchService.fromBundle(bundle, flags.hybridRetrieval),
                 CharacterPromptCompiler.fromBundle(bundle, promptTemplate),
                 vectorRetrievalFeatureFlags = flags, databaseBundle = bundle)
         }

@@ -70,7 +70,7 @@ class CharacterReferencePipelineTest {
         val indexJson = databaseTestSource().resolve("runtime/android/vector/index.json").readText()
         val entries = SimpleJsonParser(indexJson).parse().asJsonObject("index")["items"].asJsonArray("items")
         val chunk = entries.map { it.asJsonObject("item")["chunk"].asJsonObject("chunk") }
-            .first { it.stringValue("id") == "claim-evt-115@1329-1624" }
+            .first { it.stringValue("text").contains("那我现在该做什么") && it.stringValue("text").contains("您是面壁者") }
         val fragment = SearchResult(RagChunk(chunk.stringValue("id"), chunk.stringValue("text"),
             "database/test", 1, 1, mapOf("claim_id" to "claim-evt-115")), 0.5)
         val prompt = CharacterRagPromptBuilder().build(messages, "那我现在该做什么", listOf(fragment), debug)

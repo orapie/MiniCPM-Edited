@@ -12,7 +12,7 @@
       "claim_scope": "story",
       "confidence": 1.0,
       "event_id": "evt-001",
-      "evidence_id": "evidence-evt-001",
+      "evidence_id": "evd-27cb1755df99f56c",
       "evidence_ref": "three_body_2.txt:L20-L20",
       "importance": 0.8,
       "keywords_json": [
@@ -22,7 +22,7 @@
       ],
       "modality": "asserted",
       "object_text": "罗辑是杨冬的高中同学。",
-      "parent_claim_id": "claim-evt-001",
+      "parent_claim_id": "claim-d7147e05fd33fc6d",
       "polarity": "positive",
       "predicate": "reviewed_atomic_fact",
       "source_tier": "canon",
@@ -45,7 +45,7 @@
       "claim_scope": "story",
       "confidence": 1.0,
       "event_id": "evt-001",
-      "evidence_id": "evidence-evt-001",
+      "evidence_id": "evd-3056d0c06fe12d9c",
       "evidence_ref": "three_body_2.txt:L26-L26",
       "importance": 0.8,
       "keywords_json": [
@@ -57,7 +57,7 @@
       ],
       "modality": "asserted",
       "object_text": "罗辑以前研究天文学，向叶文洁自述当时在大学教社会学。",
-      "parent_claim_id": "claim-evt-001",
+      "parent_claim_id": "claim-f9ca52dda058f914",
       "polarity": "positive",
       "predicate": "reviewed_atomic_fact",
       "source_tier": "canon",
@@ -80,7 +80,7 @@
       "claim_scope": "story",
       "confidence": 1.0,
       "event_id": "evt-002",
-      "evidence_id": "evidence-evt-002",
+      "evidence_id": "evd-dc393efd32a0b95d",
       "evidence_ref": "three_body_2.txt:L47-L47",
       "importance": 0.8,
       "keywords_json": [
@@ -93,7 +93,7 @@
       ],
       "modality": "reported",
       "object_text": "叶文洁向罗辑提出两条宇宙社会学公理：生存是文明的第一需要；文明增长扩张，而宇宙物质总量不变。",
-      "parent_claim_id": "claim-evt-002",
+      "parent_claim_id": "claim-999a75f75d5d90b6",
       "polarity": "positive",
       "predicate": "reviewed_atomic_fact",
       "source_tier": "canon",
@@ -609,7 +609,7 @@
     }
   },
   "dataset_id": "three_body_2",
-  "dataset_version": "2026-10-27-phase1",
+  "dataset_version": "2026-11-03-bge-stage2",
   "knowledge_edges": [
     {
       "acquired_at_event": "evt-001",
@@ -645,6 +645,6 @@
       "knowledge_edge_id": "reviewed-edge-reviewed-luo-ji-civilization-axioms"
     }
   ],
-  "schema_version": "2.0.0",
-  "source_database_sha256": "3e15c91e2c54d802636b1d5ec8f94f3d371ac82b56ff55e165c9f788bc9758b4"
+  "schema_version": "2.2.0",
+  "source_database_sha256": "45c3ddedf21d72ad0399821f40a900632d845a77c2b9005d30bdf65627bd98c9"
 }

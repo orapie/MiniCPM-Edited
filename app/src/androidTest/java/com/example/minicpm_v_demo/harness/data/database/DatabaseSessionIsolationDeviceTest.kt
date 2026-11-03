@@ -9,12 +9,14 @@ import org.junit.Assert.*
 import org.junit.runner.RunWith
 import java.io.File
 import java.util.UUID
+import com.example.minicpm_v_demo.harness.data.AssetBootstrapper
 
 @RunWith(AndroidJUnit4::class)
 class DatabaseSessionIsolationDeviceTest {
     private lateinit var root: File
     private lateinit var scenarios: DatabaseSessionScenarios
     @Before fun setup() {
+        assertTrue("Database startup timed out", AssetBootstrapper.awaitStartup(120_000))
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         root = File(context.cacheDir, "database-session-test-${UUID.randomUUID()}").canonicalFile.apply { mkdirs() }
         val source = MemoryDatabaseSource.copyOf(ApkDatabaseBundleSource(context.assets))

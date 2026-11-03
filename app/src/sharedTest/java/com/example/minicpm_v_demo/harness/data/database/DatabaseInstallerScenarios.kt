@@ -26,7 +26,8 @@ class MemoryDatabaseSource private constructor(private val files: Map<String, By
 
     fun variant(datasetId: String = manifest.datasetId, version: String = "upgrade-test", retiredFile: Boolean = false): MemoryDatabaseSource {
         val changed = files.toMutableMap()
-        listOf("candidate_v2", "runtime_v2", "vector_index", "reviewed_facts").forEach { key ->
+        (listOf("candidate_v2", "runtime_v2", "vector_index", "reviewed_facts") +
+            listOf("prior_reviews").filter { it in manifest.paths }).forEach { key ->
             val path = manifest.paths.getValue(key)
             val root = SimpleJsonParser(files.getValue(path).toString(Charsets.UTF_8)).parse().asJsonObject(key).toMutableMap()
             root["dataset_id"] = datasetId

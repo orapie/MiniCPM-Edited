@@ -1,6 +1,6 @@
 # 《三体Ⅱ：黑暗森林》角色知识库
 
-本目录是项目统一知识数据源。三体 II 知识库的离线构建、索引、检索、审计和评测代码独立存放在相邻的 `three_body_2_kb_builder/`。已完成 Phase 0–5 的协议/校验、向量索引、APK 打包、设备安装激活、检索消费者接入、会话隔离和阶段验收。构建只打包当前 `assets/database/` 知识包，启动时安装到 `<filesDir>/database/`；生产检索工厂只从该包创建服务。
+本目录是项目统一知识数据源。三体 II 知识库的离线构建、索引、检索、审计和评测代码独立存放在相邻的 `three_body_2_kb_builder/`。当前 V2.2 数据包包含 Android BGE 查询模型和从 SQLite 导出的语义索引；本次接入尚未完成最终构建和设备运行验证。构建只打包当前 `assets/database/` 知识包，启动时安装到 `<filesDir>/database/`；生产检索工厂只从该包创建服务。
 
 ## 内容
 
@@ -12,10 +12,12 @@
 - `scripts/`：可重复运行的角色卡与知识库生成脚本。
 - `manifest.json`：统一入口、数据集身份、文件 SHA-256 与包 fingerprint。
 - `reviewed/atomic_facts.json`：单独核验过对话上下文、角色知情与原文行号的短事实样本。
-- `runtime/android/scene_candidates.json`：125 条原场景事实和 229 条关联边的忠实导出，只能用于候选召回。
-- `runtime/android/knowledge_fallback.json`：3 条经显式对话审查的短事实及授权边，保留 `canon/source_span_verified` 来源属性。
+- `runtime/android/scene_candidates.json`：536 条原文证据候选及 768 条源认知边的导出，只能用于候选召回。
+- `runtime/android/knowledge_fallback.json`：沿用原有 3 条审核事实及授权边，保留 `canon/source_span_verified` 来源属性；`runtime/android/reviewed_facts_v22.json` 记录新证据映射与原审核依据。
 - `runtime/android/compatibility_report.json`：来源、授权、长度与未完成能力的审计报告。
-- `runtime/android/vector/index.json`：384 维 hash n-gram 向量索引，含 125 条场景切出的短片段和 3 条已审查事实；场景片段仅为参考资料，并不自动获得角色授权。当前格式 1.2 须由新版 APK 读取。
+- `embedding/bge-small-zh-v1.5/`：固定 revision 的 ONNX 查询编码器、词表、配置与模型清单。
+- `runtime/android/vector/bge_index.json`：从本包 SQLite 导出的 512 维语义证据索引；证据只是参考候选，不自动获得角色授权。
+- `runtime/android/vector/index.json`：保留的 384 维 hash 索引，供没有 BGE 路径的旧格式数据包兼容使用。
 
 从仓库根目录执行：
 
@@ -28,7 +30,7 @@ bash ./gradlew :app:verifyDebugDatabaseAssets
 
 第一个命令更新运行导出与入口 manifest；`--check` 只读校验，不改写文件。生成工具只使用显式数据根目录，原文取本包嵌入 corpus，不查找旧 `character/`、旧 Harness 文档或 manifest 中的 Windows 来源路径。修改源库、角色卡、事件或已审查事实后，必须重新生成，过期 hash 会使校验失败。
 
-当前 manifest 声明 `v2/vector=true`，`v1/timed_state=false`。向量算法与现有 Kotlin `HashEmbeddingModel` 一致，包含维度、n-gram、hash、归一化配置；索引和文件清单均携带数据集身份和来源 hash。229 条原边的 `character_scene_relevance/available` 仅代表场景关联；生成器也不会把 story 中批量标为 `direct` 的场景自动授权。只有单独审查的 3 条样本被导出为角色可知事实，其中宇宙社会学公理保留为罗辑听闻叶文洁提出的观点。
+当前 manifest 声明 `v2/vector=true`，`v1/timed_state=false`。当前包的 BGE 模型与语义索引通过独立受控路径声明；顶层 `embedding` 仍记录兼容用的 hash 索引配置。索引和文件清单携带数据集身份和来源 hash。新库 768 条边中的 `approved` 或 `candidate` 是源库标注，生成器不会因此批量授予角色知识。只有单独审查的 3 条样本被导出为角色可知事实，其中宇宙社会学公理保留为罗辑听闻叶文洁提出的观点。
 
 `prepareDatabaseBundle` 构建任务只校验和复制，不会改写本目录；源 manifest、hash 或预生成索引过期时，构建会失败并要求先运行生成命令。输出固定到 `app/build/generated/databaseAssets/database/`，不会与输入形成循环。APK 校验报告位于 `app/build/reports/database/apk_inventory.json`，核对实际包内文件、hash、旧数据排除和 TTS 音频保留情况。
 
@@ -44,25 +46,13 @@ RAG 模式按当前问题查询本包向量索引，选中资料放入 user 消�
 
 原库、角色卡和 story 文件均保留原内容。在线 `V2EpistemicKnowledgeStore` 仅在传入已验证当前包时启用新来源政策；旧合成测试仍使用原 curated 政策。不要把本包导出复制到旧 Harness 目录。
 
-主要运行时文件：
+当前包的运行时检索设计为读取 `runtime/android/vector/bge_index.json` 和包内 BGE 模型；源 SQLite 在生成阶段提供向量，不在每轮对话中读取。
 
-```text
-knowledge_base_v2/character_knowledge_v2.sqlite3
-```
-
-当前数据规模：146 个场景、125 个事件、125 条事实、2,424 个实体提及和 229 条角色知识边。
-`knowledge_base_v2/manifest.json` 记录构建参数、数量、cutoff 和校验状态。
+当前数据规模：146 个场景、125 个事件、536 条证据事实、2,424 个实体提及和 768 条角色知识边。`knowledge_base_v2/manifest.json` 记录构建参数、数量、cutoff 和校验状态。
 
 ## 重新生成
 
-原始小说 TXT 未以单独文件放在本目录。准备好原文后执行：
-
-```powershell
-python scripts\generate_character_cards.py three-body-2 --source E:\path\to\three_body_2.txt
-python scripts\build_knowledge_base_v2.py --three-body-2 --source E:\path\to\three_body_2.txt
-```
-
-脚本自动识别 UTF-8 或 GB18030 编码。重新构建会更新角色卡事件引用并清理旧快照。
+从原始 TXT 构建角色卡、知识库与语义向量的流程位于 [three_body_2_kb_builder/README.md](../three_body_2_kb_builder/README.md)。重建源数据后，应重新审核原文和角色知识映射，再从仓库根目录运行本文件上面的数据包生成与校验命令；源库变更会产生新的 fingerprint，并隔离旧会话。不要直接覆盖设备上的零散文件。
 
 ## 校验结果
 

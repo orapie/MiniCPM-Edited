@@ -47,6 +47,7 @@ import com.example.minicpm_v_demo.harness.rag.RagPromptLogcatPrinter
 import com.example.minicpm_v_demo.harness.rag.RagSource
 import com.example.minicpm_v_demo.harness.rag.RagTurnTraceWriter
 import com.example.minicpm_v_demo.harness.data.HarnessDataPaths
+import com.example.minicpm_v_demo.harness.data.AssetBootstrapper
 import com.example.minicpm_v_demo.harness.data.database.DatabaseRuntime
 import com.example.minicpm_v_demo.harness.data.database.DatabaseInstallResult
 import com.example.minicpm_v_demo.harness.data.database.DatabaseIdentity
@@ -66,6 +67,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import java.io.ByteArrayOutputStream
 import java.io.File
 
@@ -119,6 +122,7 @@ class MainActivity : AppCompatActivity() {
             ragTurnTraceWriter = RagTurnTraceWriter(harnessPaths.ragTurnTraceFile)
         }
         val initialBundle = (DatabaseRuntime.installation as? DatabaseInstallResult.Ready)?.bundle
+        if (initialBundle == null) databaseRebinding = true
         boundIdentity = initialBundle?.let(DatabaseIdentity::from)
         sessionStore = sessionStoreFor(initialBundle)
         memoryStore = MemoryStore(harnessPaths)
@@ -127,9 +131,9 @@ class MainActivity : AppCompatActivity() {
             currentCharacterId = currentSession?.characterId ?: manifest.defaultCharacterId
             currentStoryCutoff = currentSession?.storyCutoff ?: manifest.defaultStoryCutoff
         }
-        ragOrchestrator = runCatching { AndroidRagOrchestrator.fromContext(applicationContext) }
+        ragOrchestrator = initialBundle?.let { runCatching { AndroidRagOrchestrator.fromContext(applicationContext) }
             .onFailure { Log.e(TAG, "Failed to initialize Android RAG orchestrator", it) }
-            .getOrNull()
+            .getOrNull() }
         if (currentSession?.storyCutoff == null && currentSession != null) {
             currentStoryCutoff = ragOrchestrator?.availableCharacters()
                 ?.firstOrNull { it.npcId == currentCharacterId }?.knowledgeScope?.storyCutoff
@@ -172,6 +176,18 @@ class MainActivity : AppCompatActivity() {
         updateRagModeButton()
         updateCharacterButton()
         observeEngineState()
+        if (initialBundle == null) {
+            enableInput(false)
+            lifecycleScope.launch {
+                withContext(Dispatchers.IO) {
+                    while (!AssetBootstrapper.awaitStartup(1_000)) currentCoroutineContext().ensureActive()
+                }
+                val lease = withContext(Dispatchers.IO) { DatabaseRuntime.beginTurn() }
+                databaseRebinding = false
+                if (lease != null) rebindDatabase(lease, retryInput = false, showDialogOnSuccess = false)
+                else enableInput(isModelReady)
+            }
+        }
     }
 
     private fun initViews() {
@@ -819,7 +835,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** Rebuild every consumer and clear native context before accepting a new bundle's turn. */
-    private fun rebindDatabase(lease: DatabaseTurnLease?, retryInput: Boolean) {
+    private fun rebindDatabase(lease: DatabaseTurnLease?, retryInput: Boolean, showDialogOnSuccess: Boolean = true) {
         if (databaseRebinding) { lease?.close(); return }
         databaseRebinding = true
         enableInput(false)
@@ -831,6 +847,7 @@ class MainActivity : AppCompatActivity() {
                 val bundle = lease?.bundle
                 val rebound = withContext(Dispatchers.IO) {
                     if (harness.state.value is LlamaState.ModelReady) harness.clearContext()
+                    ragOrchestrator?.close()
                     val store = sessionStoreFor(bundle)
                     val orchestrator = bundle?.let {
                         AndroidRagOrchestrator.fromBundle(it, File(filesDir, "program/prompts/roleplay_system.prompt"),
@@ -861,8 +878,8 @@ class MainActivity : AppCompatActivity() {
                 enableInput(isModelReady)
             }
             if (success && retryInput) handleUserInput()
-            else if (success && lease != null) showCharacterDialog()
-            else if (success) Toast.makeText(this@MainActivity, R.string.database_unavailable, Toast.LENGTH_LONG).show()
+            else if (success && lease != null && showDialogOnSuccess) showCharacterDialog()
+            else if (success && lease == null) Toast.makeText(this@MainActivity, R.string.database_unavailable, Toast.LENGTH_LONG).show()
         }
         rebindJob.invokeOnCompletion { lease?.close() }
     }
@@ -1492,6 +1509,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        ragOrchestrator?.let { previous -> Thread({ previous.close() }, "rag-encoder-close").start() }
+        ragOrchestrator = null
         if (isFinishing && !isLocaleRestart) {
             harness.destroy()
         }

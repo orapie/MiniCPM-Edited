@@ -1,0 +1,105 @@
+{
+  "dataset_id": "three_body_2",
+  "facts": [
+    {
+      "acquisition_method": "direct",
+      "character_id": "luo_ji",
+      "claim_id": "reviewed-luo-ji-classmate",
+      "evidence_id": "evd-27cb1755df99f56c",
+      "keywords": [
+        "杨冬",
+        "高中",
+        "同学"
+      ],
+      "knowledge_basis": "前文叶文洁称呼小罗，罗辑随后亲口介绍自己与杨冬的关系；这里只授权该自述，不授权同场景旁白。",
+      "line_end": 20,
+      "line_start": 20,
+      "migration": {
+        "activation_basis": "unchanged_prior_review_exact_quote_v1",
+        "human_independent_review": "pending",
+        "knowledge_basis_preserved": true,
+        "method": "unique_exact_prior_review_quote_and_source_lines",
+        "new_evidence_id": "evd-27cb1755df99f56c",
+        "new_parent_claim_id": "claim-d7147e05fd33fc6d",
+        "old_evidence_id": "evidence-evt-001",
+        "old_parent_claim_id": "claim-evt-001",
+        "requires_independent_review_before_activation": false,
+        "source_sqlite_sha256": "45c3ddedf21d72ad0399821f40a900632d845a77c2b9005d30bdf65627bd98c9"
+      },
+      "parent_claim_id": "claim-d7147e05fd33fc6d",
+      "quote": "“我是罗辑，杨冬的高中同学，您这是……”",
+      "review_method": "dialogue_context_inspection",
+      "reviewed_by": "codex_phase0_evidence_audit",
+      "statement": "罗辑是杨冬的高中同学。"
+    },
+    {
+      "acquisition_method": "direct",
+      "character_id": "luo_ji",
+      "claim_id": "reviewed-luo-ji-profession",
+      "evidence_id": "evd-3056d0c06fe12d9c",
+      "keywords": [
+        "职业",
+        "天文学",
+        "大学",
+        "社会学",
+        "叶文洁"
+      ],
+      "knowledge_basis": "叶文洁前一句问小罗是否搞天文学，罗辑直接说明自己过去专业和当时职业；该事实记录这次自述，不推断之后仍任教。",
+      "line_end": 26,
+      "line_start": 26,
+      "migration": {
+        "activation_basis": "unchanged_prior_review_exact_quote_v1",
+        "human_independent_review": "pending",
+        "knowledge_basis_preserved": true,
+        "method": "unique_exact_prior_review_quote_and_source_lines",
+        "new_evidence_id": "evd-3056d0c06fe12d9c",
+        "new_parent_claim_id": "claim-f9ca52dda058f914",
+        "old_evidence_id": "evidence-evt-001",
+        "old_parent_claim_id": "claim-evt-001",
+        "requires_independent_review_before_activation": false,
+        "source_sqlite_sha256": "45c3ddedf21d72ad0399821f40a900632d845a77c2b9005d30bdf65627bd98c9"
+      },
+      "parent_claim_id": "claim-f9ca52dda058f914",
+      "quote": "“以前是，现在我在大学里教社会学，就在您那所学校，不过我去时您已经退休了。”",
+      "review_method": "dialogue_context_inspection",
+      "reviewed_by": "codex_phase0_evidence_audit",
+      "statement": "罗辑以前研究天文学，向叶文洁自述当时在大学教社会学。"
+    },
+    {
+      "acquisition_method": "reported",
+      "character_id": "luo_ji",
+      "claim_id": "reviewed-luo-ji-civilization-axioms",
+      "evidence_id": "evd-dc393efd32a0b95d",
+      "keywords": [
+        "叶文洁",
+        "宇宙社会学",
+        "公理",
+        "生存",
+        "文明",
+        "物质"
+      ],
+      "knowledge_basis": "罗辑上一句向叶老师询问公理，叶文洁作答；随后罗辑回应这两条公理。授权为罗辑听闻的观点，不能写成已验证的宇宙定律。",
+      "line_end": 47,
+      "line_start": 47,
+      "migration": {
+        "activation_basis": "unchanged_prior_review_exact_quote_v1",
+        "human_independent_review": "pending",
+        "knowledge_basis_preserved": true,
+        "method": "unique_exact_prior_review_quote_and_source_lines",
+        "new_evidence_id": "evd-dc393efd32a0b95d",
+        "new_parent_claim_id": "claim-999a75f75d5d90b6",
+        "old_evidence_id": "evidence-evt-002",
+        "old_parent_claim_id": "claim-evt-002",
+        "requires_independent_review_before_activation": false,
+        "source_sqlite_sha256": "45c3ddedf21d72ad0399821f40a900632d845a77c2b9005d30bdf65627bd98c9"
+      },
+      "parent_claim_id": "claim-999a75f75d5d90b6",
+      "quote": "“第一，生存是文明的第一需要；第二，文明不断增长和扩张，但宇宙中的物质总量保持不变。”",
+      "review_method": "dialogue_context_inspection",
+      "reviewed_by": "codex_phase0_evidence_audit",
+      "statement": "叶文洁向罗辑提出两条宇宙社会学公理：生存是文明的第一需要；文明增长扩张，而宇宙物质总量不变。"
+    }
+  ],
+  "migration_policy": "prior_review_exact_quote_v1",
+  "schema_version": "1.0"
+}

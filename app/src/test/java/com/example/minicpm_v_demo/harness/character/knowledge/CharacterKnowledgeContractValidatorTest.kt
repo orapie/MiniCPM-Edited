@@ -33,7 +33,7 @@ class CharacterKnowledgeContractValidatorTest {
         )
 
         assertEquals(CharacterKnowledgeGraphVersion.V2, manifest.version)
-        assertEquals("2.0.0", manifest.schemaVersion)
+        assertEquals("2.2.0", manifest.schemaVersion)
         assertTrue(manifest.databaseFile?.isFile == true)
         assertTrue(manifest.cutoffs.getValue("evt-021") > manifest.cutoffs.getValue("evt-020"))
     }

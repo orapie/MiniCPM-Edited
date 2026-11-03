@@ -315,6 +315,9 @@ def authorize_reviews(root, dataset_id, source, reviews):
 
 def prepare(root, dataset_id, version, default_character):
     root = root.resolve()
+    if root.is_dir() and resolve(root, PATHS["v2_manifest"]).is_file() and load_json(resolve(root, PATHS["v2_manifest"])).get("schema_version") == "2.2.0":
+        import prepare_database_v22
+        return prepare_database_v22.prepare(root, dataset_id, version, default_character)
     require(root.is_dir(), f"Database source does not exist: {root}")
     require(re.fullmatch(r"[a-z0-9_-]+", dataset_id), "Invalid dataset_id")
     require(version and "\n" not in version and "\r" not in version, "Invalid dataset_version")
@@ -376,6 +379,9 @@ def prepare(root, dataset_id, version, default_character):
 
 def check(root):
     root = root.resolve()
+    if resolve(root, PATHS["v2_manifest"]).is_file() and load_json(resolve(root, PATHS["v2_manifest"])).get("schema_version") == "2.2.0":
+        import prepare_database_v22
+        return prepare_database_v22.check(root)
     bundle = load_json(resolve(root, "manifest.json"))
     require(bundle["bundle_schema_version"] == SCHEMA and bundle["authorization_policy"] == POLICY, "Unsupported bundle contract")
     require(bundle["capabilities"] == {"vector": True, "v2": True, "v1": False, "timed_state": False},

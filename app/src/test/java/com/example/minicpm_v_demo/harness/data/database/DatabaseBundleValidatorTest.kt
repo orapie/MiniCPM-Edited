@@ -29,7 +29,7 @@ class DatabaseBundleValidatorTest {
         assertEquals("three_body_2", bundle.manifest.datasetId)
         assertEquals("luo_ji", bundle.manifest.defaultCharacterId)
         assertEquals(5, bundle.characterIds.size)
-        assertEquals(125, bundle.candidateFactCount)
+        assertEquals(536, bundle.candidateFactCount)
         assertEquals(3, bundle.authorizedFactCount)
         assertTrue(bundle.manifest.supports("vector"))
         assertFalse(bundle.manifest.supports("v1"))
@@ -110,7 +110,7 @@ class DatabaseBundleValidatorTest {
         val file = paths.resolve("reviewed/atomic_facts.json")
         file.writeText(file.readText().replace("我是罗辑，杨冬的高中同学", "我是罗辑，杨冬的大学同学"))
         refreshFileHash(paths, "reviewed/atomic_facts.json")
-        fails("source quote mismatch") { DatabaseBundleValidator.validate(paths) }
+        fails("prior review migration mismatch") { DatabaseBundleValidator.validate(paths) }
     }
 
     @Test

@@ -77,7 +77,7 @@ class PromptBuilder(
         val sources = mutableListOf<RagSource>()
         val decisions = mutableListOf<RagContextDecision>()
         var usedChars = 0
-        val rankedResults = results.sortedWith(
+        val rankedResults = if (results.any { it.fusionScore != null }) results else results.sortedWith(
             compareByDescending<SearchResult> { it.score + ContextController.queryBoost(query, it.chunk.text) }
                 .thenBy { it.chunk.sourcePath },
         )

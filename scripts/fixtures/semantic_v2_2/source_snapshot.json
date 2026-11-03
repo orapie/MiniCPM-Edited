@@ -1,0 +1,7 @@
+{
+  "dataset_id": "three_body_2",
+  "sqlite_sha256": "45c3ddedf21d72ad0399821f40a900632d845a77c2b9005d30bdf65627bd98c9",
+  "index_id": "semantic-8ffbc4273cb1aaa2",
+  "vector_payload_sha256": "84589147fc3c90afb7811bfd5877af22f530ee14ce6219842b69e9e32120b80a",
+  "note": "记录 2026-11-03 当前库字节快照，用于发现后续变化；不是模型来源或角色认知的独立验证。"
+}

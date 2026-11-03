@@ -1,0 +1,19 @@
+{
+  "schema_version": "bge-onnx-v1",
+  "model_name": "BAAI/bge-small-zh-v1.5",
+  "model_revision": "7999e1d3359715c523056ef9478215996d62a620",
+  "source_weights_sha256": "354763b9b1357bc9c44f62c6be2276321081ed2567773608c0d0785b61d5a026",
+  "model_onnx_sha256": "5755445d377942e0f30ada1e3dac74f93ce6bf08190248ac60f82653e4d081d6",
+  "vocab_sha256": "45bbac6b341c319adc98a532532882e91a9cefc0329aa57bac9ae761c27b291c",
+  "tokenizer_json_sha256": "48cea5d44424912a6fd1ea647bf4fe50b55ab8b1e5879c3275f80e339e8fae26",
+  "dimensions": 512,
+  "max_length": 512,
+  "lowercase": true,
+  "pooling": "cls",
+  "normalized": true,
+  "query_instruction": "为这个句子生成表示以用于检索相关文章：",
+  "onnx_opset": 17,
+  "onnxruntime_version": "1.19.2",
+  "source_license": "MIT",
+  "conversion": "torch-2.5.1-transformers-4.46.3"
+}

@@ -70,7 +70,7 @@ class CharacterRagPromptBuilder(
         fun bestScore(result: SearchResult): Double = units(result.chunk.text)
             .maxOfOrNull { ContextController.queryBoost(query, it.text) } ?: 0.0
         val boosts = results.associateWith(::bestScore)
-        val rankedResults = results.sortedWith(
+        val rankedResults = if (results.any { it.fusionScore != null }) results else results.sortedWith(
             compareByDescending<SearchResult> { it.score + boosts.getValue(it) }.thenBy { it.chunk.id },
         )
         for (result in rankedResults) {
@@ -142,6 +142,6 @@ class CharacterRagPromptBuilder(
         parentClaimId = result.chunk.metadata["parent_claim_id"] ?: result.chunk.metadata["claim_id"].orEmpty(),
         selectedChunkSpans = selectedSpans,
         selectionBoost = boost?.let(::round6),
-        selectionScore = boost?.let { round6(result.score + it) },
+        selectionScore = boost?.let { round6(if (result.fusionScore != null) result.score else result.score + it) },
     )
 }

@@ -5,7 +5,8 @@ interface EmbeddingModel {
 }
 
 fun cosine(left: DoubleArray, right: DoubleArray): Double {
-    val size = minOf(left.size, right.size)
+    require(left.size == right.size) { "Embedding dimensions do not match" }
+    val size = left.size
     var sum = 0.0
     for (index in 0 until size) {
         sum += left[index] * right[index]

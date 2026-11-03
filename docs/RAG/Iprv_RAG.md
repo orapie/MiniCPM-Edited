@@ -1,6 +1,93 @@
 # RAG 检索相关性改进方案
 
-状态：阶段 0、1 有基础实现，质量验收尚未全部达到；设备实测后两项 P0 已实施，见 [P0 验证报告](Iprv_RAG_P0_Report.md)。P1 已开展排序诊断，尚未完成，见 [P1 进展报告](Iprv_RAG_P1_Progress_20261101.md)；后续阶段尚未实施。适用项目：Android `MiniCPM-anji` 当前 `database/` 数据包。目标是让检索片段更能回答用户当前问题，并能证明相关内容实际进入模型请求；不更换模型，不建立另一套数据库，不按具体小说或问题硬编码答案。
+状态：V2.2 阶段 2、3 工程已接入；阶段 4 已按用户要求完成精简验收。构建、4 项定向单测和 1 项模拟器冒烟测试通过；融合仍为默认关闭的实验模式。样本暴露检索相关性不足，不能据此断言准确率提升或完整验收达标。此前旧库评测结果仍只对旧库成立。
+
+## 2026-11-03：新语义数据库接入计划（当前实施依据）
+
+本节覆盖下面 2026-11-02 及更早针对旧库的“维持现有索引”和阶段顺序；下文旧库描述、样本和性能记录仅保留为历史基线，并非对新库当前可运行状态的描述。仍使用项目根目录 `database/`、现有 APK 打包和应用私有目录安装，不重新启用 `character/` 或旧 Harness 外部库；不处理简繁转换。阶段 1 已实现，阶段 2–3 工程已落地，阶段 4 已按用户要求完成少量构建和模拟器链路验收；全面质量评测未进行。下方最初检查结果为实施前的历史记录。
+
+### A. 实施前检查记录（历史）
+
+1. 新源库为 `database/knowledge_base_v2/character_knowledge_v2.sqlite3`，源 manifest 为 `knowledge_base_v2/manifest.json` 的 `schema_version=2.2.0`。它包含 536 条 `evidence_units`、536 条 `claims`、6,179 条 `retrieval_expressions`、768 条角色认知边；SQLite `PRAGMA integrity_check` 返回 `ok`。`embedding_indexes` 有一个活动索引 `semantic-8ffbc4273cb1aaa2`，`evidence_embeddings` 有 536 条记录，每条 2,048 字节（512 × float32 little-endian），与 evidence 一一对应；抽核全部向量的 L2 范数约为 1，全部文本 hash 和总内容 hash 与 manifest 一致。这些检查不证明向量是由所声明模型计算，也不证明文本或认知标注正确。
+2. 索引声明模型 `BAAI/bge-small-zh-v1.5`、revision `7999e1d3359715c523056ef9478215996d62a620`、CLS pooling、L2 归一化，passage 内容为 `{title}\n{fact}`，查询需添加 `为这个句子生成表示以用于检索相关文章：`。配置还包括 tokenizer、截断长度、特殊 token、编码精度及 padding 等，需要对照 `three_body_2_kb_builder/scripts/build_semantic_index.py` 所用模型实际配置锁定并做跨端 golden；不能仅以维度相同判断兼容。当前仓库数据库包含向量和元数据，不包含可直接在 Android 加载的 BGE 权重与 tokenizer；构建脚本依赖 `sentence-transformers`。当前本机 Python 环境也未发现 `sentence_transformers`、`numpy`，此次未运行 BGE 模型或声称设备侧语义检索可用。
+3. 原有 Android 路径仍为 `MainActivity → AndroidRagOrchestrator → AlwaysOnVectorRetrievalService → RagSearchService.fromBundle → VectorIndex + HashEmbeddingModel`。它只加载包清单所指 `runtime/android/vector/index.json` 的 384 维 hash n-gram 向量，schema `1.2`、1,339 个片段和 125 个旧 parent；`VectorIndex` 按旧 parent/片段权重得分。当前没有 Android 消费 `evidence_embeddings`、`retrieval_fts` 或 BGE 查询模型的链路；上层 `EmbeddingModel` 接口存在并不代表已支持新模型。普通 RAG、角色 RAG 都需明确新后端行为。
+4. 根 `database/manifest.json` 仍是旧 bundle 指纹 `8145513ad935bd449fe50d72ebb95e895097ef835e8d415e7c033e77796ae84e`，12 项受控文件中 8 项与实际内容 hash 不一致（5 张角色卡、story events、V2 manifest 和 SQLite）；旧向量索引记录的 SQLite SHA-256 是 `3e15c91e…`，当前 SQLite 实际 SHA-256 是 `45c3dded…`。本次只读运行 `python3 scripts/prepare_database_bundle.py --check`，首先报 `Bundle file/hash mismatch: characters/ding_yi.json`。不能仅更新清单哈希：现有导出也来自旧源库。
+5. 即使解决哈希，`scripts/prepare_database_bundle.py:read_source` 和 `DatabaseBundleValidator` 仍显式要求 V2 `2.0.0`。旧检查要求 `claims.statement` 与原文 `evidence.quote` 完全相等；新库 536 条均不相等，新 `fact/statement` 包含生成标题、摘要或截断文本，原文核验应针对 quote 及精确来源，而不能放宽为任何标题均可信。旧 `reviewed/atomic_facts.json` 的 3 条证据仍引用旧 `claim-evt-*` / `evidence-evt-*`，这些 ID 在新 SQLite 均不存在，需根据原文与角色认知重新映射、审核和版本化，不可静默丢弃或直接赋权。
+6. 新边中 466 条标为 `approved`，302 条为 `candidate`；approved 主要来自 `named_speech_or_cognition_cue`、`active_dialogue_participant` 等方法。`approved` 是新数据源的标注，不自动等同于本项目原先的人工 `dialogue_context_inspection` 政策；新库片段可能含旁白及截断内容。默认禁止把全部 `approved`、`fact`、标题、预测问题或完整证据片段整体升级为角色已知事实，先制定可审计的映射、原文核验和人工抽查标准。`candidate` 只能作为受控参考候选，不能通过 RRF 或分数变成角色知识。
+7. `three_body_2_kb_builder/scripts/query_evidence.py` 已实现 PC 端 eligible evidence、词项召回、BGE、按 `evidence_id` 去重和 RRF（`k=60`），可作接口和对照参考，不是 Android 已实现能力。数据包自带的 11 例评测报告 lexical 6/11、semantic 8/11、hybrid 9/11；题目少且分组不足，数据和实现环境未在本次复现，不能用来宣称当前 App 的准确率。
+
+### 阶段 0 进展（2026-11-03）
+
+已建立只读审计与样本基线工具，详细结果见 [V2.2 阶段 0 报告](Iprv_RAG_V22_Stage0_Report.md)：源库结构核验通过但旧 Android bundle 仍不兼容；12 个样本经 Codex 对照原文初审，独立人工认知审核和扩充尚未完成。旧审核事实仅定位到新库候选，尚未迁移授权。阶段 0 工程准备已完成，完整质量验收待独立审核；此段记录的是当时进度。
+
+### 阶段 1 进展
+
+阶段 1 已完成：V2.2 数据包生成、Python/Android 来源校验、原有 3 条审核事实迁移、APK 打包和模拟器安装测试均已实施。该阶段 fingerprint 为 `785262c2476a3bc9d6fa4889c139f914cf2944c22b5b4653cfb35c20bc6aea7c`，当时仍使用 hash 索引；新源库角色边的独立人工审核仍待完成。详见 [阶段 1 报告](Iprv_RAG_V22_Stage1_Progress.md)。
+
+### 阶段 2 工程进展（2026-11-03）
+
+已引入固定 revision 的 BGE ONNX 查询编码器、WordPiece 分词和 SQLite 语义向量的受控导出，普通 RAG 和角色 RAG 通过当前数据包选择 `bge_onnx`；角色模式在排序前按来源范围和 cutoff 过滤。模型加载或编码失败记录失败，不静默切换 hash。旧格式数据包仍沿用其 hash 后端。语义命中仅作为参考候选，不等于角色知情。
+
+根数据包 fingerprint 更新为 `2c0b90db9383839146dbd703a4bd7ab2e74040760a31ba3549877d5130df5a53`。本次按用户要求不进行最终构建、设备验收及效果评测；阶段 2 的工程落地不代表原计划中的验收已通过，阶段 3 随后已进行工程接入，阶段 4 已完成精简模拟器验收。详见 [阶段 2 工程说明](Iprv_RAG_V22_Stage2_Report.md)。
+
+### 阶段 3 工程进展（2026-11-03）
+
+已在同一 BGE 证据索引上接入 Kotlin 词项召回，按 `evidence_id` 与语义候选以 RRF（k=60）合并；候选先按现有来源和角色 cutoff 筛选，角色参考资料继续经过 `CharacterReferenceFilter`，不会因命中升级为角色已知事实。融合排序保留到 prompt 编译，不再叠加旧的词项分数重排。日志保留最终候选各路排名、分数和融合分数，以及资料筛选与截取决定。当前词项实现查询证据原文，并非 SQLite FTS 或完整的 `retrieval_expressions`；空词项产生空词项候选。语义召回仍使用既有余弦门槛，RRF 不套用该门槛。
+
+根据原计划，混合检索须在验证集上优于语义基线后才能默认启用；本次依用户要求不验证，因此 `rag_retrieval_flags` 的 `hybrid_retrieval` 默认为 false，可通过应用偏好设置为 true 后重新绑定检索器以启用实验。尚无应用界面开关。现有阈值、空答案识别及候选截句属于启发式，无法保证相关性或无答案时一定返回空；审核事实仍通过现有 V2 授权词项路径处理。独立质量比较、完整数据授权审查仍未完成；阶段 4 已完成精简验收。
+
+### 阶段 4 精简验收（2026-11-03）
+
+按用户要求只进行少量测试：Debug APK 构建和 APK 数据清单检查通过；4 项 BGE tokenizer、ONNX 编码和 V2.2 数据包定向单测通过；Android 16 Pixel 9 Pro XL 模拟器上 1 项冒烟测试通过，覆盖普通/角色 RAG 的语义与实验融合路径，确认 BGE 查询执行、词项参与融合、资料进入 prompt 和角色截止点限制。详见 [精简验收报告](Iprv_RAG_V22_Stage4_Report.md)。
+
+该验收并未运行对话模型生成或完整评测。问题“罗辑的职业是什么？”的首个语义命中讨论另一人的工作，而非罗辑职业的直接答案；混合候选出现学者相关片段，但单例不足以证明准确率提高。融合继续默认关闭；真机、真实模型回答、性能分布、完整安全负例和独立验证集均未覆盖。
+
+### B. 目标链路及实施顺序
+
+```text
+构建期：database/ V2 2.2 源文件和语义索引
+  → 新版本导出 / 完整校验 / 审核记录与 fingerprint
+  → prepareDatabaseBundle 受控 APK assets
+设备端：安装到 filesDir/database/ 并验证 → 固定当前 bundle
+  → 用户原始问题 → BGE 同模型查询向量（含 query instruction）
+  → 对从本包 evidence_embeddings 导出的只读 BGE 索引做语义检索
+  → 按角色 / cutoff / 来源 / 授权分流，必要时融合词项候选
+  → evidence_id 去重 → 保留有来源、实际可回答的证据 → system 或 user
+  → BACKEND_REQUEST、决策 trace、生成与 guard
+```
+
+**阶段 0：新库审计与标签基线。** 增加只读检查脚本/测试，核验 schema、SQLite 完整性、唯一活动索引、模型 metadata、`document_count`、每条向量长度/有限值/范数、evidence/claim/source/cutoff 外键、逐条内容 hash 和索引总 hash、JSONL/SQLite 一致性及 `quote` 对原文的行号和摘要。明确空值、未知序列和跨 cutoff 的拒绝策略；在副本中执行破坏测试，不改写现有新源库。比较现有 3 条已审核事实在新库中的候选位置，记录原审核依据和迁移结果，不能按名字推测或只重算 hash。
+
+建立分角色、cutoff、来历/职业/关系/物品/事件/第三人/无答案及改写的人工证据标签，训练调参与保留验证按来源/场景和人物隔离，避免来自同一事实的 `predicted_question` 泄漏至验证集。记录样本和标注依据；保留原旧库测试为历史基线，不将旧 ID 当新库金标准。验收：产生可重复的只读审计报告和数据契约，损坏样本必须失败，质量问题与待人工审核项有明确列表。
+
+**阶段 1：适配 2.2 数据包、来源及角色授权。** 更新 `scripts/prepare_database_bundle.py`、`DatabaseBundleValidator.kt` 和相关模型/测试，明确新 bundle/导出 schema、版本兼容与回退：新源库 `2.2.0` 按独立协议校验，不把版本号放宽后继续套旧字段。修正 `fact/statement` 与 `quote` 的关系：优先精确核对原文 `source_id + line_start/end + quote + sha256`，将 `title/fact/predicted_question` 视为派生检索信息，明确哪些经过额外核查才能作为回答依据；支持每个 evidence、claim、edge 的稳定 ID 和 provenance。新边 `authorization_status`、`belief_status`、acquisition method/sequence、内容级审核必须保留，缺失或不支持时保守拒绝；现有 3 条旧审核事实须人工复核映射到新 ID 与新原文，记录未能迁移的情况。不要根据 `approved` 或向量相似度批量赋权。
+
+更新 `DatabaseBundleManifest` 及 validator 的能力、路径、模型/索引契约和所有受控文件 hash；Python 和 Kotlin 对同一个明确版本实施一致检查，先在临时副本生成完整导出并进行篡改测试，再按显式工具步骤生成根 `database/` 的新 bundle，**不手改 fingerprint，也不覆盖源 SQLite 以假装索引有效**。APK 必须真正包含指向新 SQLite 或经验证导出的 BGE 数据；独立 semantic manifest 是否作为运行时文件应通过清单与校验器一致声明，不能依赖没打包的路径。修复 `prepareDatabaseBundle` 和 APK inventory 检查新工件，同时保留同数据集失败时 `RETAINED_PREVIOUS`、异数据集失败不返回旧句柄的既有语义；旧包保留时显示实际 fingerprint/后端，不能误报新库。包版本、来源和模型变化后隔离会话并刷新消费者，不删除会话及模型。
+
+验收：新 bundle 只从根目录打包并通过 `--check`、JVM 和 APK 资产检查；旧包/新包升级、不同数据集切换、失败保留、指纹变更、泄漏和破坏测试通过；错误 ID、错行、旧 SQLite hash、伪造授权和过期模型元数据均无法激活。记录实际 2.2 数量，不沿用旧库 125/3 的假设。
+
+**阶段 2：设备端 BGE 查询编码器与语义候选。** 从同一精确 revision 获取经授权的可离线 Android 模型及 tokenizer（例如评估 ONNX Runtime + 对应导出；亦可选择已有 native 后端，但必须实测支持），确定权重、词表、配置、精度及许可证/分发方式；不得复用对话模型的 embedding 假装同一空间，也不能只有 SQLite 预计算向量。建立固定的查询 encoder 接口和按 bundle 的工厂，通过清单明确模型版本、维度、pooling、tokenizer 和 query instruction；模型加载与缓存受 bundle 生命周期管理，后台准备并报告加载和执行失败。保持用户原始问题不变，仅编码副本添加 query instruction。
+
+为 Android 实现 `evidence_embeddings` 查询：从已安装受控 bundle 的 SQLite 以只读方式读取经验证的活动索引和向量 BLOB，按 `evidence_id` 精确关联 evidence、来源和角色授权；或在构建时生成有同等 hash/provenance 验证的只读导出，但两者只择一，保持 SQLite 为本包唯一来源。解码必须明确 `<f4`、512 维、有限值、L2，向量维数严格相等后点积；**修复/绕过 `EmbeddingModel.kt:cosine` 当前 `minOf` 截断行为，维度不等必须报错，禁止跨 384/512 空间比较**。做 Python 原模型与 Android 对同一批真实/短/长/空查询的 token IDs、向量、相似度、top-K 一致性验证，允许量化误差须给出阈值和实验；长文本截断规则和原模型一致。缓存索引/编码器时以 dataset fingerprint、index_id、model revision/tokenizer hash 为键，数据库切换或校验失败及时失效。
+
+向量必须每轮从当前用户问题执行；明确角色候选只使用已验证的可用数据，过期、未知、跨 cutoff 的处理与现有边界一致。语义模型缺失/加载失败/维度不匹配须将 `semanticExecuted=false`、失败原因和真实后端写入 trace，不可标为成功或静默使用 384 维 hash 分数冒充 BGE。是否提供回退作为显式模式/产品策略实现并测试；不能使用旧外部数据库，不能把词项-only 结果称为 semantic。普通 RAG 的不按角色授权范围及其来源约束另行定义和测试，角色 RAG 不改变现有 system 与参考资料的信任边界。
+
+验收：无网络环境使用固定设备模型完成真实 query embedding 与 536 条向量的端到端检索；固定源问题能复核 evidence ID/余弦得分，模型与数据混配和坏 BLOB 必须拒绝；记录加载成本、内存、安装包增加量和每轮 P50/P95，并验证普通/角色两种模式及多数据集。
+
+**阶段 3：可解释词项召回、融合与 prompt。** 在阶段 2 的语义基线上，先实测目标 Android SQLite 对 FTS5 trigram 的支持，不能假设所有 minSdk 24 设备都支持；可选已验证的 SQLite 扩展或受控导出及 Kotlin 词项检索。若启用 `query_evidence.py` 的词项策略，分别测试 FTS 异常/空关键词/语法转义，按 evidence_id 去重，并显示检索失败而不是吞掉异常。语义与词项各自记录候选、名次与分数，按 `evidence_id` 融合；RRF `k=60` 仅作对照参数，融合后阈值和候选数根据独立验证集评估，不能把 RRF 分数直接套旧余弦 `minScore=0.10`，也不能只因材料非空而注入。过滤策略必须覆盖融合前后和两种模式，确保低相关、无答案可返回空。
+
+适配 `CharacterReferenceFilter`、`CharacterRagPromptBuilder`、`CharacterPromptCompiler` / `RoleplayAnswerabilityGate`：按新 `evidence_id/claim_id`、证据范围与审核状态分开角色已知、未审核参考和拒绝项；对截断 `fact` 使用经过验证的 quote 及必要上下文，保留必要主语/否定/时间，不把标题或预测问题当答案。`RagSource`、`RagContextDecision`、`RagTurnTrace` 应记录 evidence ID、索引 ID、backend、各路 rank/score、过滤原因、实际保留范围、来源/fingerprint；隐私日志不输出用户原文、向量或原文内容。第三人及用户私密信息问题分别测试，语义命中不代表角色知情或问题可回答。
+
+验收：在相同新库、角色和 cutoff 下比较 lexical、semantic、hybrid；统计 Recall@5/@20、MRR、最终 prompt 证据保留、无答案误注入和错误授权率，报告未命中及负样本。混合排序仅在隔离验证集优于语义基线且安全/负例无退化时默认启用，否则继续使用已验证的单路并说明原因。
+
+**阶段 4：完整设备验证与交付。** 运行 Python 只读审计和相关单测、`python3 scripts/prepare_database_bundle.py --check`、`bash ./gradlew :app:testDebugUnitTest :app:assembleDebugAndroidTest :app:verifyDebugDatabaseAssets`；验证 hash、模型版本和 APK 包内实际内容。连接现有 Android 设备后覆盖安装，不卸载、不清空用户模型与会话，验证首次安装、同库升级、跨库、失败回退、飞行模式、模型缺失/故障、数据版本变化和并发回合。对当前已选对话模型做少量真实生成，记录 `BACKEND_REQUEST`、证据、gate 和可见输出，和检索指标分开；不要求测试其他对话模型。提供设备型号、数据 fingerprint、BGE revision、构建、离线条件、P50/P95、内存、APK 与安装体积、测试数量和失败样本。最后更新 `docs/RAG_Logic.md`、数据库 README 和本计划的真实实现状态及回滚步骤。
+
+### C. 现阶段禁止操作
+
+- 只改根 manifest hash 或运行旧生成器后宣称 BGE 已生效；当前旧生成器本身拒绝 2.2，且会按旧协议构建 384 维索引。
+- 将 512 维 passage BGE 向量与 384 维 hash 查询向量混算；也不能只把 BGE 查询前缀加入原 hash 模型。
+- 把 retrieval expression、自动生成标题、整条旁白或全部 `approved` 边无条件放进角色 system，或者绕过时间和 source 约束。
+- 将新源库文件复制到旧外部库，或在设备验证时删除用户会话/模型；不能用旧安装包/旧 fingerprint 的成功日志证明新库生效。
 
 ## 2026-11-02 P1 实施进展
 
@@ -10,7 +97,7 @@
 
 本计划不再考虑简体与繁体之间的转换、统一检索或对照验收，也不为此重建索引。保留已有简繁样例和设备记录作为历史实验事实，但不作为未来任务、效果指标或完成条件。下一阶段集中在原始输入下的证据召回、排序、主体识别、无答案处理与实际 prompt 保留。Unicode、空白或标点处理仅在后续证据表明确有必要时评估；若改变向量输入，仍须同步更新构建端和查询端、版本与索引，不能混用。
 
-## 0. 2026-10-30 Android 实测与计划调整
+## 0. 2026-10-30 Android 实测与计划调整（旧库历史记录）
 
 ### 实测范围与结论
 
@@ -62,6 +149,8 @@
 - 同一设备至少复测固定的身份、职业和无答案问题，保留真实可见回答、gate、检索片段、最终请求及构建/fingerprint；单次自然语言表现只能作为实例，不能当统计结论。补测设备冷启动、内存及 P50/P95，避免 1.2 索引体积与验证开销造成使用体验退化。
 
 
+> 下方第 1–7 节为旧库方案和 TXT 工具的历史记录；与 2026-11-03 接入计划冲突时，以上方新库专节为准。
+
 ## 1. 要解决的问题
 
 角色模式已将向量检索结果作为本轮参考资料放入 user 消息，但“有资料”不等于“资料能回答问题”。应同时衡量以下四步：
@@ -75,7 +164,7 @@
 
 ## 2. 对照当前项目的事实与问题
 
-当前路径（以实际 checkout 为准）：
+以下为旧库检索路径的历史描述，新库实际现状见本文件 2026-11-03 专节：
 
 ```text
 用户输入 / 同包历史

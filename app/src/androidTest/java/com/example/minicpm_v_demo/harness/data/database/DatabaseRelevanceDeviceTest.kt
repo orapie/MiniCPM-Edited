@@ -21,11 +21,13 @@ import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import com.example.minicpm_v_demo.harness.data.AssetBootstrapper
 
 /** Fixed public-data diagnostic samples; does not modify model selection or user sessions. */
 @RunWith(AndroidJUnit4::class)
 class DatabaseRelevanceDeviceTest {
     @Test fun currentModelAnswersRelevanceSamples() = runBlocking {
+        assertTrue("Database startup timed out", AssetBootstrapper.awaitStartup(120_000))
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val model = LlamaEngine.getSelectedModel(context)
         assumeTrue("This diagnostic uses the already-selected V4.6 model", model.id == "minicpm-v-4_6-instruct")

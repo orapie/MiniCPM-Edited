@@ -14,12 +14,14 @@ import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import com.example.minicpm_v_demo.harness.data.AssetBootstrapper
 
 @RunWith(AndroidJUnit4::class)
 class DatabaseRetrievalDeviceTest {
     private lateinit var root: File
     private lateinit var scenarios: DatabaseRetrievalScenarios
     @Before fun setup() {
+        assertTrue("Database startup timed out", AssetBootstrapper.awaitStartup(120_000))
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         root = File(context.cacheDir, "database-retrieval-test-${UUID.randomUUID()}").canonicalFile.apply { mkdirs() }
         val bundle = (DatabaseBundleInstaller(root).install(ApkDatabaseBundleSource(context.assets)) as DatabaseInstallResult.Ready).bundle

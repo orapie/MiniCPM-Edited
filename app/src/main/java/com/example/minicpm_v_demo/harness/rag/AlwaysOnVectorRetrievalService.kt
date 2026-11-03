@@ -10,17 +10,20 @@ import android.content.Context
 data class VectorRetrievalFeatureFlags(
     val alwaysOnVectorRetrieval: Boolean = true,
     val retrieveInOffMode: Boolean = false,
+    val hybridRetrieval: Boolean = false,
 ) {
     companion object {
         private const val PREFS_NAME = "rag_retrieval_flags"
         private const val KEY_ALWAYS_ON = "always_on_vector_retrieval"
         private const val KEY_RETRIEVE_IN_OFF_MODE = "retrieve_in_off_mode"
+        private const val KEY_HYBRID = "hybrid_retrieval"
 
         fun from(context: Context): VectorRetrievalFeatureFlags {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             return VectorRetrievalFeatureFlags(
                 alwaysOnVectorRetrieval = prefs.getBoolean(KEY_ALWAYS_ON, true),
                 retrieveInOffMode = prefs.getBoolean(KEY_RETRIEVE_IN_OFF_MODE, false),
+                hybridRetrieval = prefs.getBoolean(KEY_HYBRID, false),
             )
         }
     }
@@ -40,11 +43,12 @@ class AlwaysOnVectorRetrievalService(
         query: String,
         candidateLimit: Int,
         minScore: Double,
+        maxSourceEnd: Long? = null,
     ): AlwaysOnVectorRetrievalResult {
         require(candidateLimit > 0) { "candidateLimit must be positive" }
         val startedAtNanos = System.nanoTime()
         return try {
-            val results = ragSearchService.search(query, candidateLimit, minScore)
+            val results = ragSearchService.search(query, candidateLimit, minScore, maxSourceEnd)
             AlwaysOnVectorRetrievalResult(
                 attempt = VectorRetrievalAttempt(
                     executed = true,
@@ -55,12 +59,15 @@ class AlwaysOnVectorRetrievalService(
                     candidateScoreDetails = results.map { result ->
                         listOf(result.chunk.stableId(), result.chunkScore?.let(::round6)?.toString() ?: "none",
                             result.parentScore?.let(::round6)?.toString() ?: "none",
-                            result.lexicalScore?.let(::round6)?.toString() ?: "none", round6(result.score).toString())
+                            result.lexicalScore?.let(::round6)?.toString() ?: "none", round6(result.score).toString(),
+                            "semanticRank=${result.semanticRank ?: "none"}", "lexicalRank=${result.lexicalRank ?: "none"}",
+                            "rrf=${result.fusionScore?.let(::round6) ?: "none"}")
                             .joinToString(":")
                     },
                     elapsedMs = elapsedMs(startedAtNanos),
                     backend = ragSearchService.embeddingBackendName,
                     indexVersion = ragSearchService.indexSchemaVersion,
+                    retrievalMode = ragSearchService.retrievalMode,
                 ),
                 results = results,
             )
@@ -70,16 +77,27 @@ class AlwaysOnVectorRetrievalService(
             // failed attempted lookup rather than claiming no lookup happened.
             AlwaysOnVectorRetrievalResult(
                 attempt = VectorRetrievalAttempt(
-                    executed = true,
+                    executed = false,
                     collection = ragSearchService.collectionName,
                     candidateLimit = candidateLimit,
                     candidateIds = emptyList(),
                     elapsedMs = elapsedMs(startedAtNanos),
                     backend = ragSearchService.embeddingBackendName,
                     indexVersion = ragSearchService.indexSchemaVersion,
+                    retrievalMode = ragSearchService.retrievalMode,
                     failureCode = error.javaClass.simpleName,
                 ),
                 results = emptyList(),
+            )
+        } catch (error: LinkageError) {
+            AlwaysOnVectorRetrievalResult(
+                attempt = VectorRetrievalAttempt(
+                    executed = false, collection = ragSearchService.collectionName,
+                    candidateLimit = candidateLimit, candidateIds = emptyList(),
+                    elapsedMs = elapsedMs(startedAtNanos), backend = ragSearchService.embeddingBackendName,
+                    indexVersion = ragSearchService.indexSchemaVersion,
+                    retrievalMode = ragSearchService.retrievalMode, failureCode = error.javaClass.simpleName,
+                ), results = emptyList(),
             )
         }
     }
@@ -109,6 +127,7 @@ data class VectorRetrievalAttempt(
     val backend: String,
     val failureCode: String? = null,
     val indexVersion: String = "unknown",
+    val retrievalMode: String = "unknown",
 ) {
     companion object {
         fun notRequested(backend: String = "not_requested"): VectorRetrievalAttempt = VectorRetrievalAttempt(

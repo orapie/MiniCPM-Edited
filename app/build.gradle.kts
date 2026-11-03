@@ -1,12 +1,14 @@
 import java.util.Properties
 import javax.inject.Inject
 import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.FileSystemOperations
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputDirectory
 import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
@@ -27,6 +29,10 @@ abstract class PrepareDatabaseBundleTask @Inject constructor(
     @get:InputFile
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val preparationScript: RegularFileProperty
+
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val supportingScripts: ConfigurableFileCollection
 
     @get:Input
     abstract val pythonExecutable: Property<String>
@@ -49,6 +55,10 @@ val prepareDatabaseBundle = tasks.register<PrepareDatabaseBundleTask>("prepareDa
     description = "Validate the root database bundle and stage only its controlled APK assets"
     sourceDirectory.set(rootProject.layout.projectDirectory.dir("database"))
     preparationScript.set(rootProject.layout.projectDirectory.file("scripts/prepare_database_bundle.py"))
+    supportingScripts.from(rootProject.files(
+        "scripts/prepare_database_v22.py", "scripts/prepare_v22_migration.py",
+        "scripts/audit_semantic_database.py", "scripts/v22_evidence_projection.py",
+    ))
     pythonExecutable.set(providers.gradleProperty("databasePython").orElse("python3"))
     outputDirectory.set(layout.buildDirectory.dir("generated/databaseAssets"))
 }
@@ -200,6 +210,7 @@ android {
         // The Phase 1 character cognition graph is copied from assets into
         // filesDir before Android SQLite opens it read-only.
         noCompress.add("sqlite3")
+        noCompress.add("onnx")
     }
 }
 
@@ -221,6 +232,8 @@ tasks.register<Exec>("verifyDebugDatabaseAssets") {
 }
 
 dependencies {
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.19.2")
+    testImplementation("com.microsoft.onnxruntime:onnxruntime:1.19.2")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)

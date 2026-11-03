@@ -24,11 +24,13 @@ import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import com.example.minicpm_v_demo.harness.data.AssetBootstrapper
 
 /** Synthetic questions only. Records retrieval and sampled native answers separately. */
 @RunWith(AndroidJUnit4::class)
 class DatabaseNativeAcceptanceTest {
     @Test fun realV46AnswersCurrentDatabaseMatrix() = runBlocking {
+        assertTrue("Database startup timed out", AssetBootstrapper.awaitStartup(120_000))
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val bundle = DatabaseRuntime.requireBundle()
         val identity = DatabaseIdentity.from(bundle)

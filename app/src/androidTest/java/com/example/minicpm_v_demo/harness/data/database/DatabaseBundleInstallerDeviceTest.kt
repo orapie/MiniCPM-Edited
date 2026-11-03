@@ -10,6 +10,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
 import java.util.UUID
+import com.example.minicpm_v_demo.harness.data.AssetBootstrapper
 
 @RunWith(AndroidJUnit4::class)
 class DatabaseBundleInstallerDeviceTest {
@@ -17,6 +18,7 @@ class DatabaseBundleInstallerDeviceTest {
     private lateinit var scenarios: DatabaseInstallerScenarios
 
     @Before fun setup() {
+        assertTrue("Database startup timed out", AssetBootstrapper.awaitStartup(120_000))
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         root = File(context.cacheDir, "database-install-test-${UUID.randomUUID()}").canonicalFile.apply { mkdirs() }
         scenarios = DatabaseInstallerScenarios(root, MemoryDatabaseSource.copyOf(ApkDatabaseBundleSource(context.assets)))

@@ -71,7 +71,7 @@ data class RagTurnTrace(
         append("userSha: ").append(userFingerprint).append(" (chars=").append(userChars).append(")\n")
         append("renderedChars: ").append(renderedChars).append(", contextChars: ").append(contextChars).append('\n')
         append("external: ").append(external.compact()).append('\n')
-        append("candidateScores (id:chunk:parent:lexical:final): ")
+        append("candidateScores (id:semantic:parent:lexical:final:semanticRank:lexicalRank:rrf): ")
             .append(external.vectorCandidateScoreDetails.joinToString("+" )).append('\n')
         append("databaseStatus: ").append(databaseStatusCodes.joinToString("+")).append('\n')
         append("dataset: ").append(datasetId).append(" / ").append(datasetFingerprint).append('\n')
@@ -168,6 +168,7 @@ data class RagTurnTrace(
                 vectorElapsedMs = vectorRetrieval.elapsedMs,
                 vectorBackend = vectorRetrieval.backend,
                 indexVersion = vectorRetrieval.indexVersion,
+                retrievalMode = vectorRetrieval.retrievalMode,
                 vectorFailureCode = vectorRetrieval.failureCode,
                 externalInjectionRequested = externalInjectionRequested,
                 injectedSourceIds = sources.map { source -> source.stableId() },
@@ -183,7 +184,9 @@ data class RagTurnTrace(
             databaseStatusCodes = characterDebug?.databaseCapabilities.orEmpty(),
             datasetId = databaseManifest?.datasetId ?: "unavailable",
             datasetFingerprint = databaseManifest?.datasetFingerprint ?: "unavailable",
-            indexFingerprint = databaseManifest?.paths?.get("vector_index")?.let { databaseManifest.files[it] } ?: "unavailable",
+            indexFingerprint = databaseManifest?.paths?.get(
+                if (vectorRetrieval.backend == "bge_onnx") "bge_index" else "vector_index"
+            )?.let { databaseManifest.files[it] } ?: "unavailable",
             authorizedFactIds = characterDebug?.knowledgeGraphDecisions.orEmpty()
                 .filter { it.disposition.name == "SELECTED" }.map { it.claimId },
             rejectedFactReasons = characterDebug?.knowledgeGraphDecisions.orEmpty()
@@ -219,12 +222,13 @@ data class ExternalRagTrace(
     val vectorBackend: String,
     val indexVersion: String,
     val vectorFailureCode: String?,
+    val retrievalMode: String = "unknown",
     val externalInjectionRequested: Boolean,
     val injectedSourceIds: List<String>,
     val decisionReasonCodes: List<String>,
 ) {
     fun compact(): String = "vectorExecuted=$vectorSearchExecuted,collection=$vectorCollection," +
-        "candidates=${vectorCandidateIds.size}/$vectorCandidateLimit,backend=$vectorBackend,indexVersion=$indexVersion," +
+        "candidates=${vectorCandidateIds.size}/$vectorCandidateLimit,backend=$vectorBackend,indexVersion=$indexVersion,retrievalMode=$retrievalMode," +
         "elapsedMs=$vectorElapsedMs,failure=${vectorFailureCode ?: "none"}," +
         "injectRequested=$externalInjectionRequested," +
         "injected=${injectedSourceIds.ifEmpty { listOf("none") }.joinToString("+")}," +
@@ -248,6 +252,7 @@ data class ExternalRagTrace(
         out.jsonField("vectorBackend", vectorBackend)
         out.append(',')
         out.jsonField("indexVersion", indexVersion)
+        out.append(','); out.jsonField("retrievalMode", retrievalMode)
         out.append(',')
         if (vectorFailureCode == null) {
             out.append("\"vectorFailureCode\":null")

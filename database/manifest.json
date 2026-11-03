@@ -7,9 +7,9 @@
     "v2": true,
     "vector": true
   },
-  "dataset_fingerprint": "8145513ad935bd449fe50d72ebb95e895097ef835e8d415e7c033e77796ae84e",
+  "dataset_fingerprint": "2c0b90db9383839146dbd703a4bd7ab2e74040760a31ba3549877d5130df5a53",
   "dataset_id": "three_body_2",
-  "dataset_version": "2026-10-27-phase1",
+  "dataset_version": "2026-11-03-bge-stage2",
   "default_character_id": "luo_ji",
   "default_story_cutoff": "evt-125",
   "embedding": {
@@ -26,31 +26,55 @@
   "files": [
     {
       "path": "characters/ding_yi.json",
-      "sha256": "e4f23704ce99c108c67600777006179e9c7a4ef4e7cb464e8858a4e6366a5740"
+      "sha256": "4ddd6400966ea5287bed90cfe8ab2dae5f113fed63b6ec39db340c2ceaf9136e"
     },
     {
       "path": "characters/luo_ji.json",
-      "sha256": "eda86c9fef67a0b446a21dc4c3294952b2ee056785b97cd933ee6a6daf0a8e7e"
+      "sha256": "6550cf1dbaa14685a5dcfa2f0a28c34c916e8345d0f7e268c1cbbc6e45a76b90"
     },
     {
       "path": "characters/shi_qiang.json",
-      "sha256": "464fe3846ed9f813356edc1ce175474e7813911d47c79a095f77570748ea5647"
+      "sha256": "a319da776f1ff1eeccef825afb60897f6196da81d371a75215d29af1f8c27415"
     },
     {
       "path": "characters/zhang_beihai.json",
-      "sha256": "bf6f58ee4aecad1f067f7645446f48ed5c209a111f4d7c5ab7b83534e16f0417"
+      "sha256": "bfd04cea8149bd4e120fe47df04096b8f49c755ffd919cd27aa542f5904f0475"
     },
     {
       "path": "characters/zhuang_yan.json",
-      "sha256": "7e9b8c664a50264256b7758888cc14f6c74dbd4d740b87f8b03af145f49d949c"
+      "sha256": "a7dac3acfc5199ee540ca2fa42708e47a7e748cc9d2d64754550d958f26f762c"
+    },
+    {
+      "path": "embedding/bge-small-zh-v1.5/model.onnx",
+      "sha256": "5755445d377942e0f30ada1e3dac74f93ce6bf08190248ac60f82653e4d081d6"
+    },
+    {
+      "path": "embedding/bge-small-zh-v1.5/model_manifest.json",
+      "sha256": "e98474c2ceb433fe2afa31ccf14b6eddcba2606055de1325d09d052af89c670f"
+    },
+    {
+      "path": "embedding/bge-small-zh-v1.5/tokenizer.json",
+      "sha256": "48cea5d44424912a6fd1ea647bf4fe50b55ab8b1e5879c3275f80e339e8fae26"
+    },
+    {
+      "path": "embedding/bge-small-zh-v1.5/vocab.txt",
+      "sha256": "45bbac6b341c319adc98a532532882e91a9cefc0329aa57bac9ae761c27b291c"
     },
     {
       "path": "knowledge_base_v2/character_knowledge_v2.sqlite3",
-      "sha256": "3e15c91e2c54d802636b1d5ec8f94f3d371ac82b56ff55e165c9f788bc9758b4"
+      "sha256": "45c3ddedf21d72ad0399821f40a900632d845a77c2b9005d30bdf65627bd98c9"
+    },
+    {
+      "path": "knowledge_base_v2/corpus/documents.jsonl",
+      "sha256": "a7f9e90f9e3fe908ee112e58531c3ac8122eb7a116ec5c31e667aba2202bed34"
+    },
+    {
+      "path": "knowledge_base_v2/index/semantic_index_manifest.json",
+      "sha256": "a788ea65fde4973c1e32ed273b25bd7e4866ed9c5f311b20ecd732f51fcbf69f"
     },
     {
       "path": "knowledge_base_v2/manifest.json",
-      "sha256": "821ea53934110df8045fd4155d8ff2aa14d906ffb61e9bbcf4a8ea484a91e221"
+      "sha256": "3cd61dbf1c9aab64cc7182e422ea6ef4c8fc44b9fa73249864d2e7a68f05f099"
     },
     {
       "path": "reviewed/atomic_facts.json",
@@ -58,26 +82,42 @@
     },
     {
       "path": "runtime/android/knowledge_fallback.json",
-      "sha256": "299a42d132771ec4fdf620a2a48894f5ec37d8a34cd96c6b713aa69678947009"
+      "sha256": "be18c437403b95d9006ae768890816b01e0d1f011726d9c98f14aa5c1b491718"
+    },
+    {
+      "path": "runtime/android/reviewed_facts_v22.json",
+      "sha256": "01e28369c7aaaf561ca676f41be59e94c64fa0e22efb26e6f0133d2ebf4c85f2"
     },
     {
       "path": "runtime/android/scene_candidates.json",
-      "sha256": "16774c217d034d9fef9d083a176f5ad4546ff7a84901626c6d3d068e4d239deb"
+      "sha256": "6cc8147f493ab69ef3833a51d3597ef2f2d0835033285ec44c2a56802701c011"
+    },
+    {
+      "path": "runtime/android/vector/bge_index.json",
+      "sha256": "ff0a5bba9ca27db34db7e21c8e20911cc84f0b4c8cf00bdf9aa77f2f55cc48d1"
     },
     {
       "path": "runtime/android/vector/index.json",
-      "sha256": "96518f9c80cce0ced1b245fb4863cef29344df2d7444ef06112c343122807f38"
+      "sha256": "c7263f5e9a1257cc6fb16d2b82fd9329f96b5e49cafd24f651368456eadfcf21"
     },
     {
       "path": "story/story_events.jsonl",
-      "sha256": "d2bf39e0489e4f61c33d4df993ee46c612763796c629da4f59cb8a4caaed1692"
+      "sha256": "58e919a43328ed5ab72383c89d91d82f6bb213236f540ed8437fd9be5896d8a0"
     }
   ],
   "paths": {
+    "bge_index": "runtime/android/vector/bge_index.json",
+    "bge_model": "embedding/bge-small-zh-v1.5/model.onnx",
+    "bge_model_manifest": "embedding/bge-small-zh-v1.5/model_manifest.json",
+    "bge_tokenizer": "embedding/bge-small-zh-v1.5/tokenizer.json",
+    "bge_vocab": "embedding/bge-small-zh-v1.5/vocab.txt",
     "candidate_v2": "runtime/android/scene_candidates.json",
     "characters": "characters",
-    "reviewed_facts": "reviewed/atomic_facts.json",
+    "prior_reviews": "reviewed/atomic_facts.json",
+    "reviewed_facts": "runtime/android/reviewed_facts_v22.json",
     "runtime_v2": "runtime/android/knowledge_fallback.json",
+    "semantic_index": "knowledge_base_v2/index/semantic_index_manifest.json",
+    "source_corpus": "knowledge_base_v2/corpus/documents.jsonl",
     "story_events": "story/story_events.jsonl",
     "v2_database": "knowledge_base_v2/character_knowledge_v2.sqlite3",
     "v2_manifest": "knowledge_base_v2/manifest.json",

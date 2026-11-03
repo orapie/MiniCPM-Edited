@@ -123,7 +123,7 @@
 
 当前已有两层不同职责：
 
-- `database/scripts/generate_character_cards.py three-body-2` 和 `database/scripts/build_knowledge_base_v2.py --three-body-2` 是《三体Ⅱ》固定角色流程；后者 `_segment()` 的默认目标约 2200 字。它们不是面向任意 TXT 的通用导入器，也不能仅通过传入另一篇小说就保证角色卡和认知边正确。
+- `three_body_2_kb_builder/scripts/generate_character_cards.py` 和 `three_body_2_kb_builder/scripts/build_knowledge_base_v2.py --three-body-2` 是《三体Ⅱ》固定角色流程；后者 `_segment()` 的默认目标约 2200 字。它们不是面向任意 TXT 的通用导入器，也不能仅通过传入另一篇小说就保证角色卡和认知边正确。
 - 根目录 `scripts/prepare_database_bundle.py` **读取已存在的结构化数据包**，校验 SQLite、JSONL、原文证据、角色卡和审核数据，生成运行导出、向量索引和 manifest。它不是原始 TXT 导入器，当前还要求索引记录与源 `claim.statement`、证据范围完全一致。
 
 面向任意 TXT 的正式实现应新增通用预处理入口，并与阶段 1 的索引协议升级一起完成：

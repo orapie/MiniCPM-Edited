@@ -9,10 +9,11 @@ from pathlib import Path
 from typing import Any
 
 
-ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_DATABASE = ROOT / "knowledge_base_v2" / "character_knowledge_v2.sqlite3"
-DEFAULT_MANIFEST = ROOT / "knowledge_base_v2" / "manifest.json"
-DEFAULT_INDEX_MANIFEST = ROOT / "knowledge_base_v2" / "index" / "semantic_index_manifest.json"
+BUILDER_ROOT = Path(__file__).resolve().parents[1]
+DATA_ROOT = BUILDER_ROOT.parent / "database"
+DEFAULT_DATABASE = DATA_ROOT / "knowledge_base_v2" / "character_knowledge_v2.sqlite3"
+DEFAULT_MANIFEST = DATA_ROOT / "knowledge_base_v2" / "manifest.json"
+DEFAULT_INDEX_MANIFEST = DATA_ROOT / "knowledge_base_v2" / "index" / "semantic_index_manifest.json"
 DEFAULT_MODEL = "BAAI/bge-small-zh-v1.5"
 DEFAULT_MODEL_REVISION = "7999e1d3359715c523056ef9478215996d62a620"
 QUERY_INSTRUCTION = "为这个句子生成表示以用于检索相关文章："

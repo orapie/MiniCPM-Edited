@@ -1,5 +1,5 @@
 {
-  "database": "E:\\DuanCe\\MiniCPM-Edited\\three_body_2_character_kb\\knowledge_base_v2\\character_knowledge_v2.sqlite3",
+  "database": "E:\\DuanCe\\MiniCPM-Edited\\database\\knowledge_base_v2\\character_knowledge_v2.sqlite3",
   "knowledge_policy": "approved",
   "runs": {
     "lexical": {

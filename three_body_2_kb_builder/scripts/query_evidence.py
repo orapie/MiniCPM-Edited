@@ -9,8 +9,9 @@ from pathlib import Path
 from typing import Any
 
 
-ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_DATABASE = ROOT / "knowledge_base_v2" / "character_knowledge_v2.sqlite3"
+BUILDER_ROOT = Path(__file__).resolve().parents[1]
+DATA_ROOT = BUILDER_ROOT.parent / "database"
+DEFAULT_DATABASE = DATA_ROOT / "knowledge_base_v2" / "character_knowledge_v2.sqlite3"
 RRF_K = 60
 
 

@@ -10,10 +10,12 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_SOURCE = ROOT.parent / "raw_data" / "three_body_2.txt"
-DEFAULT_OUTPUT = ROOT / "knowledge_base_v2"
-DEFAULT_COGNITION_OVERRIDES = ROOT / "curation" / "cognition_overrides.json"
+BUILDER_ROOT = Path(__file__).resolve().parents[1]
+REPOSITORY_ROOT = BUILDER_ROOT.parent
+DATA_ROOT = REPOSITORY_ROOT / "database"
+DEFAULT_SOURCE = REPOSITORY_ROOT / "raw_data" / "three_body_2.txt"
+DEFAULT_OUTPUT = DATA_ROOT / "knowledge_base_v2"
+DEFAULT_COGNITION_OVERRIDES = BUILDER_ROOT / "curation" / "cognition_overrides.json"
 SCHEMA_VERSION = "2.2.0"
 
 
@@ -633,7 +635,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--three-body-2", action="store_true", help="兼容旧命令；当前脚本始终构建《三体Ⅱ》")
     parser.add_argument("--source", action="append", dest="sources")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
-    parser.add_argument("--cards", type=Path, default=ROOT / "characters")
+    parser.add_argument("--cards", type=Path, default=DATA_ROOT / "characters")
     parser.add_argument("--scene-target-chars", type=int, default=2200)
     parser.add_argument("--cognition-overrides", type=Path, default=DEFAULT_COGNITION_OVERRIDES)
     return parser.parse_args()

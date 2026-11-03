@@ -1,0 +1,359 @@
+{
+  "database": "E:\\DuanCe\\MiniCPM-Edited\\three_body_2_character_kb\\knowledge_base_v2\\character_knowledge_v2.sqlite3",
+  "knowledge_policy": "approved",
+  "runs": {
+    "lexical": {
+      "cases": 11,
+      "passed": 6,
+      "recall_at_3": 0.5455,
+      "recall_by_group": {
+        "baseline": 0.5714,
+        "paraphrase": 0.5
+      },
+      "details": [
+        {
+          "group": "baseline",
+          "query": "你以前做什么工作？",
+          "npc": "luo_ji",
+          "passed": false,
+          "missing": [
+            "天文学",
+            "社会学"
+          ],
+          "top_evidence": "evd-06ac0a8eb32dccfa",
+          "top_title": "罗辑的职业与学术背景"
+        },
+        {
+          "group": "baseline",
+          "query": "你教什么课？",
+          "npc": "luo_ji",
+          "passed": false,
+          "missing": [
+            "社会学"
+          ],
+          "top_evidence": "evd-06ac0a8eb32dccfa",
+          "top_title": "罗辑的职业与学术背景"
+        },
+        {
+          "group": "baseline",
+          "query": "你是天文学家吗？",
+          "npc": "luo_ji",
+          "passed": false,
+          "missing": [
+            "天文学"
+          ],
+          "top_evidence": "evd-06ac0a8eb32dccfa",
+          "top_title": "罗辑的职业与学术背景"
+        },
+        {
+          "group": "baseline",
+          "query": "为什么别人叫你大史？",
+          "npc": "shi_qiang",
+          "passed": true,
+          "missing": [],
+          "top_evidence": "evd-04a21a17a8aab1ec",
+          "top_title": "罗辑与史强的行动与事件"
+        },
+        {
+          "group": "baseline",
+          "query": "你的真实计划是什么？",
+          "npc": "zhang_beihai",
+          "passed": true,
+          "missing": [],
+          "top_evidence": "evd-0d8d310f7559bfe0",
+          "top_title": "章北海与罗辑劫持自然选择号逃亡并保存人类文明的计划"
+        },
+        {
+          "group": "baseline",
+          "query": "水滴的材料有什么特点？",
+          "npc": "ding_yi",
+          "passed": true,
+          "missing": [],
+          "top_evidence": "evd-6db9f52eba593d78",
+          "top_title": "丁仪对水滴强相互作用力材料及强度的判断"
+        },
+        {
+          "group": "baseline",
+          "query": "你学的是什么专业？",
+          "npc": "zhuang_yan",
+          "passed": true,
+          "missing": [],
+          "top_evidence": "evd-0914ff5b7de50a42",
+          "top_title": "罗辑与庄颜的职业与学术背景"
+        },
+        {
+          "group": "paraphrase",
+          "query": "大家平时咋称呼你？",
+          "npc": "shi_qiang",
+          "passed": true,
+          "missing": [],
+          "top_evidence": "evd-031bc4b42360c361",
+          "top_title": "史强与罗辑的身份与职位"
+        },
+        {
+          "group": "paraphrase",
+          "query": "你带着战舰跑路究竟想保住什么？",
+          "npc": "zhang_beihai",
+          "passed": true,
+          "missing": [],
+          "top_evidence": "evd-6fa12c81147d08e9",
+          "top_title": "章北海与丁仪的科学理论与技术判断"
+        },
+        {
+          "group": "paraphrase",
+          "query": "那滴眼泪似的东西凭什么那么硬？",
+          "npc": "ding_yi",
+          "passed": false,
+          "missing": [
+            "水滴",
+            "强度"
+          ],
+          "top_evidence": "evd-23e85878917e44b8",
+          "top_title": "丁仪的科学理论与技术判断"
+        },
+        {
+          "group": "paraphrase",
+          "query": "你念的是哪门艺术？",
+          "npc": "zhuang_yan",
+          "passed": false,
+          "missing": [
+            "国画"
+          ],
+          "top_evidence": "evd-2f144d175027b5c6",
+          "top_title": "罗辑与庄颜的家庭与人物关系"
+        }
+      ]
+    },
+    "semantic": {
+      "cases": 11,
+      "passed": 8,
+      "recall_at_3": 0.7273,
+      "recall_by_group": {
+        "baseline": 0.7143,
+        "paraphrase": 0.75
+      },
+      "details": [
+        {
+          "group": "baseline",
+          "query": "你以前做什么工作？",
+          "npc": "luo_ji",
+          "passed": false,
+          "missing": [
+            "天文学",
+            "社会学"
+          ],
+          "top_evidence": "evd-83d177250b586d6a",
+          "top_title": "罗辑的对话与经历"
+        },
+        {
+          "group": "baseline",
+          "query": "你教什么课？",
+          "npc": "luo_ji",
+          "passed": true,
+          "missing": [],
+          "top_evidence": "evd-166f45c0b64aaaca",
+          "top_title": "罗辑的科学理论与技术判断"
+        },
+        {
+          "group": "baseline",
+          "query": "你是天文学家吗？",
+          "npc": "luo_ji",
+          "passed": true,
+          "missing": [],
+          "top_evidence": "evd-2c6e017aab2334eb",
+          "top_title": "罗辑的科学理论与技术判断"
+        },
+        {
+          "group": "baseline",
+          "query": "为什么别人叫你大史？",
+          "npc": "shi_qiang",
+          "passed": true,
+          "missing": [],
+          "top_evidence": "evd-ec4f21e07bced68b",
+          "top_title": "罗辑与史强的身份与职位"
+        },
+        {
+          "group": "baseline",
+          "query": "你的真实计划是什么？",
+          "npc": "zhang_beihai",
+          "passed": false,
+          "missing": [
+            "自然选择"
+          ],
+          "top_evidence": "evd-2adce5b53fd175a5",
+          "top_title": "章北海的计划、目标与决策"
+        },
+        {
+          "group": "baseline",
+          "query": "水滴的材料有什么特点？",
+          "npc": "ding_yi",
+          "passed": true,
+          "missing": [],
+          "top_evidence": "evd-6db9f52eba593d78",
+          "top_title": "丁仪对水滴强相互作用力材料及强度的判断"
+        },
+        {
+          "group": "baseline",
+          "query": "你学的是什么专业？",
+          "npc": "zhuang_yan",
+          "passed": true,
+          "missing": [],
+          "top_evidence": "evd-0914ff5b7de50a42",
+          "top_title": "罗辑与庄颜的职业与学术背景"
+        },
+        {
+          "group": "paraphrase",
+          "query": "大家平时咋称呼你？",
+          "npc": "shi_qiang",
+          "passed": true,
+          "missing": [],
+          "top_evidence": "evd-c520aed4ad2aad23",
+          "top_title": "罗辑与史强的家庭与人物关系"
+        },
+        {
+          "group": "paraphrase",
+          "query": "你带着战舰跑路究竟想保住什么？",
+          "npc": "zhang_beihai",
+          "passed": true,
+          "missing": [],
+          "top_evidence": "evd-c97c9a9aa367f423",
+          "top_title": "章北海与罗辑的计划、目标与决策"
+        },
+        {
+          "group": "paraphrase",
+          "query": "那滴眼泪似的东西凭什么那么硬？",
+          "npc": "ding_yi",
+          "passed": true,
+          "missing": [],
+          "top_evidence": "evd-c801cedd830612d0",
+          "top_title": "丁仪的科学理论与技术判断"
+        },
+        {
+          "group": "paraphrase",
+          "query": "你念的是哪门艺术？",
+          "npc": "zhuang_yan",
+          "passed": false,
+          "missing": [
+            "国画"
+          ],
+          "top_evidence": "evd-8b90078ae39c07b4",
+          "top_title": "罗辑与庄颜的计划、目标与决策"
+        }
+      ]
+    },
+    "hybrid": {
+      "cases": 11,
+      "passed": 9,
+      "recall_at_3": 0.8182,
+      "recall_by_group": {
+        "baseline": 1.0,
+        "paraphrase": 0.5
+      },
+      "details": [
+        {
+          "group": "baseline",
+          "query": "你以前做什么工作？",
+          "npc": "luo_ji",
+          "passed": true,
+          "missing": [],
+          "top_evidence": "evd-06ac0a8eb32dccfa",
+          "top_title": "罗辑的职业与学术背景"
+        },
+        {
+          "group": "baseline",
+          "query": "你教什么课？",
+          "npc": "luo_ji",
+          "passed": true,
+          "missing": [],
+          "top_evidence": "evd-06ac0a8eb32dccfa",
+          "top_title": "罗辑的职业与学术背景"
+        },
+        {
+          "group": "baseline",
+          "query": "你是天文学家吗？",
+          "npc": "luo_ji",
+          "passed": true,
+          "missing": [],
+          "top_evidence": "evd-2b9d28bcfdd0d51f",
+          "top_title": "罗辑的职业与学术背景"
+        },
+        {
+          "group": "baseline",
+          "query": "为什么别人叫你大史？",
+          "npc": "shi_qiang",
+          "passed": true,
+          "missing": [],
+          "top_evidence": "evd-43f1908e34103364",
+          "top_title": "罗辑与史强的对话与经历"
+        },
+        {
+          "group": "baseline",
+          "query": "你的真实计划是什么？",
+          "npc": "zhang_beihai",
+          "passed": true,
+          "missing": [],
+          "top_evidence": "evd-2adce5b53fd175a5",
+          "top_title": "章北海的计划、目标与决策"
+        },
+        {
+          "group": "baseline",
+          "query": "水滴的材料有什么特点？",
+          "npc": "ding_yi",
+          "passed": true,
+          "missing": [],
+          "top_evidence": "evd-6db9f52eba593d78",
+          "top_title": "丁仪对水滴强相互作用力材料及强度的判断"
+        },
+        {
+          "group": "baseline",
+          "query": "你学的是什么专业？",
+          "npc": "zhuang_yan",
+          "passed": true,
+          "missing": [],
+          "top_evidence": "evd-0914ff5b7de50a42",
+          "top_title": "罗辑与庄颜的职业与学术背景"
+        },
+        {
+          "group": "paraphrase",
+          "query": "大家平时咋称呼你？",
+          "npc": "shi_qiang",
+          "passed": true,
+          "missing": [],
+          "top_evidence": "evd-031bc4b42360c361",
+          "top_title": "史强与罗辑的身份与职位"
+        },
+        {
+          "group": "paraphrase",
+          "query": "你带着战舰跑路究竟想保住什么？",
+          "npc": "zhang_beihai",
+          "passed": true,
+          "missing": [],
+          "top_evidence": "evd-c97c9a9aa367f423",
+          "top_title": "章北海与罗辑的计划、目标与决策"
+        },
+        {
+          "group": "paraphrase",
+          "query": "那滴眼泪似的东西凭什么那么硬？",
+          "npc": "ding_yi",
+          "passed": false,
+          "missing": [
+            "强度"
+          ],
+          "top_evidence": "evd-c801cedd830612d0",
+          "top_title": "丁仪的科学理论与技术判断"
+        },
+        {
+          "group": "paraphrase",
+          "query": "你念的是哪门艺术？",
+          "npc": "zhuang_yan",
+          "passed": false,
+          "missing": [
+            "国画"
+          ],
+          "top_evidence": "evd-2f144d175027b5c6",
+          "top_title": "罗辑与庄颜的家庭与人物关系"
+        }
+      ]
+    }
+  }
+}

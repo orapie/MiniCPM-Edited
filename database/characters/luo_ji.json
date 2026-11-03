@@ -81,7 +81,6 @@
     "world_fact_refs": [
       "evt-001",
       "evt-002",
-      "evt-003",
       "evt-007",
       "evt-008",
       "evt-009",
@@ -110,7 +109,6 @@
       "evt-035",
       "evt-036",
       "evt-037",
-      "evt-038",
       "evt-039",
       "evt-040",
       "evt-041",
@@ -118,23 +116,17 @@
       "evt-043",
       "evt-044",
       "evt-045",
-      "evt-046",
-      "evt-047",
       "evt-048",
       "evt-049",
       "evt-050",
       "evt-051",
       "evt-052",
       "evt-053",
-      "evt-055",
       "evt-056",
       "evt-057",
       "evt-058",
       "evt-059",
       "evt-060",
-      "evt-061",
-      "evt-066",
-      "evt-068",
       "evt-069",
       "evt-070",
       "evt-071",
@@ -150,13 +142,10 @@
       "evt-081",
       "evt-082",
       "evt-083",
-      "evt-085",
       "evt-086",
       "evt-087",
-      "evt-088",
       "evt-093",
       "evt-094",
-      "evt-095",
       "evt-104",
       "evt-110",
       "evt-111",
@@ -204,7 +193,7 @@
         "luo_ji"
       ],
       "confidence": 0.9,
-      "evidence_ref": "three_body_2.txt:L1-L31"
+      "evidence_ref": "three_body_2.txt:L15-L23"
     },
     {
       "fact_ref": "evt-017",
@@ -215,40 +204,40 @@
         "luo_ji"
       ],
       "confidence": 0.9,
-      "evidence_ref": "three_body_2.txt:L693-L723"
+      "evidence_ref": "three_body_2.txt:L693-L702"
     },
     {
-      "fact_ref": "evt-034",
-      "valid_from": "evt-034",
+      "fact_ref": "evt-030",
+      "valid_from": "evt-030",
       "valid_to": null,
       "source": "direct",
       "visibility": [
         "luo_ji"
       ],
       "confidence": 0.9,
-      "evidence_ref": "three_body_2.txt:L1241-L1280"
+      "evidence_ref": "three_body_2.txt:L1102-L1106"
     },
     {
-      "fact_ref": "evt-047",
-      "valid_from": "evt-047",
+      "fact_ref": "evt-045",
+      "valid_from": "evt-045",
       "valid_to": null,
       "source": "direct",
       "visibility": [
         "luo_ji"
       ],
       "confidence": 0.9,
-      "evidence_ref": "three_body_2.txt:L1809-L1837"
+      "evidence_ref": "three_body_2.txt:L1728-L1739"
     },
     {
-      "fact_ref": "evt-066",
-      "valid_from": "evt-066",
+      "fact_ref": "evt-060",
+      "valid_from": "evt-060",
       "valid_to": null,
       "source": "direct",
       "visibility": [
         "luo_ji"
       ],
       "confidence": 0.9,
-      "evidence_ref": "three_body_2.txt:L2439-L2465"
+      "evidence_ref": "three_body_2.txt:L2262-L2271"
     },
     {
       "fact_ref": "evt-080",
@@ -259,18 +248,18 @@
         "luo_ji"
       ],
       "confidence": 0.9,
-      "evidence_ref": "three_body_2.txt:L3218-L3248"
+      "evidence_ref": "three_body_2.txt:L3218-L3223"
     },
     {
-      "fact_ref": "evt-112",
-      "valid_from": "evt-112",
+      "fact_ref": "evt-113",
+      "valid_from": "evt-113",
       "valid_to": null,
       "source": "direct",
       "visibility": [
         "luo_ji"
       ],
       "confidence": 0.9,
-      "evidence_ref": "three_body_2.txt:L4335-L4361"
+      "evidence_ref": "three_body_2.txt:L4362-L4368"
     },
     {
       "fact_ref": "evt-125",

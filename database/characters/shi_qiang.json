@@ -72,22 +72,17 @@
       "evt-011",
       "evt-012",
       "evt-013",
-      "evt-018",
       "evt-019",
       "evt-020",
       "evt-023",
       "evt-024",
       "evt-025",
       "evt-026",
-      "evt-030",
       "evt-034",
-      "evt-035",
       "evt-036",
       "evt-037",
       "evt-038",
-      "evt-039",
       "evt-041",
-      "evt-057",
       "evt-076",
       "evt-077",
       "evt-078",
@@ -96,11 +91,9 @@
       "evt-081",
       "evt-082",
       "evt-083",
-      "evt-085",
       "evt-086",
       "evt-087",
       "evt-094",
-      "evt-095",
       "evt-104",
       "evt-110",
       "evt-111",
@@ -109,8 +102,7 @@
       "evt-114",
       "evt-115",
       "evt-116",
-      "evt-117",
-      "evt-118"
+      "evt-117"
     ],
     "unknown_topics": [
       "未亲历场景中其他角色的内心活动",
@@ -141,7 +133,7 @@
         "shi_qiang"
       ],
       "confidence": 0.9,
-      "evidence_ref": "three_body_2.txt:L444-L477"
+      "evidence_ref": "three_body_2.txt:L444-L449"
     },
     {
       "fact_ref": "evt-019",
@@ -152,29 +144,29 @@
         "shi_qiang"
       ],
       "confidence": 0.9,
-      "evidence_ref": "three_body_2.txt:L765-L801"
+      "evidence_ref": "three_body_2.txt:L765-L777"
     },
     {
-      "fact_ref": "evt-030",
-      "valid_from": "evt-030",
+      "fact_ref": "evt-026",
+      "valid_from": "evt-026",
       "valid_to": null,
       "source": "direct",
       "visibility": [
         "shi_qiang"
       ],
       "confidence": 0.9,
-      "evidence_ref": "three_body_2.txt:L1102-L1124"
+      "evidence_ref": "three_body_2.txt:L970-L974"
     },
     {
-      "fact_ref": "evt-039",
-      "valid_from": "evt-039",
+      "fact_ref": "evt-041",
+      "valid_from": "evt-041",
       "valid_to": null,
       "source": "direct",
       "visibility": [
         "shi_qiang"
       ],
       "confidence": 0.9,
-      "evidence_ref": "three_body_2.txt:L1449-L1496"
+      "evidence_ref": "three_body_2.txt:L1548-L1556"
     },
     {
       "fact_ref": "evt-080",
@@ -185,7 +177,7 @@
         "shi_qiang"
       ],
       "confidence": 0.9,
-      "evidence_ref": "three_body_2.txt:L3218-L3248"
+      "evidence_ref": "three_body_2.txt:L3218-L3223"
     },
     {
       "fact_ref": "evt-087",
@@ -196,7 +188,7 @@
         "shi_qiang"
       ],
       "confidence": 0.9,
-      "evidence_ref": "three_body_2.txt:L3442-L3472"
+      "evidence_ref": "three_body_2.txt:L3442-L3450"
     },
     {
       "fact_ref": "evt-112",
@@ -207,18 +199,18 @@
         "shi_qiang"
       ],
       "confidence": 0.9,
-      "evidence_ref": "three_body_2.txt:L4335-L4361"
+      "evidence_ref": "three_body_2.txt:L4335-L4338"
     },
     {
-      "fact_ref": "evt-118",
-      "valid_from": "evt-118",
+      "fact_ref": "evt-117",
+      "valid_from": "evt-117",
       "valid_to": null,
       "source": "direct",
       "visibility": [
         "shi_qiang"
       ],
       "confidence": 0.9,
-      "evidence_ref": "three_body_2.txt:L4536-L4570"
+      "evidence_ref": "three_body_2.txt:L4506-L4515"
     }
   ],
   "evidence_refs": {

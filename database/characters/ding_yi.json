@@ -83,16 +83,11 @@
       "evt-054",
       "evt-062",
       "evt-063",
-      "evt-070",
-      "evt-095",
       "evt-096",
       "evt-097",
       "evt-099",
       "evt-100",
-      "evt-101",
-      "evt-102",
-      "evt-104",
-      "evt-113"
+      "evt-101"
     ],
     "unknown_topics": [
       "未亲历场景中其他角色的内心活动",
@@ -122,19 +117,30 @@
       "visibility": [
         "ding_yi"
       ],
-      "confidence": 0.9,
-      "evidence_ref": "three_body_2.txt:L173-L195"
+      "confidence": 0.78,
+      "evidence_ref": "three_body_2.txt:L186-L192"
     },
     {
-      "fact_ref": "evt-033",
-      "valid_from": "evt-033",
+      "fact_ref": "evt-032",
+      "valid_from": "evt-032",
       "valid_to": null,
       "source": "direct",
       "visibility": [
         "ding_yi"
       ],
       "confidence": 0.9,
-      "evidence_ref": "three_body_2.txt:L1207-L1240"
+      "evidence_ref": "three_body_2.txt:L1173-L1179"
+    },
+    {
+      "fact_ref": "evt-054",
+      "valid_from": "evt-054",
+      "valid_to": null,
+      "source": "direct",
+      "visibility": [
+        "ding_yi"
+      ],
+      "confidence": 0.9,
+      "evidence_ref": "three_body_2.txt:L2039-L2044"
     },
     {
       "fact_ref": "evt-062",
@@ -145,18 +151,18 @@
         "ding_yi"
       ],
       "confidence": 0.9,
-      "evidence_ref": "three_body_2.txt:L2329-L2364"
+      "evidence_ref": "three_body_2.txt:L2352-L2359"
     },
     {
-      "fact_ref": "evt-070",
-      "valid_from": "evt-070",
+      "fact_ref": "evt-096",
+      "valid_from": "evt-096",
       "valid_to": null,
       "source": "direct",
       "visibility": [
         "ding_yi"
       ],
       "confidence": 0.9,
-      "evidence_ref": "three_body_2.txt:L2867-L2887"
+      "evidence_ref": "three_body_2.txt:L3748-L3750"
     },
     {
       "fact_ref": "evt-097",
@@ -167,7 +173,7 @@
         "ding_yi"
       ],
       "confidence": 0.9,
-      "evidence_ref": "three_body_2.txt:L3772-L3804"
+      "evidence_ref": "three_body_2.txt:L3772-L3778"
     },
     {
       "fact_ref": "evt-100",
@@ -178,29 +184,18 @@
         "ding_yi"
       ],
       "confidence": 0.9,
-      "evidence_ref": "three_body_2.txt:L3862-L3896"
+      "evidence_ref": "three_body_2.txt:L3862-L3865"
     },
     {
-      "fact_ref": "evt-102",
-      "valid_from": "evt-102",
+      "fact_ref": "evt-101",
+      "valid_from": "evt-101",
       "valid_to": null,
       "source": "direct",
       "visibility": [
         "ding_yi"
       ],
       "confidence": 0.9,
-      "evidence_ref": "three_body_2.txt:L3988-L3999"
-    },
-    {
-      "fact_ref": "evt-113",
-      "valid_from": "evt-113",
-      "valid_to": null,
-      "source": "direct",
-      "visibility": [
-        "ding_yi"
-      ],
-      "confidence": 0.9,
-      "evidence_ref": "three_body_2.txt:L4362-L4390"
+      "evidence_ref": "three_body_2.txt:L3897-L3903"
     }
   ],
   "evidence_refs": {

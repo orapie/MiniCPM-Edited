@@ -1,0 +1,11 @@
+[
+  {
+    "character_id": "zhuang_yan",
+    "evidence_id": "evd-0914ff5b7de50a42",
+    "acquisition_method": "self_statement",
+    "belief_status": "believed",
+    "confidence": 0.98,
+    "source_ref": "three_body_2.txt:L1521-L1532",
+    "review_reason": "庄颜以第一人称说自己喜欢国画并继续讲解国画；连续对话省略了说话人标签"
+  }
+]

@@ -67,7 +67,6 @@
   ],
   "knowledge_scope": {
     "world_fact_refs": [
-      "evt-039",
       "evt-040",
       "evt-041",
       "evt-042",
@@ -76,26 +75,9 @@
       "evt-045",
       "evt-048",
       "evt-050",
-      "evt-051",
-      "evt-052",
-      "evt-053",
-      "evt-056",
-      "evt-060",
       "evt-072",
-      "evt-073",
-      "evt-074",
-      "evt-087",
-      "evt-088",
-      "evt-093",
-      "evt-095",
       "evt-113",
-      "evt-114",
-      "evt-118",
-      "evt-119",
-      "evt-121",
-      "evt-122",
-      "evt-124",
-      "evt-125"
+      "evt-124"
     ],
     "unknown_topics": [
       "未亲历场景中其他角色的内心活动",
@@ -118,15 +100,26 @@
   },
   "episodic_memory": [
     {
-      "fact_ref": "evt-039",
-      "valid_from": "evt-039",
+      "fact_ref": "evt-040",
+      "valid_from": "evt-040",
       "valid_to": null,
       "source": "direct",
       "visibility": [
         "zhuang_yan"
       ],
       "confidence": 0.9,
-      "evidence_ref": "three_body_2.txt:L1449-L1496"
+      "evidence_ref": "three_body_2.txt:L1497-L1509"
+    },
+    {
+      "fact_ref": "evt-041",
+      "valid_from": "evt-041",
+      "valid_to": null,
+      "source": "direct",
+      "visibility": [
+        "zhuang_yan"
+      ],
+      "confidence": 0.9,
+      "evidence_ref": "three_body_2.txt:L1548-L1556"
     },
     {
       "fact_ref": "evt-043",
@@ -137,7 +130,29 @@
         "zhuang_yan"
       ],
       "confidence": 0.9,
-      "evidence_ref": "three_body_2.txt:L1636-L1680"
+      "evidence_ref": "three_body_2.txt:L1666-L1677"
+    },
+    {
+      "fact_ref": "evt-044",
+      "valid_from": "evt-044",
+      "valid_to": null,
+      "source": "direct",
+      "visibility": [
+        "zhuang_yan"
+      ],
+      "confidence": 0.9,
+      "evidence_ref": "three_body_2.txt:L1681-L1695"
+    },
+    {
+      "fact_ref": "evt-048",
+      "valid_from": "evt-048",
+      "valid_to": null,
+      "source": "direct",
+      "visibility": [
+        "zhuang_yan"
+      ],
+      "confidence": 0.9,
+      "evidence_ref": "three_body_2.txt:L1838-L1845"
     },
     {
       "fact_ref": "evt-050",
@@ -148,62 +163,29 @@
         "zhuang_yan"
       ],
       "confidence": 0.9,
-      "evidence_ref": "three_body_2.txt:L1905-L1937"
+      "evidence_ref": "three_body_2.txt:L1905-L1912"
     },
     {
-      "fact_ref": "evt-056",
-      "valid_from": "evt-056",
+      "fact_ref": "evt-113",
+      "valid_from": "evt-113",
       "valid_to": null,
       "source": "direct",
       "visibility": [
         "zhuang_yan"
       ],
       "confidence": 0.9,
-      "evidence_ref": "three_body_2.txt:L2104-L2121"
+      "evidence_ref": "three_body_2.txt:L4362-L4368"
     },
     {
-      "fact_ref": "evt-074",
-      "valid_from": "evt-074",
+      "fact_ref": "evt-124",
+      "valid_from": "evt-124",
       "valid_to": null,
       "source": "direct",
       "visibility": [
         "zhuang_yan"
       ],
       "confidence": 0.9,
-      "evidence_ref": "three_body_2.txt:L3010-L3037"
-    },
-    {
-      "fact_ref": "evt-095",
-      "valid_from": "evt-095",
-      "valid_to": null,
-      "source": "direct",
-      "visibility": [
-        "zhuang_yan"
-      ],
-      "confidence": 0.9,
-      "evidence_ref": "three_body_2.txt:L3718-L3747"
-    },
-    {
-      "fact_ref": "evt-119",
-      "valid_from": "evt-119",
-      "valid_to": null,
-      "source": "direct",
-      "visibility": [
-        "zhuang_yan"
-      ],
-      "confidence": 0.9,
-      "evidence_ref": "three_body_2.txt:L4571-L4619"
-    },
-    {
-      "fact_ref": "evt-125",
-      "valid_from": "evt-125",
-      "valid_to": null,
-      "source": "direct",
-      "visibility": [
-        "zhuang_yan"
-      ],
-      "confidence": 0.9,
-      "evidence_ref": "three_body_2.txt:L4751-L4763"
+      "evidence_ref": "three_body_2.txt:L4717-L4727"
     }
   ],
   "evidence_refs": {

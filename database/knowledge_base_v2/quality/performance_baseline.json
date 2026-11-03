@@ -1,0 +1,21 @@
+{
+  "environment": {
+    "platform": "Windows",
+    "cpu": "12th Gen Intel(R) Core(TM) i5-12500H",
+    "python": "3.12.10",
+    "device": "cpu",
+    "note": "这是桌面 Python 原型测量，不代表 Android 端侧延迟或内存"
+  },
+  "query": "你教什么课？",
+  "lexical_new_process_ms": 696.0,
+  "hybrid_new_process_ms": 22366.2,
+  "hybrid_first_query_with_model_load_ms": 21623.4,
+  "hybrid_warm_query_ms": 880.9,
+  "mobile_metrics_pending": [
+    "query_embedding_p50_ms",
+    "query_embedding_p95_ms",
+    "peak_rss_mb",
+    "model_download_mb",
+    "battery_cost"
+  ]
+}

@@ -1,6 +1,6 @@
 # 《三体Ⅱ：黑暗森林》角色卡
 
-- 原文：`E:\DuanCe\novel_test\three_body_2.txt`
+- 原文：`E:\DuanCe\MiniCPM-Edited\raw_data\three_body_2.txt`
 - 角色数：5
 - 证据引用使用原始 TXT 的稳定行号。
 

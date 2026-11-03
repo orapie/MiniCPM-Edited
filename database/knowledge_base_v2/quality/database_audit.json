@@ -1,0 +1,1246 @@
+{
+  "database": "E:\\DuanCe\\MiniCPM-Edited\\database\\knowledge_base_v2\\character_knowledge_v2.sqlite3",
+  "file_bytes": 17969152,
+  "storage_layers": {
+    "source_and_scenes": [
+      "documents",
+      "scenes"
+    ],
+    "facts_and_evidence": [
+      "events",
+      "claims",
+      "evidence",
+      "evidence_units"
+    ],
+    "retrieval": [
+      "retrieval_expressions",
+      "retrieval_fts",
+      "embedding_indexes",
+      "evidence_embeddings"
+    ],
+    "cognition": [
+      "knowledge_edges",
+      "snapshots"
+    ],
+    "directed_relations": [
+      "relations"
+    ],
+    "time_bounded_state": [
+      "character_states"
+    ]
+  },
+  "counts": {
+    "aliases": 13,
+    "character_states": 25,
+    "claims": 536,
+    "claims_fts": 536,
+    "cutoffs": 125,
+    "documents": 1,
+    "embedding_indexes": 1,
+    "entities": 9,
+    "entity_mentions": 2424,
+    "events": 125,
+    "evidence": 536,
+    "evidence_embeddings": 536,
+    "evidence_units": 536,
+    "knowledge_edges": 768,
+    "metadata": 5,
+    "relations": 8,
+    "retrieval_expressions": 6179,
+    "retrieval_fts": 6179,
+    "scenes": 146,
+    "snapshots": 5,
+    "utterances": 0
+  },
+  "schemas": {
+    "aliases": [
+      {
+        "name": "alias_id",
+        "type": "TEXT",
+        "not_null": false,
+        "primary_key": true
+      },
+      {
+        "name": "entity_id",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "alias",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "alias_type",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "confidence",
+        "type": "REAL",
+        "not_null": true,
+        "primary_key": false
+      }
+    ],
+    "character_states": [
+      {
+        "name": "state_id",
+        "type": "TEXT",
+        "not_null": false,
+        "primary_key": true
+      },
+      {
+        "name": "character_id",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "state_type",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "value_json",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "valid_from_event",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "valid_from_sequence",
+        "type": "INTEGER",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "valid_to_event",
+        "type": "TEXT",
+        "not_null": false,
+        "primary_key": false
+      },
+      {
+        "name": "valid_to_sequence",
+        "type": "INTEGER",
+        "not_null": false,
+        "primary_key": false
+      },
+      {
+        "name": "source_tier",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "verification_status",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      }
+    ],
+    "claims": [
+      {
+        "name": "claim_id",
+        "type": "TEXT",
+        "not_null": false,
+        "primary_key": true
+      },
+      {
+        "name": "claim_scope",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "subject_ids_json",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "predicate",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "object_text",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "statement",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "event_id",
+        "type": "TEXT",
+        "not_null": false,
+        "primary_key": false
+      },
+      {
+        "name": "modality",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "polarity",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "valid_from_sequence",
+        "type": "INTEGER",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "valid_to_sequence",
+        "type": "INTEGER",
+        "not_null": false,
+        "primary_key": false
+      },
+      {
+        "name": "importance",
+        "type": "REAL",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "confidence",
+        "type": "REAL",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "keywords_json",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "source_tier",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "canon_status",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "verification_status",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      }
+    ],
+    "claims_fts": [
+      {
+        "name": "claim_id",
+        "type": "",
+        "not_null": false,
+        "primary_key": false
+      },
+      {
+        "name": "statement",
+        "type": "",
+        "not_null": false,
+        "primary_key": false
+      },
+      {
+        "name": "keywords",
+        "type": "",
+        "not_null": false,
+        "primary_key": false
+      }
+    ],
+    "cutoffs": [
+      {
+        "name": "event_id",
+        "type": "TEXT",
+        "not_null": false,
+        "primary_key": true
+      },
+      {
+        "name": "story_order",
+        "type": "INTEGER",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "sequence",
+        "type": "INTEGER",
+        "not_null": true,
+        "primary_key": false
+      }
+    ],
+    "documents": [
+      {
+        "name": "document_id",
+        "type": "TEXT",
+        "not_null": false,
+        "primary_key": true
+      },
+      {
+        "name": "source_id",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "origin",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "source_tier",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "sha256",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "line_count",
+        "type": "INTEGER",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "char_count",
+        "type": "INTEGER",
+        "not_null": true,
+        "primary_key": false
+      }
+    ],
+    "embedding_indexes": [
+      {
+        "name": "index_id",
+        "type": "TEXT",
+        "not_null": false,
+        "primary_key": true
+      },
+      {
+        "name": "model_name",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "model_revision",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "dimension",
+        "type": "INTEGER",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "dtype",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "pooling",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "normalized",
+        "type": "INTEGER",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "query_instruction",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "passage_instruction",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "content_template",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "content_sha256",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "document_count",
+        "type": "INTEGER",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "created_at",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "status",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      }
+    ],
+    "entities": [
+      {
+        "name": "entity_id",
+        "type": "TEXT",
+        "not_null": false,
+        "primary_key": true
+      },
+      {
+        "name": "entity_type",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "canonical_name",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "identity_kind",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "resolution_status",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "description",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      }
+    ],
+    "entity_mentions": [
+      {
+        "name": "mention_id",
+        "type": "TEXT",
+        "not_null": false,
+        "primary_key": true
+      },
+      {
+        "name": "scene_id",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "surface",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "entity_id",
+        "type": "TEXT",
+        "not_null": false,
+        "primary_key": false
+      },
+      {
+        "name": "line",
+        "type": "INTEGER",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "resolution_status",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "resolution_method",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "confidence",
+        "type": "REAL",
+        "not_null": true,
+        "primary_key": false
+      }
+    ],
+    "events": [
+      {
+        "name": "event_id",
+        "type": "TEXT",
+        "not_null": false,
+        "primary_key": true
+      },
+      {
+        "name": "event_type",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "summary",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "story_order",
+        "type": "INTEGER",
+        "not_null": false,
+        "primary_key": false
+      },
+      {
+        "name": "narrative_sequence",
+        "type": "INTEGER",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "participants_json",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "witnesses_json",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "informed_json",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "source_tier",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "verification_status",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      }
+    ],
+    "evidence": [
+      {
+        "name": "evidence_id",
+        "type": "TEXT",
+        "not_null": false,
+        "primary_key": true
+      },
+      {
+        "name": "claim_id",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "source_id",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "line_start",
+        "type": "INTEGER",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "line_end",
+        "type": "INTEGER",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "quote",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "sha256",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "verification_method",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "verification_status",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      }
+    ],
+    "evidence_embeddings": [
+      {
+        "name": "index_id",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": true
+      },
+      {
+        "name": "evidence_id",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": true
+      },
+      {
+        "name": "content_sha256",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "vector",
+        "type": "BLOB",
+        "not_null": true,
+        "primary_key": false
+      }
+    ],
+    "evidence_units": [
+      {
+        "name": "evidence_id",
+        "type": "TEXT",
+        "not_null": false,
+        "primary_key": true
+      },
+      {
+        "name": "claim_id",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "scene_id",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "event_id",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "title",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "fact",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "source_id",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "line_start",
+        "type": "INTEGER",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "line_end",
+        "type": "INTEGER",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "quote",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "entity_ids_json",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "explicit_entity_ids_json",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "aliases_json",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "topic",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "story_order",
+        "type": "INTEGER",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "sequence",
+        "type": "INTEGER",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "confidence",
+        "type": "REAL",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "question_count",
+        "type": "INTEGER",
+        "not_null": true,
+        "primary_key": false
+      }
+    ],
+    "knowledge_edges": [
+      {
+        "name": "knowledge_edge_id",
+        "type": "TEXT",
+        "not_null": false,
+        "primary_key": true
+      },
+      {
+        "name": "character_id",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "claim_id",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "evidence_id",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "acquisition_method",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "acquired_at_event",
+        "type": "TEXT",
+        "not_null": false,
+        "primary_key": false
+      },
+      {
+        "name": "acquired_story_order",
+        "type": "INTEGER",
+        "not_null": false,
+        "primary_key": false
+      },
+      {
+        "name": "acquired_sequence",
+        "type": "INTEGER",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "confidence",
+        "type": "REAL",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "belief_status",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "authorization_status",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "authorization_basis",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "source_verification_status",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      }
+    ],
+    "metadata": [
+      {
+        "name": "key",
+        "type": "TEXT",
+        "not_null": false,
+        "primary_key": true
+      },
+      {
+        "name": "value",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      }
+    ],
+    "relations": [
+      {
+        "name": "relation_id",
+        "type": "TEXT",
+        "not_null": false,
+        "primary_key": true
+      },
+      {
+        "name": "source_entity_id",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "target_entity_id",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "relation_type",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "description",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "valid_from_sequence",
+        "type": "INTEGER",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "valid_to_sequence",
+        "type": "INTEGER",
+        "not_null": false,
+        "primary_key": false
+      },
+      {
+        "name": "confidence",
+        "type": "REAL",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "source_tier",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "canon_status",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "evidence_refs_json",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      }
+    ],
+    "retrieval_expressions": [
+      {
+        "name": "expression_id",
+        "type": "TEXT",
+        "not_null": false,
+        "primary_key": true
+      },
+      {
+        "name": "evidence_id",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "expression_type",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "text",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      }
+    ],
+    "retrieval_fts": [
+      {
+        "name": "expression_id",
+        "type": "",
+        "not_null": false,
+        "primary_key": false
+      },
+      {
+        "name": "evidence_id",
+        "type": "",
+        "not_null": false,
+        "primary_key": false
+      },
+      {
+        "name": "expression_type",
+        "type": "",
+        "not_null": false,
+        "primary_key": false
+      },
+      {
+        "name": "text",
+        "type": "",
+        "not_null": false,
+        "primary_key": false
+      }
+    ],
+    "scenes": [
+      {
+        "name": "scene_id",
+        "type": "TEXT",
+        "not_null": false,
+        "primary_key": true
+      },
+      {
+        "name": "document_id",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "source_id",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "scene_index",
+        "type": "INTEGER",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "line_start",
+        "type": "INTEGER",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "line_end",
+        "type": "INTEGER",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "sequence_start",
+        "type": "INTEGER",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "sequence_end",
+        "type": "INTEGER",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "text",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      }
+    ],
+    "snapshots": [
+      {
+        "name": "snapshot_id",
+        "type": "TEXT",
+        "not_null": false,
+        "primary_key": true
+      },
+      {
+        "name": "character_id",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "story_cutoff",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "cutoff_sequence",
+        "type": "INTEGER",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "claim_ids_json",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "claim_count",
+        "type": "INTEGER",
+        "not_null": true,
+        "primary_key": false
+      }
+    ],
+    "utterances": [
+      {
+        "name": "utterance_id",
+        "type": "TEXT",
+        "not_null": false,
+        "primary_key": true
+      },
+      {
+        "name": "scene_id",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "speaker_id",
+        "type": "TEXT",
+        "not_null": false,
+        "primary_key": false
+      },
+      {
+        "name": "speaker_resolution_method",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "line_start",
+        "type": "INTEGER",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "line_end",
+        "type": "INTEGER",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "text",
+        "type": "TEXT",
+        "not_null": true,
+        "primary_key": false
+      },
+      {
+        "name": "confidence",
+        "type": "REAL",
+        "not_null": true,
+        "primary_key": false
+      }
+    ]
+  },
+  "distributions": {
+    "retrieval_expression_types": {
+      "alias": 2427,
+      "fact": 536,
+      "predicted_question": 2680,
+      "title": 536
+    },
+    "cognition_authorization": {
+      "approved": 466,
+      "candidate": 302
+    },
+    "cognition_belief": {
+      "believed": 466,
+      "unreviewed": 302
+    },
+    "cognition_acquisition": {
+      "active_dialogue_participant": 180,
+      "directly_addressed_in_dialogue": 28,
+      "named_speech_or_cognition_cue": 249,
+      "named_transcript_speaker": 8,
+      "scene_context_candidate": 302,
+      "self_statement": 1
+    },
+    "state_types": {
+      "affinity": 5,
+      "current_goal": 5,
+      "emotion": 5,
+      "quest_state": 5,
+      "scene": 5
+    }
+  },
+  "active_embedding_index": {
+    "index_id": "semantic-8ffbc4273cb1aaa2",
+    "model_name": "BAAI/bge-small-zh-v1.5",
+    "model_revision": "7999e1d3359715c523056ef9478215996d62a620",
+    "dimension": 512,
+    "dtype": "float32_le",
+    "normalized": true,
+    "pooling": "cls",
+    "query_instruction": "为这个句子生成表示以用于检索相关文章：",
+    "passage_instruction": "",
+    "content_template": "{title}\n{fact}",
+    "document_count": 536,
+    "vector_blob_bytes": 1097728
+  },
+  "sample_evidence_lifecycle": {
+    "evidence_id": "evd-3056d0c06fe12d9c",
+    "title": "罗辑的职业与学术背景",
+    "fact": "罗辑的职业与学术背景：同在“7”之前爬过的那个它喜欢的形状“9”一模一样，它就再横行过去，爬了一遍这“9”。它觉得这个形状比“7”和“1”好，好在哪里当然说不清，这是美感的原始单细胞态；刚才爬过“9”时的那种模糊的愉悦感再次加强了，这是幸福的原始单细胞态。但这两种精神的单细胞没有进化的机会，现在同一亿年前一样，同一亿年后也一样。“小罗啊，冬冬常提起你，她说你是……搞天文学的？”“以前是，现在我在大学里教社会学，就在您那所学校，不过我去时您已经退休了。”“社会学，跨度这么大？”“是，杨冬总说我这人心很散。”“哦，怪不得她说你很聪明的。”“小聪明而已，和您女儿不在一个层次。只是感觉天文专业是铁板一块，在哪儿钻个眼儿都不……",
+    "source_id": "three_body_2.txt",
+    "line_start": 24,
+    "line_end": 31,
+    "topic": "职业与学术背景",
+    "question_count": 5,
+    "retrieval_expressions": [
+      {
+        "expression_type": "alias",
+        "text": "小罗 职业与学术背景"
+      },
+      {
+        "expression_type": "alias",
+        "text": "执剑人 职业与学术背景"
+      },
+      {
+        "expression_type": "alias",
+        "text": "罗老师 职业与学术背景"
+      },
+      {
+        "expression_type": "alias",
+        "text": "面壁者罗辑 职业与学术背景"
+      },
+      {
+        "expression_type": "fact",
+        "text": "罗辑的职业与学术背景：同在“7”之前爬过的那个它喜欢的形状“9”一模一样，它就再横行过去，爬了一遍这“9”。它觉得这个形状比“7”和“1”好，好在哪里当然说不清，这是美感的原始单细胞态；刚才爬过“9”时的那种模糊的愉悦感再次加强了，这是幸福的原始单细胞态。但这两种精神的单细胞没有进化的机会，现在同一亿年前一样，同一亿年后也一样。“小罗啊，冬冬常提起你，她说你是……搞天文学的？”“以前是，现在我在大学里教社会学，就在您那所学校，不过我去时您已经退休了。”“社会学，跨度这么大？”“是，杨冬总说我这人心很散。”“哦，怪不得她说你很聪明的。”“小聪明而已，和您女儿不在一个层次。只是感觉天文专业是铁板一块，在哪儿钻个眼儿都不……"
+      },
+      {
+        "expression_type": "predicted_question",
+        "text": "你以前做什么工作？"
+      },
+      {
+        "expression_type": "predicted_question",
+        "text": "你教什么课？"
+      },
+      {
+        "expression_type": "predicted_question",
+        "text": "你是天文学家吗？"
+      },
+      {
+        "expression_type": "predicted_question",
+        "text": "你研究什么专业？"
+      },
+      {
+        "expression_type": "predicted_question",
+        "text": "罗辑以前做什么工作？"
+      },
+      {
+        "expression_type": "title",
+        "text": "罗辑的职业与学术背景"
+      }
+    ],
+    "cognition_records": [
+      {
+        "character_id": "luo_ji",
+        "acquisition_method": "directly_addressed_in_dialogue",
+        "acquired_at_event": "evt-001",
+        "acquired_sequence": 24,
+        "belief_status": "believed",
+        "authorization_status": "approved",
+        "authorization_basis": "dialogue_or_cognition_cue",
+        "confidence": 0.9
+      }
+    ]
+  },
+  "checks": {
+    "sqlite_integrity": "ok",
+    "orphan_retrieval_expressions": 0,
+    "orphan_cognition_records": 0,
+    "orphan_embeddings": 0,
+    "question_count_out_of_range": 0,
+    "approved_without_verified_span": 0
+  }
+}

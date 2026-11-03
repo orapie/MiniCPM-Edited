@@ -1,0 +1,16 @@
+{
+  "index_id": "semantic-8ffbc4273cb1aaa2",
+  "model_name": "BAAI/bge-small-zh-v1.5",
+  "model_revision": "7999e1d3359715c523056ef9478215996d62a620",
+  "dimension": 512,
+  "dtype": "float32_le",
+  "pooling": "cls",
+  "normalized": true,
+  "query_instruction": "为这个句子生成表示以用于检索相关文章：",
+  "passage_instruction": "",
+  "content_template": "{title}\n{fact}",
+  "content_sha256": "61d15b7b37cf691ec1214af5944d1a6af106f0f22200404a15def2ae50326d30",
+  "document_count": 536,
+  "storage": "SQLite evidence_embeddings.vector BLOB",
+  "created_at": "2026-11-03T04:40:12+00:00"
+}

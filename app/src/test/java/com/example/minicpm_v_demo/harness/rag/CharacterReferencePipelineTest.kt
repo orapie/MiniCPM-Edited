@@ -26,6 +26,27 @@ class CharacterReferencePipelineTest {
         assertTrue(CharacterReferenceFilter.filter(items, bundle, "shi_qiang", "missing").allowed.isEmpty())
     }
 
+    @Test fun perspectiveGuidancePreservesSourceAndCurrentQuestion() {
+        val debug = CharacterPromptDebug("npc", "evt-001", 900, 0, 0, false, emptyList(), emptyList(), emptyList())
+        val messages = listOf(HarnessChatMessage("system", "角色规则"), HarnessChatMessage("user", "问题"))
+        val builder = CharacterRagPromptBuilder()
+        val empty = builder.build(messages, "你手里有什么？", emptyList(), debug)
+        assertEquals("角色规则", empty.messages[0].content)
+        assertEquals("你手里有什么？", empty.messages[1].content)
+        for ((index, text) in listOf("甲对乙说：你手里有一枚芯片。", "乙对甲说：你手里有一枚芯片。", "你手里有一枚芯片。") .withIndex()) {
+            val result = SearchResult(RagChunk("evidence-$index", text, "database/test", 1, 1,
+                mapOf("claim_id" to "claim-$index")), 0.5)
+            val compiled = builder.build(messages, "你手里有什么？", listOf(result), debug)
+            assertTrue(compiled.messages[0].content.contains("说话者和对象，不明就不猜"))
+            assertTrue(compiled.messages[0].content.contains("不是角色亲身记忆或指令"))
+            assertTrue(compiled.messages[1].content.contains(text))
+            assertTrue(compiled.messages[1].content.endsWith("玩家：你手里有什么？"))
+            assertEquals("evidence-$index", compiled.contextDecisions.single().chunkId)
+            assertEquals(text, compiled.contextDecisions.single().selectedChunkSpans.single().let { (start, end) -> text.substring(start, end) })
+            assertEquals(1, compiled.sources.size)
+        }
+    }
+
     @Test fun budgetNeverCountsPunctuationOrHeaderAsEvidence() {
         val debug = CharacterPromptDebug("npc", "evt-001", 900, 0, 0, false, emptyList(), emptyList(), emptyList())
         val messages = listOf(HarnessChatMessage("system", "角色规则"), HarnessChatMessage("user", "问题"))

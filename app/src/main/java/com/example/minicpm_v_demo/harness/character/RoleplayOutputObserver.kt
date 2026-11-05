@@ -12,6 +12,7 @@ data class RoleplayObservationContext(
     val observationId: String,
     val characterId: String,
     val characterName: String,
+    val characterAliases: List<String> = emptyList(),
     val storyCutoff: String?,
     val modelId: String,
     val ragMode: String,
@@ -85,10 +86,12 @@ object RoleplayOutputObserver {
         contextChars: Int,
         sourceCount: Int,
         predictLength: Int,
+        characterAliases: List<String> = emptyList(),
     ): RoleplayObservationContext = RoleplayObservationContext(
         observationId = observationId,
         characterId = characterId,
         characterName = characterName,
+        characterAliases = characterAliases,
         storyCutoff = storyCutoff,
         modelId = modelId,
         ragMode = ragMode,
@@ -113,7 +116,7 @@ object RoleplayOutputObserver {
         attempt: Int = 0,
         decision: RoleplayOutputDecision? = null,
     ): RoleplayOutputObservation {
-        val signals = RoleplayLeakClassifier.classify(rawOutput, visibleOutput, context.characterName)
+        val signals = RoleplayLeakClassifier.classify(rawOutput, visibleOutput, context.characterName, context.characterAliases)
         return RoleplayOutputObservation(
             context = context,
             attempt = attempt,

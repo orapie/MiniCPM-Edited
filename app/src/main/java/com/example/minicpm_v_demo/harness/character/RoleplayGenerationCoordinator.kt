@@ -13,15 +13,17 @@ class RoleplayGenerationCoordinator(
         rawOutput: String,
         characterName: String,
         userInput: String,
+        characterAliases: List<String> = emptyList(),
+        fixedResponse: Boolean = false,
     ): RoleplayGenerationAction = when (
-        val decision = RoleplayOutputGuard.evaluate(rawOutput, characterName, userInput)
+        val decision = RoleplayOutputGuard.evaluate(rawOutput, characterName, userInput, characterAliases)
     ) {
         is RoleplayOutputDecision.Accept -> RoleplayGenerationAction.Deliver(
             visibleText = decision.visibleText,
             persistVisibleText = true,
         )
         is RoleplayOutputDecision.RetryWithRepair -> {
-            if (attempt < MAX_REPAIR_ATTEMPTS) {
+            if (!fixedResponse && attempt < MAX_REPAIR_ATTEMPTS) {
                 RoleplayGenerationAction.Retry(decision.ruleIds)
             } else {
                 RoleplayGenerationAction.Fallback(fallbackText, decision.ruleIds)
@@ -36,6 +38,7 @@ class RoleplayGenerationCoordinator(
     companion object {
         const val MAX_REPAIR_ATTEMPTS = 1
         const val DEFAULT_SAFE_FALLBACK = "这话我一时说不清。"
+        const val SELF_NARRATION_REPAIR = "从当前角色立场直接回答，不用角色名或第三人称叙述自己的行为。"
         const val REPAIR_INSTRUCTION =
             "只直接用角色第一人称回答玩家，不反问或追问玩家，不谈论你收到的说明或材料。"
     }

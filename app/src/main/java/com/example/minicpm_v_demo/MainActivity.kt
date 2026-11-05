@@ -37,6 +37,7 @@ import com.example.minicpm_v_demo.harness.character.RoleplayAnswerabilityGate
 import com.example.minicpm_v_demo.harness.character.RoleplayOutputObserver
 import com.example.minicpm_v_demo.harness.character.RoleplayLeakDiagnostics
 import com.example.minicpm_v_demo.harness.character.RoleplayGenerationAction
+import com.example.minicpm_v_demo.harness.character.RoleplayCharacterIdentity
 import com.example.minicpm_v_demo.harness.character.RoleplayGenerationCoordinator
 import com.example.minicpm_v_demo.harness.character.RoleplayOutputDecision
 import com.example.minicpm_v_demo.harness.character.RoleplayVisibleText
@@ -892,7 +893,7 @@ class MainActivity : AppCompatActivity() {
         val coordinator = RoleplayGenerationCoordinator()
         var request = promptInput.request
         var useFixedResponse = promptInput.fixedResponse != null
-        val characterName = promptInput.roleplayCharacterName ?: currentCharacterId
+        val identity = promptInput.roleplayIdentity ?: RoleplayCharacterIdentity("")
         for (attempt in 0..RoleplayGenerationCoordinator.MAX_REPAIR_ATTEMPTS) {
             when (val rawResult = collectRawResponse(request, promptInput.predictLength, promptInput.fixedResponse, useFixedResponse)) {
                 is RawGenerationResult.Failed -> {
@@ -906,7 +907,8 @@ class MainActivity : AppCompatActivity() {
                     )
                 }
                 is RawGenerationResult.Completed -> {
-                    val action = coordinator.resolve(attempt, rawResult.rawOutput, characterName, userMsg)
+                    val action = coordinator.resolve(attempt, rawResult.rawOutput, identity.name, userMsg,
+                        identity.aliases, fixedResponse = useFixedResponse)
                     observeRoleplayAttempt(promptInput, rawResult.rawOutput, attempt, action, "completed")
                     when (action) {
                         is RoleplayGenerationAction.Deliver -> return GenerationOutcome(
@@ -919,7 +921,7 @@ class MainActivity : AppCompatActivity() {
                         is RoleplayGenerationAction.Retry -> {
                             // Do not include the rejected output in this request.  The native
                             // backend starts a fresh context for each structured prompt.
-                            request = request.withRoleplayRepairInstruction()
+                            request = request.withRoleplayRepairInstruction(action.ruleIds)
                             useFixedResponse = false
                             Log.i(TAG, "Retrying roleplay generation after rules=${action.ruleIds.joinToString(",")}")
                         }
@@ -1107,12 +1109,8 @@ class MainActivity : AppCompatActivity() {
             return HarnessPromptInput(HarnessChatRequest(userPrompt = userMsg), null,
                 fixedResponse = getString(R.string.database_compile_failed))
         }
-        val roleplayCharacterName = if (compiled.mode == RagMode.CHARACTER_RAG) {
-            orchestrator.availableCharacters()
-                .firstOrNull { it.npcId == binding.characterId }
-                ?.identity
-                ?.name
-                ?: binding.characterId
+        val roleplayIdentity = if (compiled.mode == RagMode.CHARACTER_RAG) {
+            RoleplayCharacterIdentity.fromCards(binding.characterId, orchestrator.availableCharacters())
         } else {
             null
         }
@@ -1122,7 +1120,8 @@ class MainActivity : AppCompatActivity() {
                 RoleplayOutputObserver.createContext(
                     observationId = UUID.randomUUID().toString(),
                     characterId = binding.characterId,
-                    characterName = roleplayCharacterName ?: binding.characterId,
+                    characterName = roleplayIdentity?.name.orEmpty(),
+                    characterAliases = roleplayIdentity?.aliases.orEmpty(),
                     storyCutoff = binding.storyCutoff,
                     modelId = binding.modelId,
                     ragMode = compiled.mode.name,
@@ -1166,7 +1165,7 @@ class MainActivity : AppCompatActivity() {
             ),
             compiled = compiled,
             roleplayObservationContext = roleplayObservationContext,
-            roleplayCharacterName = roleplayCharacterName,
+            roleplayIdentity = roleplayIdentity,
             fixedResponse = fixedResponse,
             debugTrace = if (isDebuggableBuild()) compiled.turnTrace.toDiagnosticText() else null,
         )
@@ -1175,9 +1174,10 @@ class MainActivity : AppCompatActivity() {
     private fun isDebuggableBuild(): Boolean =
         applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
 
-    private fun HarnessChatRequest.withRoleplayRepairInstruction(): HarnessChatRequest {
+    private fun HarnessChatRequest.withRoleplayRepairInstruction(ruleIds: List<String>): HarnessChatRequest {
         val repairedSystemPrompt = listOfNotNull(systemPrompt?.trim()?.takeIf(String::isNotEmpty))
             .plus(RoleplayGenerationCoordinator.REPAIR_INSTRUCTION)
+            .plus(if ("self_third_person_narration" in ruleIds) RoleplayGenerationCoordinator.SELF_NARRATION_REPAIR else "")
             .joinToString("\n\n")
         return copy(
             systemPrompt = repairedSystemPrompt,
@@ -1399,7 +1399,7 @@ class MainActivity : AppCompatActivity() {
         val request: HarnessChatRequest,
         val compiled: CompiledAndroidPrompt?,
         val roleplayObservationContext: RoleplayObservationContext? = null,
-        val roleplayCharacterName: String? = null,
+        val roleplayIdentity: RoleplayCharacterIdentity? = null,
         /** Non-null only for a matched graph fact unavailable at this cutoff. */
         val fixedResponse: String? = null,
         val debugTrace: String? = null,

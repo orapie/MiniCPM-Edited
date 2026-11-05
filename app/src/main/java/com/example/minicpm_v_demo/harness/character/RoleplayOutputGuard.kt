@@ -18,6 +18,7 @@ enum class RoleplayLeakRule(
     INTERNAL_FIELD_LABEL("internal_field_label", RoleplayLeakSeverity.HIGH),
     TEMPLATE_TOKEN("template_token", RoleplayLeakSeverity.HIGH),
     UNSOLICITED_QUESTION("unsolicited_question", RoleplayLeakSeverity.HIGH),
+    SELF_THIRD_PERSON_NARRATION("self_third_person_narration", RoleplayLeakSeverity.HIGH),
     POSSIBLE_SELF_NARRATION("possible_self_narration", RoleplayLeakSeverity.WARNING),
 }
 
@@ -52,12 +53,14 @@ object RoleplayOutputGuard {
         rawOutput: String,
         characterName: String,
         @Suppress("UNUSED_PARAMETER") userInput: String,
+        characterAliases: List<String> = emptyList(),
     ): RoleplayOutputDecision {
         val extraction = RoleplayVisibleText.extract(rawOutput)
         val signals = RoleplayLeakClassifier.classify(
             rawOutput = rawOutput,
             visibleOutput = extraction.visibleText,
             characterName = characterName,
+            characterAliases = characterAliases,
         )
         val highRiskRuleIds = signals
             .filter { signal -> signal.severity == RoleplayLeakSeverity.HIGH }
@@ -110,6 +113,7 @@ internal object RoleplayLeakClassifier {
         rawOutput: String,
         visibleOutput: String,
         characterName: String,
+        characterAliases: List<String> = emptyList(),
     ): List<RoleplayOutputSignal> = buildList {
         if (visibleOutput.isBlank()) {
             add(RoleplayOutputSignal(RoleplayLeakRule.EMPTY_VISIBLE_OUTPUT, "visible output is blank"))
@@ -132,7 +136,13 @@ internal object RoleplayLeakClassifier {
         if (hasUnquotedQuestion(visibleOutput)) {
             add(RoleplayOutputSignal(RoleplayLeakRule.UNSOLICITED_QUESTION, "unquoted question in roleplay answer"))
         }
-        if (selfNarrationPattern(characterName).containsMatchIn(visibleOutput)) {
+        val unquoted = maskQuotedText(visibleOutput)
+        val names = (listOf(characterName) + characterAliases).map { it.trim() }
+            .filter { it.length >= 2 }.distinct()
+        if (names.any { selfThirdPersonPattern(it).containsMatchIn(unquoted) }) {
+            add(RoleplayOutputSignal(RoleplayLeakRule.SELF_THIRD_PERSON_NARRATION, "character narration at sentence start"))
+        }
+        if (characterName.length >= 2 && selfNarrationPattern(characterName).containsMatchIn(unquoted)) {
             add(RoleplayOutputSignal(RoleplayLeakRule.POSSIBLE_SELF_NARRATION, "character-name narration pattern"))
         }
     }
@@ -176,6 +186,33 @@ internal object RoleplayLeakClassifier {
         // PatternSyntaxException on Android when this classifier is first used.
         "\\{\\{[^}]+\\}\\}|<\\s*/?\\s*(?:system|assistant|user)\\s*>|\\[\\s*(?:system|assistant|user)\\s*]",
         RegexOption.IGNORE_CASE,
+    )
+
+    // Mask complete and unclosed quotations conservatively; never infer their speaker.
+    private fun maskQuotedText(text: String): String {
+        val closing = ArrayDeque<Char>()
+        val out = StringBuilder(text.length)
+        for (char in text) {
+            val wasQuoted = closing.isNotEmpty()
+            when {
+                closing.lastOrNull() == char -> closing.removeLast()
+                char == '“' -> closing.addLast('”')
+                char == '‘' -> closing.addLast('’')
+                char == '「' -> closing.addLast('」')
+                char == '『' -> closing.addLast('』')
+                char == '《' -> closing.addLast('》')
+                char == '〈' -> closing.addLast('〉')
+                char == '"' -> closing.addLast('"')
+            }
+            out.append(if (wasQuoted || closing.isNotEmpty()) ' ' else char)
+        }
+        return out.toString()
+    }
+
+    private fun selfThirdPersonPattern(name: String): Regex = Regex(
+        "(?:^|[。！？!?；;，,\\n])\\s*${Regex.escape(name)}[，、 ]*" +
+            "(?:(?:一直|仍然|已经|正在|曾经|全心|专心|一心|可能|仍|正|又)(?:在)?|在)?" +
+            "(?:思考|想着|心想|决定|决心|投入|想探讨|转身|抬眼|皱眉|沉默|说道|答道|开口|说)(?!明)",
     )
 
     private fun selfNarrationPattern(characterName: String): Regex = Regex(

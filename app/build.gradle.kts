@@ -232,8 +232,10 @@ tasks.register<Exec>("verifyDebugDatabaseAssets") {
 }
 
 dependencies {
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.19.2")
-    testImplementation("com.microsoft.onnxruntime:onnxruntime:1.19.2")
+    // 1.27.0 ships Android native libraries with 16 KB ELF page alignment.
+    // Keep Android and JVM artifacts on precisely the same ORT version.
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.27.0")
+    testImplementation("com.microsoft.onnxruntime:onnxruntime:1.27.0")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
@@ -268,7 +270,7 @@ val sdkRoot: String = System.getenv("ANDROID_HOME")
     ?: localProperties.getProperty("sdk.dir")
     ?: error("Cannot locate Android SDK — set ANDROID_HOME or local.properties")
 
-tasks.register("buildGgmlCpu_v86") {
+val buildGgmlCpuV86 = tasks.register("buildGgmlCpu_v86") {
     group = "native"
     description = "Build libggml-cpu optimised for armv8.6-a+i8mm+bf16"
 
@@ -319,7 +321,10 @@ tasks.register("buildGgmlCpu_v86") {
 }
 
 afterEvaluate {
-    // Debug runs can safely use the baseline library; LlamaEngine already
-    // falls back when the optional v86 variant is absent.
-    tasks.findByName("mergeReleaseJniLibFolders")?.dependsOn("buildGgmlCpu_v86")
+    // The v86 library lives under src/main/jniLibs, so every variant that
+    // packages JNI libraries must depend on the generator. This also prevents
+    // Debug builds from packaging a stale, pre-16-KB-aligned copy.
+    listOf("mergeDebugJniLibFolders", "mergeReleaseJniLibFolders").forEach { taskName ->
+        tasks.findByName(taskName)?.dependsOn(buildGgmlCpuV86)
+    }
 }

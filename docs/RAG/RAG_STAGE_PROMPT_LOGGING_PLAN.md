@@ -170,7 +170,7 @@ RAG_PROMPT turn=<uuid> seq=03 stage=CHARACTER_AFTER_V2 END
 | `app/src/main/java/com/example/minicpm_v_demo/MainActivity.kt` | Debug 构建下打印编译完成的 stage logs；不写入 JSONL/session。 |
 | `app/src/test/java/.../harness/rag/AndroidRagOrchestratorTest.kt` | 阶段顺序、内容边界、final 一致性和回归断言。 |
 | `app/src/test/java/.../harness/rag/RagPromptLogcatPrinterTest.kt`（新增） | 分块、追加、turn 隔离、Unicode 和无正文 trace 回归。 |
-| `README.md` 或 `docs/RAG_Logic.md` | Logcat 使用方法与敏感数据说明。 |
+| `README.md` 或 `RAG_Logic.md` | Logcat 使用方法与敏感数据说明。 |
 
 ## 8. 完成标准
 

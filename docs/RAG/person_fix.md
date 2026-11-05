@@ -145,6 +145,6 @@ Debug APK 构建成功并覆盖安装到 Android 16 模拟器；模型和会话�
 | `RoleplayGenerationCoordinator.kt`、`MainActivity.kt` | 传递当前角色身份、按具体规则修复；核对固定 gate 回复、缓冲、一次重试与持久化。 |
 | `RoleplayOutputObserver.kt` | 保持同一分类器及内容脱敏的决策记录。 |
 | 对应 JVM 与 `RoleplayOutputGuardDeviceTest` | 角色自述、第三人、引用、误拦、重试和 Android 兼容回归。 |
-| `docs/RAG_Logic.md` | 实施后更新真实行为、观察字段与限制。 |
+| `RAG_Logic.md` | 实施后更新真实行为、观察字段与限制。 |
 
 交付时报告具体改动、执行过的测试及设备/模型范围；若设备不可用或只完成静态/JVM 测试，明确说明真实生成未验证。按每阶段所选少量样例报告测试结果与未覆盖项；不得为了通过本计划删除角色知识授权、截止点或 RAG 参考资料；不能声称对未测试的新卡已完成逐卡验收。

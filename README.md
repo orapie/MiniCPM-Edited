@@ -110,7 +110,7 @@ app/build/outputs/apk/debug/app-debug.apk
 
 ## 文档索引
 
-- [docs/RAG_Logic.md](docs/RAG_Logic.md)：当前 RAG 数据路径、授权、会话和排障。
+- [docs/RAG_Logic.md](docs/RAG/RAG_Logic.md)：当前 RAG 数据路径、授权、会话和排障。
 - [docs/char_inte_plan/Database_Path_Unification_Plan.md](docs/char_inte_plan/Database_Path_Unification_Plan.md)：迁移和清理计划。
 - [database/README.md](database/README.md)：数据包协议与生成命令。
 

@@ -11,6 +11,17 @@ set(CMAKE_CXX_STANDARD_REQUIRED true)
 set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}"   CACHE STRING "" FORCE)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" CACHE STRING "" FORCE)
 
+# NDK r27 still defaults ELF LOAD segments to 4 KB.  Apply the Android 16 KB
+# page-size linker settings before adding llama.cpp so they also propagate to
+# every shared library built by its subdirectories (including ggml/Kleidiai).
+# These binaries remain compatible with 4 KB devices.
+if(ANDROID)
+    add_link_options(
+        "-Wl,-z,max-page-size=16384"
+        "-Wl,-z,common-page-size=16384"
+    )
+endif()
+
 if(DEFINED ANDROID_ABI)
     message(STATUS "Detected Android ABI: ${ANDROID_ABI}")
     if(ANDROID_ABI STREQUAL "arm64-v8a")

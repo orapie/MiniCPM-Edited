@@ -302,7 +302,7 @@ Phase 3 完成时为启动入口取用 manifest 默认角色/cutoff，避免恢�
 
 ### Phase 5：验收、文档与交付
 
-> 实施状态（2026-10-28）：构造与验收已完成。更新根 README、`docs/RAG_Logic.md` 与数据库说明；
+> 实施状态（2026-10-28）：构造与验收已完成。更新根 README、`../RAG/RAG_Logic.md` 与数据库说明；
 > 覆盖 APK 清单、旧库零访问、数据包安装、角色/cutoff 授权、会话隔离和真实设备 prompt 证据。
 > 设备验收发现并修复共名弱匹配掩盖未来事实、第三人来历借用自身资料、未引用反问，以及 JNI 原文日志问题。
 > 输出质量样本仍存在元叙述与含糊回答，详见 `docs/char_inte_plan/Phase_5_Validation_Report.md` 和
@@ -327,7 +327,7 @@ Phase 3 完成时为启动入口取用 manifest 默认角色/cutoff，避免恢�
 
 设备端安装应用后执行：罗辑身份/来历、史强与罗辑关系、一个具体历史事件及同一事实前后 cutoff、代词追问、无资料问题和旧库诱饵问题。已在一个可用模型上保存检索证据与回答质量结果。根据用户最新要求，无需检查其他模型可用性；JVM/APK 检查仍不能代替已执行的设备输出。
 
-更新 `README.md`、`docs/RAG_Logic.md`、`database/README.md`：明确根 `database/` 是唯一输入，generated assets 不手工编辑，根 `character/` 在完成工具与说明迁移后删除，旧外部资料永久停用。旧图谱接入文档中的仍有效约束合并到当前文档后删除旧文档，并同步修复链接。
+更新 `README.md`、`../RAG/RAG_Logic.md`、`database/README.md`：明确根 `database/` 是唯一输入，generated assets 不手工编辑，根 `character/` 在完成工具与说明迁移后删除，旧外部资料永久停用。旧图谱接入文档中的仍有效约束合并到当前文档后删除旧文档，并同步修复链接。
 
 ### Phase 6：删除迁移后无用的文件、目录与代码
 

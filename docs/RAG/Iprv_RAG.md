@@ -80,7 +80,7 @@
 
 验收：在相同新库、角色和 cutoff 下比较 lexical、semantic、hybrid；统计 Recall@5/@20、MRR、最终 prompt 证据保留、无答案误注入和错误授权率，报告未命中及负样本。混合排序仅在隔离验证集优于语义基线且安全/负例无退化时默认启用，否则继续使用已验证的单路并说明原因。
 
-**阶段 4：完整设备验证与交付。** 运行 Python 只读审计和相关单测、`python3 scripts/prepare_database_bundle.py --check`、`bash ./gradlew :app:testDebugUnitTest :app:assembleDebugAndroidTest :app:verifyDebugDatabaseAssets`；验证 hash、模型版本和 APK 包内实际内容。连接现有 Android 设备后覆盖安装，不卸载、不清空用户模型与会话，验证首次安装、同库升级、跨库、失败回退、飞行模式、模型缺失/故障、数据版本变化和并发回合。对当前已选对话模型做少量真实生成，记录 `BACKEND_REQUEST`、证据、gate 和可见输出，和检索指标分开；不要求测试其他对话模型。提供设备型号、数据 fingerprint、BGE revision、构建、离线条件、P50/P95、内存、APK 与安装体积、测试数量和失败样本。最后更新 `docs/RAG_Logic.md`、数据库 README 和本计划的真实实现状态及回滚步骤。
+**阶段 4：完整设备验证与交付。** 运行 Python 只读审计和相关单测、`python3 scripts/prepare_database_bundle.py --check`、`bash ./gradlew :app:testDebugUnitTest :app:assembleDebugAndroidTest :app:verifyDebugDatabaseAssets`；验证 hash、模型版本和 APK 包内实际内容。连接现有 Android 设备后覆盖安装，不卸载、不清空用户模型与会话，验证首次安装、同库升级、跨库、失败回退、飞行模式、模型缺失/故障、数据版本变化和并发回合。对当前已选对话模型做少量真实生成，记录 `BACKEND_REQUEST`、证据、gate 和可见输出，和检索指标分开；不要求测试其他对话模型。提供设备型号、数据 fingerprint、BGE revision、构建、离线条件、P50/P95、内存、APK 与安装体积、测试数量和失败样本。最后更新 `RAG_Logic.md`、数据库 README 和本计划的真实实现状态及回滚步骤。
 
 ### C. 现阶段禁止操作
 
@@ -240,7 +240,7 @@
 2. Android 模拟器/设备使用覆盖安装，运行与 bundle 安装、换包、查询、trace 和 prompt 相关的 instrumentation；不得卸载或清空用户数据。用当前可用模型做少量真实对话抽样只验证端到端行为，不把模型回答当检索准确率；用户没有要求检查其他模型，不把其他模型可用性作为前提。
 3. 基线与新版本按相同题集、fingerprint、角色、cutoff 比较：Recall@5/@20（标注可回答问题的证据是否进入候选）、MRR（首个相关证据名次）、最终 prompt 证据保留率、无答案误注入率、显式追问及独立新问题准确率。明确分母、相关性标注标准和未回答样例；报告每种题型和失败样例，不只给总平均。
 4. 记录设备/构建、题集版本、不同模式、baseline 与新算法索引版本、包 fingerprint、耗时 P50/P95、内存及索引大小；准确率阈值在建立基线后按样本协商，原则是不降低无答案安全性、不破坏安装/会话隔离、保持可回退。报告未完成的权限或时间覆盖。
-5. 更新 `docs/RAG_Logic.md` 与本计划状态，包括真实运行路径、分词/排名、片段范围、trace 过滤词、时间/授权限制、重建数据包命令和回滚方式。
+5. 更新 `RAG_Logic.md` 与本计划状态，包括真实运行路径、分词/排名、片段范围、trace 过滤词、时间/授权限制、重建数据包命令和回滚方式。
 
 ## 5. 关键文件与职责
 
@@ -492,7 +492,7 @@ PY
 - 每个独立小组开始前新建或清空当前对话；同一小组里的问题按顺序连续提问，不修改角色、截止点、数据库或对话模型。清空前先保存需要的记录。除非题目明确要求，否则不要在一组中间重置。若角色或时间选项不能直接设置，记录实际值，不要假设等于 `evt-125`。
 - 本包证据 `evd-0a93cd8fce7e243a`、`claim-d6df1752b5c6c671` 属于 `evt-122`（原文行 4670–4671）。原文说手腕上的物品是**生命体征监测仪**，它通过发射器连接摇篮系统；两者不是同一物品。`evt-125` 有时间资格，并不自动代表角色已获授权或证明排序命中。目标 ID 是本次数据包的定位依据；换库后需重新核对。
 - 每轮至少保存：问题和可见回答；`RAG_TRACE` 的 `mode`、`dataset`、`fingerprint`、`backend`、`indexFingerprint`、`failure`、`retrievalMode`、`character` 的 `npc`、`cutoff`、`followUp`、`candidates`、`candidateScores`、`contextDecisions`、`authorized` 和 `injected`；以及本轮 `BACKEND_REQUEST` 中实际的 system/user 内容。记下 `RAG_PROMPT` 的 `turn` 和 `seq`，不要把不同问题的 trace 与 prompt 配对。trace 中 `injected` 的来源范围不等同于 system 中的 `authorized` 事实。
-- 默认 trace 不含用户原文、完整候选正文和实际分词，`querySha` 不能还原查询。需要对照正文时，在 Debug 应用的 Final Prompt 查看，或按 [RAG 调试说明](../RAG_Logic.md#9-调试与排查) 临时启用 `rag_debug/raw_prompt_logcat`，在 Logcat 搜索 `RAG_TRACE`、`RAG_PROMPT`、`BACKEND_REQUEST`；长日志按同一 `turn` 的 `BEGIN/CHUNK/END` 拼接，结束后关闭原文日志。Final Prompt 是预览；`BACKEND_REQUEST` 才是首个实际 system/user 请求，重试请求另行记录。日志可能含私人对话，请先自行检查再分享。
+- 默认 trace 不含用户原文、完整候选正文和实际分词，`querySha` 不能还原查询。需要对照正文时，在 Debug 应用的 Final Prompt 查看，或按 [RAG 调试说明](RAG_Logic.md#9-调试与排查) 临时启用 `rag_debug/raw_prompt_logcat`，在 Logcat 搜索 `RAG_TRACE`、`RAG_PROMPT`、`BACKEND_REQUEST`；长日志按同一 `turn` 的 `BEGIN/CHUNK/END` 拼接，结束后关闭原文日志。Final Prompt 是预览；`BACKEND_REQUEST` 才是首个实际 system/user 请求，重试请求另行记录。日志可能含私人对话，请先自行检查再分享。
 
 ### A：明确对象与代词追问
 

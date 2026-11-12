@@ -1,17 +1,33 @@
 package com.example.minicpm_v_demo.harness.rag
 
 import android.content.Context
+import com.example.minicpm_v_demo.harness.ContentFingerprint
 import com.example.minicpm_v_demo.harness.HarnessModelFamily
+import com.example.minicpm_v_demo.harness.attribution.AttributionAgentRequestCompiler
+import com.example.minicpm_v_demo.harness.attribution.AttributionAgentResult
+import com.example.minicpm_v_demo.harness.attribution.AttributionRewriteTrace
+import com.example.minicpm_v_demo.harness.attribution.FinalPromptMaterializer
+import com.example.minicpm_v_demo.harness.attribution.FinalPromptRewriteService
+import com.example.minicpm_v_demo.harness.attribution.FinalPromptValidation
+import com.example.minicpm_v_demo.harness.attribution.FinalPromptValidator
+import com.example.minicpm_v_demo.harness.attribution.FocalCharacterIdentity
+import com.example.minicpm_v_demo.harness.attribution.NoopFinalPromptRewriteService
+import com.example.minicpm_v_demo.harness.attribution.RawPromptPackage
 import com.example.minicpm_v_demo.harness.character.CharacterCard
 import com.example.minicpm_v_demo.harness.character.CharacterFollowUpTarget
 import com.example.minicpm_v_demo.harness.character.CharacterPromptCompiler
+import com.example.minicpm_v_demo.harness.character.HarnessChatMessage
 import com.example.minicpm_v_demo.harness.character.RuntimeContext
 import com.example.minicpm_v_demo.harness.chat.ChatTemplateRenderer
 import com.example.minicpm_v_demo.harness.chat.RenderedChatPrompt
+import com.example.minicpm_v_demo.harness.context.CompressedConversationContext
+import com.example.minicpm_v_demo.harness.context.ConversationContextCompressor
+import com.example.minicpm_v_demo.harness.context.ConversationContextIdentity
 import com.example.minicpm_v_demo.harness.data.database.DatabaseRuntime
 import com.example.minicpm_v_demo.harness.data.database.DatabaseBundleHandle
 import com.example.minicpm_v_demo.harness.data.database.DatabaseBundleValidator
 import com.example.minicpm_v_demo.harness.data.database.DatabaseBundleManifest
+import com.example.minicpm_v_demo.harness.session.ChatSession
 import java.io.File
 
 enum class RagMode {
@@ -27,6 +43,7 @@ data class CompiledAndroidPrompt(
     val characterDebug: Any? = null,
     val mode: RagMode,
     val contextDecisions: List<RagContextDecision> = emptyList(),
+    val attributionTrace: AttributionRewriteTrace? = null,
     /** Raw-text, in-memory only Debug Logcat snapshots. Never persist these. */
     val stageLogs: List<RagPromptStageLog> = emptyList(),
     /** Content-free evidence-selection record for this compiled turn. */
@@ -42,8 +59,14 @@ class AndroidRagOrchestrator(
         AlwaysOnVectorRetrievalService(ragSearchService),
     private val vectorRetrievalFeatureFlags: VectorRetrievalFeatureFlags = VectorRetrievalFeatureFlags(),
     private val databaseBundle: DatabaseBundleHandle? = null,
+    private val conversationContextCompressor: ConversationContextCompressor = ConversationContextCompressor(),
+    private val finalPromptRewriteService: FinalPromptRewriteService = NoopFinalPromptRewriteService,
+    private val attributionRequestCompiler: AttributionAgentRequestCompiler? = null,
 ) : AutoCloseable {
-    override fun close() = ragSearchService.close()
+    override fun close() {
+        runCatching { (finalPromptRewriteService as? AutoCloseable)?.close() }
+        ragSearchService.close()
+    }
     private val characterCutoffs by lazy { characterCompiler.availableCharacters().associate { it.npcId to it.knowledgeScope.storyCutoff } }
     fun availableCharacters(): List<CharacterCard> {
         requireCurrentBundle()
@@ -65,7 +88,7 @@ class AndroidRagOrchestrator(
         storyCutoff: String? = null,
         topK: Int = 1,
         maxCharacterChars: Int = 900,
-        conversationSummary: String = "",
+        conversationSession: ChatSession? = null,
         knowledgeGraphEnabled: Boolean = true,
         followUpTarget: CharacterFollowUpTarget? = null,
         modelFamily: HarnessModelFamily = HarnessModelFamily.MINICPM_TEXT,
@@ -176,7 +199,6 @@ class AndroidRagOrchestrator(
                 runtimeContext = RuntimeContext(
                     storyCutoff = storyCutoff,
                     maxChars = maxCharacterChars,
-                    conversationSummary = conversationSummary,
                     knowledgeGraphEnabled = knowledgeGraphEnabled,
                     followUpTarget = followUpTarget,
                     vectorCandidateScores = vectorRetrieval.results
@@ -186,22 +208,46 @@ class AndroidRagOrchestrator(
             )
             val references = CharacterReferenceFilter.filter(vectorRetrieval.results, databaseBundle?.validated,
                 characterId, characterPrompt.debug.storyCutoff)
+            val conversationContext = databaseBundle?.let { bundle ->
+                conversationContextCompressor.compress(
+                    session = conversationSession,
+                    currentQuestion = userInput,
+                    maxChars = CONVERSATION_CONTEXT_MAX_CHARS,
+                    identity = ConversationContextIdentity(
+                        datasetId = bundle.manifest.datasetId,
+                        datasetFingerprint = bundle.manifest.datasetFingerprint,
+                        characterId = characterId,
+                        storyCutoff = characterPrompt.debug.storyCutoff,
+                    ),
+                )
+            } ?: CompressedConversationContext.EMPTY
             val prompt = characterRagPromptBuilder.build(
                 characterMessages = characterPrompt.messages,
                 userInput = userInput,
                 results = references.allowed,
                 characterDebug = characterPrompt.debug,
+                conversationContext = conversationContext,
             )
+            val focal = requireNotNull(availableCharacters().firstOrNull { it.npcId == characterId })
+            val rawPrompt = RawPromptPackage(
+                focalCharacter = FocalCharacterIdentity(focal.npcId, focal.identity.name, focal.identity.aliases),
+                systemPrompt = prompt.messages[0].content,
+                userQuestion = userInput,
+                conversationContext = conversationContext,
+                references = prompt.references,
+            )
+            val attribution = rewriteFinalPrompt(rawPrompt, prompt.messages)
+            val finalMessages = attribution.messages
             val referenceDecisions = references.rejected + prompt.contextDecisions
-            val rendered = renderer.render(prompt.messages)
+            val rendered = renderer.render(finalMessages)
             val externalStage = if (prompt.contextText.isNotBlank()) {
                 RagPromptStageLog.emitted(RagPromptStage.EXTERNAL_CONTEXT_COMPILED,
-                    RagPromptSnapshot(systemPrompt = prompt.messages[0].content, userPrompt = prompt.messages[1].content))
+                    RagPromptSnapshot(systemPrompt = finalMessages[0].content, userPrompt = finalMessages[1].content))
             } else {
                 RagPromptStageLog.skipped(RagPromptStage.EXTERNAL_CONTEXT_COMPILED,
                     if (vectorRetrieval.attempt.executed) "no_reference_context" else "vector_retrieval_not_requested")
             }
-            val stageLogs = finalStageLogs(characterPrompt.stageLogs + externalStage, rendered)
+            val stageLogs = finalStageLogs(characterPrompt.stageLogs + externalStage + attribution.stageLogs, rendered)
             CompiledAndroidPrompt(
                 renderedPrompt = rendered.renderedSinglePrompt,
                 rendered = rendered,
@@ -210,6 +256,7 @@ class AndroidRagOrchestrator(
                 characterDebug = prompt.characterDebug,
                 mode = mode,
                 contextDecisions = referenceDecisions,
+                attributionTrace = attribution.trace,
                 stageLogs = stageLogs,
                 turnTrace = RagTurnTrace.create(
                     mode = mode,
@@ -223,8 +270,135 @@ class AndroidRagOrchestrator(
                     contextDecisions = referenceDecisions,
                     characterDebug = prompt.characterDebug,
                     databaseManifest = databaseBundle?.manifest,
+                    attributionTrace = attribution.trace,
                 ),
             )
+        }
+    }
+
+    private data class AttributionResolution(
+        val messages: List<HarnessChatMessage>,
+        val trace: AttributionRewriteTrace,
+        val stageLogs: List<RagPromptStageLog>,
+    )
+
+    private fun rewriteFinalPrompt(
+        raw: RawPromptPackage,
+        rawMessages: List<HarnessChatMessage>,
+    ): AttributionResolution {
+        if (raw.references.isEmpty()) {
+            return AttributionResolution(
+                messages = rawMessages,
+                trace = AttributionRewriteTrace("not_requested", "no_authorized_references"),
+                stageLogs = listOf(
+                    RagPromptStageLog.skipped(RagPromptStage.RAW_PROMPT_COMPILED, "no_authorized_references"),
+                    RagPromptStageLog.skipped(RagPromptStage.AGENT_A_REQUEST, "no_authorized_references"),
+                    RagPromptStageLog.skipped(RagPromptStage.FINAL_PROMPT_VALIDATED, "no_authorized_references"),
+                ),
+            )
+        }
+        val baseTrace = AttributionRewriteTrace(
+            status = "requested",
+            rawPromptFingerprint = raw.fingerprint,
+            referenceCount = raw.references.size,
+        )
+        val rawStage = RagPromptStageLog.emitted(
+            RagPromptStage.RAW_PROMPT_COMPILED,
+            RagPromptSnapshot(systemPrompt = rawMessages[0].content, userPrompt = rawMessages[1].content),
+        )
+        if (!finalPromptRewriteService.enabled) {
+            return AttributionResolution(
+                messages = rawMessages,
+                trace = baseTrace.copy(status = "disabled", reason = "disabled"),
+                stageLogs = listOf(
+                    rawStage,
+                    RagPromptStageLog.skipped(RagPromptStage.AGENT_A_REQUEST, "disabled"),
+                    RagPromptStageLog.skipped(RagPromptStage.FINAL_PROMPT_VALIDATED, "disabled"),
+                ),
+            )
+        }
+        val compiler = attributionRequestCompiler
+            ?: return AttributionResolution(
+                messages = rawMessages,
+                trace = baseTrace.copy(status = "fallback", reason = "agent_a_template_unavailable"),
+                stageLogs = listOf(
+                    rawStage,
+                    RagPromptStageLog.skipped(RagPromptStage.AGENT_A_REQUEST, "agent_a_template_unavailable"),
+                    RagPromptStageLog.skipped(RagPromptStage.FINAL_PROMPT_VALIDATED, "agent_a_template_unavailable"),
+                ),
+            )
+        val request = runCatching { compiler.compile(raw) }.getOrElse { error ->
+            return AttributionResolution(
+                messages = rawMessages,
+                trace = baseTrace.copy(status = "fallback", reason = "agent_a_request_compile_failed"),
+                stageLogs = listOf(
+                    rawStage,
+                    RagPromptStageLog.skipped(RagPromptStage.AGENT_A_REQUEST, "agent_a_request_compile_failed"),
+                    RagPromptStageLog.skipped(RagPromptStage.FINAL_PROMPT_VALIDATED, "agent_a_request_compile_failed"),
+                ),
+            )
+        }
+        val requestStage = RagPromptStageLog.emitted(
+            RagPromptStage.AGENT_A_REQUEST,
+            RagPromptSnapshot(systemPrompt = request.messages[0].content, userPrompt = request.messages[1].content),
+        )
+        val result = runCatching { finalPromptRewriteService.rewrite(request) }.getOrElse { error ->
+            return AttributionResolution(
+                messages = rawMessages,
+                trace = baseTrace.copy(status = "fallback", reason = "agent_a_failed"),
+                stageLogs = listOf(
+                    rawStage,
+                    requestStage,
+                    RagPromptStageLog.skipped(RagPromptStage.FINAL_PROMPT_VALIDATED, "agent_a_failed"),
+                ),
+            )
+        }
+        return when (result) {
+            is AttributionAgentResult.Fallback -> AttributionResolution(
+                messages = rawMessages,
+                trace = baseTrace.copy(status = "fallback", reason = result.reason),
+                stageLogs = listOf(
+                    rawStage,
+                    requestStage,
+                    RagPromptStageLog.skipped(RagPromptStage.FINAL_PROMPT_VALIDATED, result.reason),
+                ),
+            )
+            is AttributionAgentResult.Draft -> when (val validation = FinalPromptValidator().validate(raw, result.draft)) {
+                is FinalPromptValidation.Rejected -> AttributionResolution(
+                    messages = rawMessages,
+                    trace = baseTrace.copy(status = "fallback", reason = validation.code, modelId = result.modelId),
+                    stageLogs = listOf(
+                        rawStage,
+                        requestStage,
+                        RagPromptStageLog.skipped(RagPromptStage.FINAL_PROMPT_VALIDATED, validation.code),
+                    ),
+                )
+                FinalPromptValidation.Accepted -> {
+                    val materialized = FinalPromptMaterializer().materialize(raw, result.draft)
+                    val messages = listOf(
+                        HarnessChatMessage("system", materialized.systemPrompt),
+                        HarnessChatMessage("user", materialized.userPrompt),
+                    )
+                    AttributionResolution(
+                        messages = messages,
+                        trace = baseTrace.copy(
+                            status = "success",
+                            modelId = result.modelId,
+                            finalPromptFingerprint = ContentFingerprint.sha256Short(
+                                materialized.systemPrompt + '\u0000' + materialized.userPrompt,
+                            ),
+                        ),
+                        stageLogs = listOf(
+                            rawStage,
+                            requestStage,
+                            RagPromptStageLog.emitted(
+                                RagPromptStage.FINAL_PROMPT_VALIDATED,
+                                RagPromptSnapshot(systemPrompt = messages[0].content, userPrompt = messages[1].content),
+                            ),
+                        ),
+                    )
+                }
+            }
         }
     }
 
@@ -263,6 +437,7 @@ class AndroidRagOrchestrator(
     companion object {
         private const val GENERAL_RAG_MIN_SCORE = 0.10
         private const val CHARACTER_RAG_MIN_SCORE = 0.10
+        private const val CONVERSATION_CONTEXT_MAX_CHARS = 360
 
         fun fromContext(context: Context): AndroidRagOrchestrator {
             return fromBundle(DatabaseRuntime.requireBundle(),
@@ -271,12 +446,16 @@ class AndroidRagOrchestrator(
         }
 
         fun fromBundle(bundle: DatabaseBundleHandle, promptTemplate: File,
-            flags: VectorRetrievalFeatureFlags = VectorRetrievalFeatureFlags()): AndroidRagOrchestrator {
+            flags: VectorRetrievalFeatureFlags = VectorRetrievalFeatureFlags(),
+            finalPromptRewriteService: FinalPromptRewriteService = NoopFinalPromptRewriteService): AndroidRagOrchestrator {
             require(DatabaseBundleValidator.validate(bundle.paths).manifest.datasetFingerprint ==
                 bundle.manifest.datasetFingerprint) { "database_handle_identity_changed" }
+            val attributionTemplate = File(promptTemplate.parentFile, "final_prompt_rewriter_system.prompt")
             return AndroidRagOrchestrator(RagSearchService.fromBundle(bundle, flags.hybridRetrieval),
                 CharacterPromptCompiler.fromBundle(bundle, promptTemplate),
-                vectorRetrievalFeatureFlags = flags, databaseBundle = bundle)
+                vectorRetrievalFeatureFlags = flags, databaseBundle = bundle,
+                finalPromptRewriteService = finalPromptRewriteService,
+                attributionRequestCompiler = AttributionAgentRequestCompiler.fromFile(attributionTemplate))
         }
     }
 }

@@ -12,7 +12,6 @@ import java.util.UUID
 
 class ChatSessionStore(
     private val paths: HarnessDataPaths,
-    private val summaryBuilder: ConversationSummaryBuilder = ConversationSummaryBuilder(),
     private val datasetIdentity: DatabaseIdentity? = null,
     private val allowedCharacterIds: Set<String>? = null,
     private val allowedCutoffs: Set<String>? = null,
@@ -51,7 +50,6 @@ class ChatSessionStore(
         val turns = session.turns + turn
         val updated = session.copy(
             turns = turns,
-            conversationSummary = summaryBuilder.build(turns),
             selectedModelId = turn.modelId,
             updatedAt = System.currentTimeMillis(),
         )
@@ -122,7 +120,6 @@ class ChatSessionStore(
                 "story_cutoff" to session.storyCutoff,
                 "selected_model_id" to session.selectedModelId,
                 "turns" to session.turns.map { serializeTurnMap(it) },
-                "conversation_summary" to session.conversationSummary,
                 "created_at" to session.createdAt,
                 "updated_at" to session.updatedAt,
             ),
@@ -163,7 +160,6 @@ class ChatSessionStore(
             turns = (value["turns"] as? List<*>).orEmpty().mapNotNull { raw ->
                 (raw as? Map<*, *>)?.entries?.associate { it.key.toString() to it.value }?.let(::parseTurn)
             },
-            conversationSummary = value.optionalString("conversation_summary").orEmpty(),
             createdAt = value.optionalLong("created_at") ?: 0L,
             updatedAt = value.optionalLong("updated_at") ?: 0L,
             datasetId = value.optionalString("dataset_id"),

@@ -15,7 +15,7 @@ import java.nio.file.Files
 class ChatSessionStoreTest {
     private val identity = DatabaseIdentity("fixture", "a".repeat(64))
     @Test
-    fun appendTurnPersistsRecentSessionWithSourcesModelAndSummary() {
+    fun appendTurnPersistsRecentSessionWithSourcesAndModel() {
         val tempRoot = Files.createTempDirectory("chat-session-store-test").toFile()
         try {
             val store = ChatSessionStore(HarnessDataPaths(File(tempRoot, "harness")))
@@ -48,8 +48,8 @@ class ChatSessionStoreTest {
             assertEquals("docs/a.md", restored.turns.single().sources.single().source)
             assertEquals(1234L, restored.turns.single().createdAt)
             assertEquals("v2-claim-evt-012", restored.turns.single().characterContextTargets.single().id)
-            assertTrue(restored.conversationSummary.contains("不可信对话记录"))
-            assertTrue(restored.conversationSummary.contains("玄谙是什么？"))
+            assertEquals(1, restored.turns.size)
+            assertEquals("玄谙是什么？", restored.turns.single().userText)
         } finally {
             tempRoot.deleteRecursively()
         }

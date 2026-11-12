@@ -69,7 +69,18 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         llama_jni.cpp
         omni_jni.cpp)
 
+# Agent A uses a separately loaded JNI DSO. The source is intentionally the
+# same llama bridge with renamed JNI entry points, which isolates its static
+# model/context/sampler state from Agent B without model swapping per turn.
+add_library(minicpm_attribution SHARED
+        attribution_llama_jni.cpp)
+
 target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
+        GGML_SYSTEM_ARCH=${GGML_SYSTEM_ARCH}
+        GGML_CPU_KLEIDIAI=$<BOOL:${GGML_CPU_KLEIDIAI}>
+        GGML_OPENMP=$<BOOL:${GGML_OPENMP}>
+)
+target_compile_definitions(minicpm_attribution PRIVATE
         GGML_SYSTEM_ARCH=${GGML_SYSTEM_ARCH}
         GGML_CPU_KLEIDIAI=$<BOOL:${GGML_CPU_KLEIDIAI}>
         GGML_OPENMP=$<BOOL:${GGML_OPENMP}>
@@ -87,11 +98,25 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
         # llama-common/peg-parser pulls in <nlohmann/json_fwd.hpp> via chat.h.
         # The vendored nlohmann headers live under llama.cpp-omni/vendor.
         ${LLAMA_SRC}/vendor)
+target_include_directories(minicpm_attribution PRIVATE
+        ${LLAMA_SRC}
+        ${LLAMA_SRC}/common
+        ${LLAMA_SRC}/include
+        ${LLAMA_SRC}/ggml/include
+        ${LLAMA_SRC}/ggml/src
+        ${LLAMA_SRC}/tools/mtmd
+        ${LLAMA_SRC}/vendor)
 
 target_link_libraries(${CMAKE_PROJECT_NAME}
         llama
         llama-common
         mtmd
         voxcpm2_runtime
+        android
+        log)
+target_link_libraries(minicpm_attribution
+        llama
+        llama-common
+        mtmd
         android
         log)

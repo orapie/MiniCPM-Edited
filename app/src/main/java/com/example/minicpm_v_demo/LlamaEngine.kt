@@ -328,9 +328,10 @@ class LlamaEngine private constructor(
 
         suspend fun downloadModels(
             context: Context,
-            onProgress: (String) -> Unit
+            onProgress: (String) -> Unit,
+            modelOverride: ModelInfo? = null,
         ) = withContext(Dispatchers.IO) {
-            val model = getSelectedModel(context)
+            val model = modelOverride ?: getSelectedModel(context)
             val dir = File(modelDirFor(context, model))
             if (!dir.exists()) dir.mkdirs()
 

@@ -25,6 +25,10 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.example.minicpm_v_demo.harness.HarnessFacade
+import com.example.minicpm_v_demo.harness.attribution.AttributionFeatureFlags
+import com.example.minicpm_v_demo.harness.attribution.AttributionModelRegistry
+import com.example.minicpm_v_demo.harness.attribution.AttributionModelStore
+import com.google.android.material.materialswitch.MaterialSwitch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -38,9 +42,17 @@ class ModelManagerActivity : AppCompatActivity() {
     private lateinit var progressDownload: LinearProgressIndicator
     private lateinit var recyclerModels: RecyclerView
     private lateinit var tvLanguageValue: TextView
+    private lateinit var tvAttributionStatus: TextView
+    private lateinit var btnAttributionModel: MaterialButton
+    private lateinit var btnAttributionDownload: MaterialButton
+    private lateinit var switchDoubleAgent: MaterialSwitch
 
     private lateinit var harness: HarnessFacade
     private lateinit var modelAdapter: ModelAdapter
+    private lateinit var attributionModelStore: AttributionModelStore
+    private lateinit var attributionFeatureFlags: AttributionFeatureFlags
+    private var updatingAttributionControls = false
+    private var attributionDownloadRunning = false
 
     // Android 13+: POST_NOTIFICATIONS is a runtime permission. We need it
     // for the foreground download service's progress notification (without
@@ -87,19 +99,112 @@ class ModelManagerActivity : AppCompatActivity() {
         progressDownload = findViewById(R.id.progress_download)
         recyclerModels = findViewById(R.id.recycler_models)
         tvLanguageValue = findViewById(R.id.tv_language_value)
+        tvAttributionStatus = findViewById(R.id.tv_attribution_status)
+        btnAttributionModel = findViewById(R.id.btn_attribution_model)
+        btnAttributionDownload = findViewById(R.id.btn_attribution_download)
+        switchDoubleAgent = findViewById(R.id.switch_double_agent)
 
         harness = HarnessFacade.getInstance(applicationContext)
+        attributionModelStore = AttributionModelStore(applicationContext)
+        attributionFeatureFlags = AttributionFeatureFlags(applicationContext)
 
         setupModelList()
         updateLoadButtonState()
         observeEngineState()
         observeDownloadStatus()
         updateLanguageDisplay()
+        setupAttributionControls()
 
         btnDownload.setOnClickListener { onDownloadClicked() }
         btnLoadModel.setOnClickListener { loadSelectedModel() }
         btnDeleteModel.setOnClickListener { confirmDeleteModel() }
         findViewById<View>(R.id.btn_language).setOnClickListener { showLanguagePicker() }
+    }
+
+    private fun setupAttributionControls() {
+        btnAttributionModel.setOnClickListener { showAttributionModelPicker() }
+        btnAttributionDownload.setOnClickListener { downloadAttributionModel() }
+        switchDoubleAgent.setOnCheckedChangeListener { _, enabled ->
+            if (updatingAttributionControls) return@setOnCheckedChangeListener
+            if (enabled && !attributionModelStore.isSelectedModelDownloaded()) {
+                Toast.makeText(this, R.string.attribution_enable_requires_model, Toast.LENGTH_LONG).show()
+                updateAttributionControls()
+                return@setOnCheckedChangeListener
+            }
+            attributionFeatureFlags.setLocalAgentAEnabled(enabled)
+            updateAttributionControls()
+        }
+        updateAttributionControls()
+    }
+
+    private fun showAttributionModelPicker() {
+        val entries = AttributionModelRegistry.eligibleEntries()
+        val selected = attributionModelStore.getSelectedEntry().model.id
+        val labels = entries.map { entry ->
+            val suffix = if (entry.model.id == selected) "  ✓" else ""
+            entry.model.displayName + suffix
+        }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle(R.string.attribution_select_model)
+            .setItems(labels) { _, index ->
+                attributionModelStore.setSelectedModel(entries[index].model.id)
+                updateAttributionControls()
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun downloadAttributionModel() {
+        if (attributionDownloadRunning || ModelDownloadController.isRunning) {
+            Toast.makeText(this, R.string.toast_downloading, Toast.LENGTH_SHORT).show()
+            return
+        }
+        val files = attributionModelStore.getSelectedModelFiles()
+        if (files.llmFile.isFile) {
+            updateAttributionControls()
+            return
+        }
+        attributionDownloadRunning = true
+        btnAttributionDownload.isEnabled = false
+        tvAttributionStatus.text = getString(R.string.attribution_download_started, files.entry.model.displayName)
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                LlamaEngine.downloadModels(applicationContext, { progress ->
+                    runOnUiThread { tvAttributionStatus.text = progress }
+                }, files.entry.model)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@ModelManagerActivity, R.string.attribution_download_complete, Toast.LENGTH_SHORT).show()
+                }
+            } catch (error: Exception) {
+                Log.e(TAG, "Agent A model download failed", error)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@ModelManagerActivity,
+                        getString(R.string.attribution_download_failed, error.message ?: "unknown"), Toast.LENGTH_LONG).show()
+                }
+            } finally {
+                withContext(Dispatchers.Main) {
+                    attributionDownloadRunning = false
+                    updateAttributionControls()
+                }
+            }
+        }
+    }
+
+    private fun updateAttributionControls() {
+        val availability = attributionModelStore.getSelectedModelAvailability()
+        val ready = availability.isReady
+        tvAttributionStatus.text = getString(
+            if (ready) R.string.attribution_status_ready else R.string.attribution_status_missing,
+            availability.entry.model.displayName,
+        )
+        btnAttributionDownload.isEnabled = !ready && !attributionDownloadRunning
+        switchDoubleAgent.isEnabled = ready && !attributionDownloadRunning
+        if (!ready && attributionFeatureFlags.localAgentAEnabled) {
+            attributionFeatureFlags.setLocalAgentAEnabled(false)
+        }
+        updatingAttributionControls = true
+        switchDoubleAgent.isChecked = ready && attributionFeatureFlags.localAgentAEnabled
+        updatingAttributionControls = false
     }
 
     private fun setupModelList() {

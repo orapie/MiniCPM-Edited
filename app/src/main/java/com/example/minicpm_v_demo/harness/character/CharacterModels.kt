@@ -12,7 +12,6 @@ data class RuntimeContext(
     val dynamicState: DynamicState? = null,
     val maxChars: Int = 4500,
     val topK: Int = 8,
-    val conversationSummary: String = "",
     val knowledgeGraphEnabled: Boolean = true,
     val graphFactTopK: Int = 4,
     val graphRelationTopK: Int = 2,
@@ -51,8 +50,7 @@ data class CharacterPromptDebug(
     val retrievalDecisions: List<RetrievalDecision>,
     val estimatedPromptTokens: Int = 0,
     val estimatedMandatoryTokens: Int = 0,
-    val conversationSummaryChars: Int = 0,
-    /** Budget held back from conversation history so current-turn evidence can be injected. */
+    /** Retained for trace schema compatibility; legacy prompt evidence is no longer injected. */
     val reservedDynamicEvidenceChars: Int = 0,
     val estimatedUserTokens: Int = 0,
     val knowledgeGraphStatus: String = "not_configured",

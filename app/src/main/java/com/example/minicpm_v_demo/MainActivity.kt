@@ -53,6 +53,7 @@ import com.example.minicpm_v_demo.harness.data.database.DatabaseRuntime
 import com.example.minicpm_v_demo.harness.data.database.DatabaseInstallResult
 import com.example.minicpm_v_demo.harness.data.database.DatabaseIdentity
 import com.example.minicpm_v_demo.harness.data.database.DatabaseBundleHandle
+import com.example.minicpm_v_demo.harness.attribution.LocalAttributionRewriteService
 import com.example.minicpm_v_demo.harness.data.database.DatabaseTurnLease
 import com.example.minicpm_v_demo.harness.session.ChatSession
 import com.example.minicpm_v_demo.harness.session.ChatSessionStore
@@ -852,7 +853,10 @@ class MainActivity : AppCompatActivity() {
                     val store = sessionStoreFor(bundle)
                     val orchestrator = bundle?.let {
                         AndroidRagOrchestrator.fromBundle(it, File(filesDir, "program/prompts/roleplay_system.prompt"),
-                            com.example.minicpm_v_demo.harness.rag.VectorRetrievalFeatureFlags.from(applicationContext))
+                            com.example.minicpm_v_demo.harness.rag.VectorRetrievalFeatureFlags.from(applicationContext),
+                            LocalAttributionRewriteService(applicationContext, isForegroundRuntimeReady = {
+                                harness.state.value is LlamaState.ModelReady
+                            }))
                     }
                     Triple(store, orchestrator, if (bundle == null) null else store.loadRecentSession())
                 }
@@ -1055,11 +1059,11 @@ class MainActivity : AppCompatActivity() {
                 mode = binding.mode,
                 characterId = binding.characterId,
                 storyCutoff = binding.storyCutoff,
-                conversationSummary = binding.session?.takeIf {
+                conversationSession = binding.session?.takeIf {
                     it.datasetId == binding.identity?.datasetId && it.datasetFingerprint == binding.identity?.fingerprint &&
                         it.characterPackId == binding.identity?.datasetId && it.characterId == binding.characterId &&
                         it.storyCutoff == binding.storyCutoff
-                }?.conversationSummary.orEmpty(),
+                },
                 knowledgeGraphEnabled = characterKnowledgeGraphEnabled,
                 followUpTarget = followUpTarget,
                 modelFamily = binding.modelFamily,
@@ -1092,6 +1096,17 @@ class MainActivity : AppCompatActivity() {
                     "estimatedUserTokens=${characterDebug?.estimatedUserTokens}",
             )
             Log.d(TAG, compiled.turnTrace.toLogLine())
+            val attributionTrace = compiled.attributionTrace
+            Log.i(
+                TAG,
+                "ATTRIBUTION_TRACE " +
+                    "status=${attributionTrace?.status ?: "not_applicable"} " +
+                    "reason=${attributionTrace?.reason ?: "none"} " +
+                    "model=${attributionTrace?.modelId ?: "none"} " +
+                    "references=${attributionTrace?.referenceCount ?: 0} " +
+                    "rawSha=${attributionTrace?.rawPromptFingerprint ?: "none"} " +
+                    "finalSha=${attributionTrace?.finalPromptFingerprint ?: "none"}",
+            )
             if (isDebuggableBuild() && getSharedPreferences("rag_debug", MODE_PRIVATE)
                     .getBoolean("raw_prompt_logcat", false) && compiled.stageLogs.isNotEmpty()) {
                 runCatching {

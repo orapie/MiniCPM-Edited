@@ -37,8 +37,9 @@ def verify(apk, source, program_source, report):
         for name, content in expected.items():
             require(archive.read(entries[name]) == content, f"APK contains stale database file: {name}")
         require(not any(name.startswith("assets/harness/") for name in assets), "Legacy Harness assets packaged")
-        program = {"assets/prompts/roleplay_system.prompt":
-                   (program_source / "prompts/roleplay_system.prompt").read_bytes()}
+        program = {"assets/" + path.relative_to(program_source).as_posix(): path.read_bytes()
+                   for path in (program_source / "prompts").rglob("*")
+                   if path.is_file() and not path.name.startswith(".")}
         program.update({"assets/" + path.relative_to(program_source).as_posix(): path.read_bytes()
                         for path in (program_source / "ref_audios").rglob("*") if path.is_file() and not path.name.startswith(".")})
         require(assets == set(expected) | set(program), "Unexpected or missing program assets in APK")

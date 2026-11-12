@@ -81,6 +81,7 @@ using SteadyClock = std::chrono::steady_clock;
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_example_minicpm_1v_1demo_LlamaEngine_init(JNIEnv *env, jobject /*unused*/, jstring nativeLibDir) {
+#if !defined(ATTRIBUTION_RUNTIME)
     llama_log_set(minicpm_android_log_callback, nullptr);
 
     const auto *path_to_backend = env->GetStringUTFChars(nativeLibDir, 0);
@@ -97,6 +98,14 @@ Java_com_example_minicpm_1v_1demo_LlamaEngine_init(JNIEnv *env, jobject /*unused
 
     llama_backend_init();
     LOGi("Backend initiated; Log handler set.");
+#else
+    // The attribution runtime is a second JNI DSO with its own model/context
+    // globals. llama.cpp's backend itself is process-global (shared by both
+    // DSOs), so only the foreground runtime initializes and frees it.
+    (void) env;
+    (void) nativeLibDir;
+    LOGi("Attribution runtime initialized against existing llama backend");
+#endif
 }
 
 extern "C"
@@ -904,5 +913,7 @@ Java_com_example_minicpm_1v_1demo_LlamaEngine_unload(JNIEnv * /*env*/, jobject /
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_example_minicpm_1v_1demo_LlamaEngine_shutdown(JNIEnv *, jobject /*unused*/) {
+#if !defined(ATTRIBUTION_RUNTIME)
     llama_backend_free();
+#endif
 }

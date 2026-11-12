@@ -2,6 +2,7 @@ package com.example.minicpm_v_demo.harness.rag
 
 import com.example.minicpm_v_demo.harness.character.CharacterPromptDebug
 import com.example.minicpm_v_demo.harness.character.HarnessChatMessage
+import com.example.minicpm_v_demo.harness.context.CompressedConversationContext
 import com.example.minicpm_v_demo.harness.data.database.DatabaseBundleValidator
 import com.example.minicpm_v_demo.harness.data.database.databaseTestSource
 import org.junit.Assert.*
@@ -45,6 +46,20 @@ class CharacterReferencePipelineTest {
             assertEquals(text, compiled.contextDecisions.single().selectedChunkSpans.single().let { (start, end) -> text.substring(start, end) })
             assertEquals(1, compiled.sources.size)
         }
+    }
+
+    @Test fun conversationContextIsUserScopedAndReferencesKeepStableIds() {
+        val debug = CharacterPromptDebug("npc", "evt-001", 900, 0, 0, false, emptyList(), emptyList(), emptyList())
+        val messages = listOf(HarnessChatMessage("system", "角色规则"), HarnessChatMessage("user", "问题"))
+        val hit = SearchResult(RagChunk("ref-stable", "甲对乙说：继续前进。", "database/test", 1, 2, mapOf("claim_id" to "c")), 0.5)
+        val prompt = CharacterRagPromptBuilder().build(messages, "现在呢？", listOf(hit), debug,
+            CompressedConversationContext("玩家之前问过路线。", 2, 12, "hash"))
+
+        assertEquals("角色规则", prompt.messages[0].content.substringBefore("\n本轮检索资料"))
+        assertTrue(prompt.messages[1].content.startsWith("前面对话仅用于理解代词"))
+        assertTrue(prompt.messages[1].content.contains("甲对乙说：继续前进。"))
+        assertEquals(listOf("ref-stable"), prompt.references.map { it.id })
+        assertEquals("甲对乙说：继续前进。", prompt.references.single().text)
     }
 
     @Test fun budgetNeverCountsPunctuationOrHeaderAsEvidence() {

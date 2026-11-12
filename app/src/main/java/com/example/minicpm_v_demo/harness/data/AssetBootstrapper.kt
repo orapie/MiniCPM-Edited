@@ -36,7 +36,10 @@ object AssetBootstrapper {
         paths.ensureRuntimeDirs()
         // Explicit program-resource allowlist. Knowledge is installed only by
         // DatabaseBundleInstaller, never copied from the old Harness tree.
-        val programAssets = listOf("prompts/roleplay_system.prompt")
+        val programAssets = listOf(
+            "prompts/roleplay_system.prompt",
+            "prompts/final_prompt_rewriter_system.prompt",
+        )
         programAssets.forEach { relative ->
             val target = File(context.filesDir, "program/$relative")
             check(target.parentFile?.let { it.isDirectory || it.mkdirs() } == true)

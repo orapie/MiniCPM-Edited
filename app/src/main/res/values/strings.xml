@@ -126,6 +126,16 @@
     <string name="model_files_deleted">模型文件已删除</string>
     <string name="toast_no_files_to_delete">没有可删除的文件</string>
     <string name="toast_delete_failed">删除失败: %1$s</string>
+    <string name="attribution_agent_title">双 Agent：资料归属处理</string>
+    <string name="attribution_agent_hint">Agent A 只处理本轮资料中的人物指代，再交由当前聊天模型生成回答。仅支持本地纯文本 GGUF，需额外占用内存。</string>
+    <string name="attribution_select_model">选择 Agent A</string>
+    <string name="attribution_enable">启用双 Agent</string>
+    <string name="attribution_status_ready">Agent A：%1$s，已就绪</string>
+    <string name="attribution_status_missing">Agent A：%1$s，需下载</string>
+    <string name="attribution_download_started">正在下载 Agent A：%1$s</string>
+    <string name="attribution_download_complete">Agent A 下载完成</string>
+    <string name="attribution_download_failed">Agent A 下载失败：%1$s</string>
+    <string name="attribution_enable_requires_model">请先下载 Agent A 模型</string>
 
     <!-- ChatAdapter -->
     <string name="thinking_in_progress">思考中…</string>

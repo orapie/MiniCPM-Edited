@@ -70,9 +70,9 @@ abstract class PrepareProgramAssetsTask @Inject constructor(
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val referenceAudios: DirectoryProperty
 
-    @get:InputFile
+    @get:InputDirectory
     @get:PathSensitive(PathSensitivity.RELATIVE)
-    abstract val roleplayTemplate: RegularFileProperty
+    abstract val promptTemplates: DirectoryProperty
 
     @get:OutputDirectory
     abstract val outputDirectory: DirectoryProperty
@@ -82,14 +82,14 @@ abstract class PrepareProgramAssetsTask @Inject constructor(
         fileSystemOperations.sync {
             into(outputDirectory)
             from(referenceAudios) { into("ref_audios") }
-            from(roleplayTemplate) { into("prompts") }
+            from(promptTemplates) { into("prompts") }
         }
     }
 }
 
 val prepareProgramAssets = tasks.register<PrepareProgramAssetsTask>("prepareProgramAssets") {
     referenceAudios.set(layout.projectDirectory.dir("src/main/assets/ref_audios"))
-    roleplayTemplate.set(layout.projectDirectory.file("src/main/assets/prompts/roleplay_system.prompt"))
+    promptTemplates.set(layout.projectDirectory.dir("src/main/assets/prompts"))
     outputDirectory.set(layout.buildDirectory.dir("generated/programAssets"))
 }
 
@@ -131,6 +131,9 @@ android {
 
         externalNativeBuild {
             cmake {
+                // Both JNI DSOs are application runtime dependencies: the
+                // foreground engine and the isolated text-only Agent-A engine.
+                targets += listOf("minicpm_v_demo", "minicpm_attribution")
                 arguments += "-DCMAKE_BUILD_TYPE=Release"
                 arguments += "-DBUILD_SHARED_LIBS=ON"
                 arguments += "-DLLAMA_BUILD_COMMON=ON"

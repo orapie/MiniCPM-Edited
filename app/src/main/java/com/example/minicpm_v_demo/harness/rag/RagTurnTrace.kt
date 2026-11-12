@@ -2,6 +2,7 @@ package com.example.minicpm_v_demo.harness.rag
 
 import com.example.minicpm_v_demo.harness.ContentFingerprint
 import com.example.minicpm_v_demo.harness.HarnessModelFamily
+import com.example.minicpm_v_demo.harness.attribution.AttributionRewriteTrace
 import com.example.minicpm_v_demo.harness.character.CharacterPromptDebug
 import com.example.minicpm_v_demo.harness.data.database.DatabaseBundleManifest
 import com.example.minicpm_v_demo.harness.chat.RenderedChatPrompt
@@ -36,6 +37,7 @@ data class RagTurnTrace(
     val indexFingerprint: String = "unavailable",
     val authorizedFactIds: List<String> = emptyList(),
     val rejectedFactReasons: List<String> = emptyList(),
+    val attribution: AttributionRewriteTrace? = null,
 ) {
     fun toLogLine(): String = buildString {
         append("RAG_TRACE")
@@ -58,6 +60,11 @@ data class RagTurnTrace(
         append(" authorized=").append(authorizedFactIds.joinToString("+"))
         append(" injected=").append(character?.selectedItemIds.orEmpty().joinToString("+"))
         append(" rejected=").append(rejectedFactReasons.joinToString("+"))
+        attribution?.let { trace ->
+            append(" attribution=").append(trace.status)
+            append(':').append(trace.reason ?: "none")
+            append(':').append(trace.modelId ?: "none")
+        }
     }
 
     /** Suitable for the existing developer prompt dialog; it contains no prompt text. */
@@ -78,6 +85,14 @@ data class RagTurnTrace(
         append("indexFingerprint: ").append(indexFingerprint).append('\n')
         append("authorized: ").append(authorizedFactIds.joinToString()).append('\n')
         append("rejected: ").append(rejectedFactReasons.joinToString()).append('\n')
+        attribution?.let { trace ->
+            append("attribution: ").append(trace.status)
+                .append(" / ").append(trace.reason ?: "none")
+                .append(" / refs=").append(trace.referenceCount)
+                .append(" / rawSha=").append(trace.rawPromptFingerprint)
+                .append(" / finalSha=").append(trace.finalPromptFingerprint)
+                .append(" / model=").append(trace.modelId ?: "none").append('\n')
+        }
         character?.let { trace ->
             append("character: ").append(trace.compact()).append('\n')
             append("selected: ").append(trace.selectedItemIds.ifEmpty { listOf("none") }.joinToString()).append('\n')
@@ -130,6 +145,8 @@ data class RagTurnTrace(
         append(','); jsonField("indexFingerprint", indexFingerprint)
         append(",\"authorizedFactIds\":"); jsonArray(authorizedFactIds)
         append(",\"rejectedFactReasons\":"); jsonArray(rejectedFactReasons)
+        append(",\"attribution\":")
+        attribution?.appendJson(this) ?: append("null")
         append('}')
     }
 
@@ -146,6 +163,7 @@ data class RagTurnTrace(
             contextDecisions: List<RagContextDecision>,
             characterDebug: CharacterPromptDebug?,
             databaseManifest: DatabaseBundleManifest? = null,
+            attributionTrace: AttributionRewriteTrace? = null,
         ): RagTurnTrace = RagTurnTrace(
             mode = mode,
             queryFingerprint = ContentFingerprint.sha256Short(userInput),
@@ -191,6 +209,7 @@ data class RagTurnTrace(
                 .filter { it.disposition.name == "SELECTED" }.map { it.claimId },
             rejectedFactReasons = characterDebug?.knowledgeGraphDecisions.orEmpty()
                 .filter { it.disposition.name == "DROPPED" }.map { "${it.claimId}:${it.reason.name}" },
+            attribution = attributionTrace,
         )
     }
 }
@@ -368,6 +387,21 @@ data class CharacterRagTrace(
 private fun RagSource.stableId(): String = "$source@$start:$end"
 
 private fun RagContextDecision.stableId(): String = "$source@$start:$end"
+
+private fun AttributionRewriteTrace.appendJson(out: StringBuilder) {
+    out.append('{')
+    out.jsonField("status", status)
+    out.append(',')
+    out.jsonField("reason", reason ?: "none")
+    out.append(',')
+    out.jsonField("rawPromptSha256", rawPromptFingerprint)
+    out.append(',')
+    out.jsonField("finalPromptSha256", finalPromptFingerprint)
+    out.append(',')
+    out.jsonField("modelId", modelId ?: "none")
+    out.append(",\"referenceCount\":").append(referenceCount)
+    out.append('}')
+}
 
 private fun StringBuilder.jsonField(name: String, value: String) {
     append('"').append(name.jsonEscaped()).append("\":\"").append(value.jsonEscaped()).append('"')

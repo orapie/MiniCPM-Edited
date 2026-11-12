@@ -176,16 +176,6 @@ class CharacterPromptCompiler(
             "global_summary" to compileGlobalSummary(npc, cutoff),
             "core_personality" to compileCorePersonality(npc),
             "speech_examples" to compileSpeechExamples(npc),
-            "story_cutoff" to formatCutoff(cutoff),
-            "dynamic_state" to compileDynamicState(dynamicState),
-            "role_constraints" to compileRoleConstraints(npc),
-            "relevant_profile" to "无。",
-            "relevant_state" to "无。",
-            "relevant_possessions" to if (queryPlan.retrievePossessions) "当前资料未记录可确认的随身物品。" else "无。",
-            "relevant_relationships" to "无。",
-            "authorized_story_facts" to "无；不得自行补全。",
-            "retrieved_memories" to "无。",
-            "conversation_summary" to "无。",
         )
 
         val mandatoryBaseChars = render(mandatoryBase).length
@@ -194,32 +184,10 @@ class CharacterPromptCompiler(
             "mandatory character prompt exceeds maxChars without summary: " +
                 "$mandatoryBaseChars > ${runtimeContext.maxChars}"
         }
-        val remainingAfterBaseChars = runtimeContext.maxChars - mandatoryBaseChars
-        // Conversation history is helpful for resolving a pronoun, but it must
-        // never consume all of the space needed by evidence chosen for the
-        // player's current question.  The old allocation did exactly that on
-        // multi-turn chats: summary compression filled the whole remainder and
-        // every optional profile/state/fact item then failed the final budget
-        // check.  Reserve before compressing history so the current turn wins.
-        val reservedDynamicEvidenceChars = if (
-            queryPlan.retrieveProfile || queryPlan.retrieveState || queryPlan.retrievePossessions ||
-                queryPlan.retrieveRelations || queryPlan.retrieveFacts
-        ) {
-            minOf(DYNAMIC_EVIDENCE_RESERVE_CHARS, remainingAfterBaseChars)
-        } else {
-            0
-        }
-        val summaryBudgetChars = remainingAfterBaseChars - reservedDynamicEvidenceChars
-        val summary = runtimeContext.conversationSummary.trim()
-        val selectedSummary = if (summary.isBlank() || summaryBudgetChars <= 0) {
-            "无。"
-        } else {
-            ContextController.compress(summary, userInput, summaryBudgetChars).ifBlank { "无。" }
-        }
-        val mandatory = mandatoryBase.toMutableMap().apply {
-            this["conversation_summary"] = selectedSummary
-        }
-
+        // Conversation history is no longer embedded in this shared character
+        // template.  It is compressed by ConversationContextCompressor and
+        // supplied separately with the user-side turn context.
+        val mandatory = mandatoryBase.toMap()
         var content = render(mandatory)
         require(content.length <= runtimeContext.maxChars) {
             "mandatory character prompt exceeds maxChars: ${content.length} > ${runtimeContext.maxChars}"
@@ -396,14 +364,9 @@ class CharacterPromptCompiler(
         }
 
         val mandatorySize = render(mandatory).length
-        val dynamicEvidence = sectionLines.toSortedMap()
-            .entries
-            .filter { (_, lines) -> lines.isNotEmpty() }
-            .joinToString("\n") { (section, lines) -> "$section=${lines.joinToString("\n")}" }
-        val dynamicEvidenceFingerprint = dynamicEvidence
-            .takeIf { it.isNotBlank() }
-            ?.let(ContentFingerprint::sha256Short)
-            ?: "none"
+        // Selected legacy items are retained only for the Answerability Gate's
+        // ID-level compatibility during Phase 1. They are not prompt evidence.
+        val dynamicEvidenceFingerprint = "none"
         val selectedItemsFingerprint = selected
             .joinToString("\n") { item -> "${item.kind}:${item.id}" }
             .takeIf { it.isNotBlank() }
@@ -512,8 +475,7 @@ class CharacterPromptCompiler(
                 retrievalDecisions = decisions,
                 estimatedPromptTokens = ContextController.estimateTokens(content),
                 estimatedMandatoryTokens = ContextController.estimateTokens(render(mandatory)),
-                conversationSummaryChars = selectedSummary.length,
-                reservedDynamicEvidenceChars = reservedDynamicEvidenceChars,
+                reservedDynamicEvidenceChars = 0,
                 estimatedUserTokens = ContextController.estimateTokens(userInput),
                 knowledgeGraphStatus = graphRetrieval?.status?.name?.lowercase()
                     ?: when {
@@ -523,9 +485,9 @@ class CharacterPromptCompiler(
                     },
                 knowledgeGraphFallbackReason = graphRetrieval?.fallbackReason,
                 knowledgeGraphDecisions = graphRetrieval?.decisions.orEmpty(),
-                knowledgeGraphInjectedChars = sectionLines.getValue("authorized_story_facts")
-                    .filter { line -> graphFacts.any { formatGraphFact(it, npc) == line } }
-                    .sumOf(String::length),
+                // Phase 1 keeps legacy selection only as content-free routing
+                // evidence. None of these legacy values are part of Raw Prompt.
+                knowledgeGraphInjectedChars = 0,
                 v1ClaimGraphStatus = v1ClaimRetrieval?.status?.name?.lowercase()
                     ?: when {
                         graphFacts.isNotEmpty() -> "skipped_v2_authoritative"
@@ -535,9 +497,7 @@ class CharacterPromptCompiler(
                     },
                 v1ClaimGraphFallbackReason = v1ClaimRetrieval?.fallbackReason,
                 v1ClaimGraphDecisions = v1ClaimRetrieval?.decisions.orEmpty(),
-                v1ClaimGraphInjectedChars = sectionLines.getValue("authorized_story_facts")
-                    .filter { line -> v1ClaimFacts.any { formatV1ClaimFact(it, npc) == line } }
-                    .sumOf(String::length),
+                v1ClaimGraphInjectedChars = 0,
                 v1RelationshipGraphStatus = relationRetrieval?.status?.name?.lowercase()
                     ?: when {
                         !runtimeContext.knowledgeGraphEnabled -> "disabled"
@@ -546,9 +506,7 @@ class CharacterPromptCompiler(
                     },
                 v1RelationshipGraphFallbackReason = relationRetrieval?.fallbackReason,
                 v1RelationshipGraphDecisions = relationRetrieval?.decisions.orEmpty(),
-                v1RelationshipGraphInjectedChars = sectionLines.getValue("relevant_relationships")
-                    .filter { line -> graphRelationships.any { formatGraphRelationship(it) == line } }
-                    .sumOf(String::length),
+                v1RelationshipGraphInjectedChars = 0,
                 profileRoute = profileRoute,
                 profileCandidateCount = profileCandidates.size,
                 profileCandidateIds = profileCandidates.map { it.id },
@@ -556,7 +514,7 @@ class CharacterPromptCompiler(
                 profileBudgetDroppedCount = dropped.count {
                     it.kind == "relevant_profile" && it.reason == "character_profile_budget"
                 },
-                profileInjectedChars = sectionLines.getValue("relevant_profile").sumOf(String::length),
+                profileInjectedChars = 0,
                 stateRoute = stateRoute,
                 stateCandidateCount = stateCandidates.size,
                 stateCandidateIds = stateCandidates.map { it.id },
@@ -564,14 +522,14 @@ class CharacterPromptCompiler(
                 stateBudgetDroppedCount = dropped.count {
                     it.kind == "relevant_state" && it.reason == "character_state_budget"
                 },
-                stateInjectedChars = sectionLines.getValue("relevant_state").sumOf(String::length),
+                stateInjectedChars = 0,
                 possessionRoute = possessionRoute,
                 possessionCandidateCount = possessionCandidates.size,
                 possessionSelectedCount = selected.count { it.kind == "relevant_possessions" },
                 possessionBudgetDroppedCount = dropped.count {
                     it.kind == "relevant_possessions" && it.reason == "character_possession_budget"
                 },
-                possessionInjectedChars = sectionLines.getValue("relevant_possessions").sumOf(String::length),
+                possessionInjectedChars = 0,
                 followUpRoute = if (followUpTarget == null) "not_requested" else "accepted",
                 knowledgeQueryIntent = queryPlan.intent,
                 queryIntents = queryPlan.analysis.intents.map(CharacterQueryIntent::name).sorted(),
@@ -994,8 +952,6 @@ class CharacterPromptCompiler(
             )
         }
 
-        /** Minimum protected slice for prompt evidence when the Android cap is 900 characters. */
-        private const val DYNAMIC_EVIDENCE_RESERVE_CHARS = 220
         private val KnowledgeLeadIns = mapOf(
             "direct" to "你亲历并确认：",
             "witnessed" to "你亲眼见到：",

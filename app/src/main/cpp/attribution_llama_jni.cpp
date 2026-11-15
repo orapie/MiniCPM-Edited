@@ -21,3 +21,25 @@
 #define Java_com_example_minicpm_1v_1demo_LlamaEngine_unload Java_com_example_minicpm_1v_1demo_AttributionLlamaEngine_unload
 #define Java_com_example_minicpm_1v_1demo_LlamaEngine_shutdown Java_com_example_minicpm_1v_1demo_AttributionLlamaEngine_shutdown
 #include "llama_jni.cpp"
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_example_minicpm_1v_1demo_AttributionLlamaEngine_configureRequest(
+        JNIEnv *env, jobject, jlong remaining_ms, jstring grammar) {
+    const char *value = env->GetStringUTFChars(grammar, nullptr);
+    if (!value) return;
+    g_attribution_grammar = value;
+    env->ReleaseStringUTFChars(grammar, value);
+    g_attribution_cancelled.store(false, std::memory_order_relaxed);
+    g_attribution_deadline = SteadyClock::now() + std::chrono::milliseconds(remaining_ms);
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_example_minicpm_1v_1demo_AttributionLlamaEngine_requestAborted(JNIEnv *, jobject) {
+    return attribution_should_abort(nullptr) ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_example_minicpm_1v_1demo_AttributionLlamaEngine_finishRequest(JNIEnv *, jobject) {
+    g_attribution_deadline = SteadyClock::time_point::max();
+    g_attribution_grammar.clear();
+}

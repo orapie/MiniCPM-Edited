@@ -38,9 +38,19 @@ class RoleplayGenerationCoordinator(
     companion object {
         const val MAX_REPAIR_ATTEMPTS = 1
         const val DEFAULT_SAFE_FALLBACK = "这话我一时说不清。"
-        const val SELF_NARRATION_REPAIR = "从当前角色立场直接回答，不用角色名或第三人称叙述自己的行为。"
         const val REPAIR_INSTRUCTION =
             "只直接用角色第一人称回答玩家，不反问或追问玩家，不谈论你收到的说明或材料。"
+
+        fun repairInstruction(ruleIds: List<String>): String {
+            val perspectiveIssue = ruleIds.any {
+                it == RoleplayLeakRule.SELF_SECOND_PERSON_NARRATION.id ||
+                    it == RoleplayLeakRule.SELF_THIRD_PERSON_NARRATION.id ||
+                    it == RoleplayLeakRule.ASSISTANT_IDENTITY.id
+            }
+            return if (perspectiveIssue) {
+                REPAIR_INSTRUCTION + "\n玩家问句里的“你”是当前角色。答自己的身份或经历时，直接从“我”说起。"
+            } else REPAIR_INSTRUCTION
+        }
     }
 }
 

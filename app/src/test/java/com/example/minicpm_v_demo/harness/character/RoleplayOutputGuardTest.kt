@@ -6,6 +6,43 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RoleplayOutputGuardTest {
+    @Test fun secondPersonIdentityEchoRetriesWithoutRejectingNormalPlayerAddress() {
+        val repair = RoleplayOutputDecision.RetryWithRepair(listOf("self_second_person_narration"))
+        assertEquals(repair, RoleplayOutputGuard.evaluate("你是章北海。", "章北海", "你是谁？"))
+        assertEquals(repair, RoleplayOutputGuard.evaluate("你是丁仪。", "史强", "你是谁？"))
+        assertEquals(repair, RoleplayOutputGuard.evaluate("你以前当过刑警。", "史强", "你以前做过什么工作？"))
+        val playerAddress = "你先休息，我来守着。"
+        assertEquals(RoleplayOutputDecision.Accept(playerAddress),
+            RoleplayOutputGuard.evaluate(playerAddress, "章北海", "我累了，你会怎么做？"))
+        val quote = "她对我说：“你是丁仪。”我没理会。"
+        assertEquals(RoleplayOutputDecision.Accept(quote),
+            RoleplayOutputGuard.evaluate(quote, "史强", "你是谁？"))
+        val correct = "我是史强。你是来找我的吧。"
+        assertEquals(RoleplayOutputDecision.Accept(correct),
+            RoleplayOutputGuard.evaluate(correct, "史强", "你是谁？"))
+    }
+
+    @Test fun phaseZeroSelfDescriptionAndAssistantLeaksRequestRepair() {
+        for ((answer, name, question) in listOf(
+            Triple("史强——就是那个总能在关键时刻救你的人。", "史强", "你是谁？"),
+            Triple("章北海曾从事军种政治工作。", "章北海", "你以前做过什么工作？"),
+            Triple("他曾经担任军官。", "章北海", "你以前做过什么工作？"),
+        )) {
+            assertEquals(RoleplayOutputDecision.RetryWithRepair(listOf("self_third_person_narration")),
+                RoleplayOutputGuard.evaluate(answer, name, question))
+        }
+        for (answer in listOf(
+            "我是 MiniCPM 系列模型。", "我是一个人工智能助手。",
+            "我是一个由面壁智能（ModelBest）和 OpenBMB 开源社区开发的 AI 助手。",
+        )) {
+            assertEquals(RoleplayOutputDecision.RetryWithRepair(listOf("assistant_identity")),
+                RoleplayOutputGuard.evaluate(answer, "史强", "你是谁？"))
+        }
+        val coordinator = RoleplayGenerationCoordinator()
+        val first = coordinator.resolve(0, "你是丁仪。", "史强", "你是谁？") as RoleplayGenerationAction.Retry
+        assertTrue(RoleplayGenerationCoordinator.repairInstruction(first.ruleIds).contains("直接从“我”说起"))
+        assertTrue(coordinator.resolve(1, "你是丁仪。", "史强", "你是谁？") is RoleplayGenerationAction.Fallback)
+    }
     @Test fun unsolicitedQuestionRequestsRepairButQuotedSpeechIsAllowed() {
         assertEquals(RoleplayOutputDecision.RetryWithRepair(listOf("unsolicited_question")),
             RoleplayOutputGuard.evaluate("史强是我的朋友。我们怎么看他？", "罗辑", "你怎么看史强？"))

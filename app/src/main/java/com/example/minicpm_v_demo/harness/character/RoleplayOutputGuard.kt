@@ -18,6 +18,7 @@ enum class RoleplayLeakRule(
     INTERNAL_FIELD_LABEL("internal_field_label", RoleplayLeakSeverity.HIGH),
     TEMPLATE_TOKEN("template_token", RoleplayLeakSeverity.HIGH),
     UNSOLICITED_QUESTION("unsolicited_question", RoleplayLeakSeverity.HIGH),
+    SELF_SECOND_PERSON_NARRATION("self_second_person_narration", RoleplayLeakSeverity.HIGH),
     SELF_THIRD_PERSON_NARRATION("self_third_person_narration", RoleplayLeakSeverity.HIGH),
     POSSIBLE_SELF_NARRATION("possible_self_narration", RoleplayLeakSeverity.WARNING),
 }
@@ -52,7 +53,7 @@ object RoleplayOutputGuard {
     fun evaluate(
         rawOutput: String,
         characterName: String,
-        @Suppress("UNUSED_PARAMETER") userInput: String,
+        userInput: String,
         characterAliases: List<String> = emptyList(),
     ): RoleplayOutputDecision {
         val extraction = RoleplayVisibleText.extract(rawOutput)
@@ -61,6 +62,7 @@ object RoleplayOutputGuard {
             visibleOutput = extraction.visibleText,
             characterName = characterName,
             characterAliases = characterAliases,
+            userInput = userInput,
         )
         val highRiskRuleIds = signals
             .filter { signal -> signal.severity == RoleplayLeakSeverity.HIGH }
@@ -114,14 +116,16 @@ internal object RoleplayLeakClassifier {
         visibleOutput: String,
         characterName: String,
         characterAliases: List<String> = emptyList(),
+        userInput: String = "",
     ): List<RoleplayOutputSignal> = buildList {
+        val unquoted = maskQuotedText(visibleOutput)
         if (visibleOutput.isBlank()) {
             add(RoleplayOutputSignal(RoleplayLeakRule.EMPTY_VISIBLE_OUTPUT, "visible output is blank"))
         }
         if (rawOutput.contains(THINK_OPEN) && !rawOutput.contains(THINK_CLOSE)) {
             add(RoleplayOutputSignal(RoleplayLeakRule.UNCLOSED_THINK_BLOCK, "<think> has no closing tag"))
         }
-        if (assistantIdentityPattern.containsMatchIn(visibleOutput)) {
+        if (assistantIdentityPattern.containsMatchIn(unquoted)) {
             add(RoleplayOutputSignal(RoleplayLeakRule.ASSISTANT_IDENTITY, "assistant identity phrase"))
         }
         if (metaPromptPattern.containsMatchIn(visibleOutput)) {
@@ -136,10 +140,19 @@ internal object RoleplayLeakClassifier {
         if (hasUnquotedQuestion(visibleOutput)) {
             add(RoleplayOutputSignal(RoleplayLeakRule.UNSOLICITED_QUESTION, "unquoted question in roleplay answer"))
         }
-        val unquoted = maskQuotedText(visibleOutput)
         val names = (listOf(characterName) + characterAliases).map { it.trim() }
             .filter { it.length >= 2 }.distinct()
-        if (names.any { selfThirdPersonPattern(it).containsMatchIn(unquoted) }) {
+        val question = maskQuotedText(userInput).trim()
+        val asksIdentity = selfIdentityQuestion.containsMatchIn(question)
+        val asksExperience = selfExperienceQuestion.containsMatchIn(question)
+        if (names.any { secondPersonNamesCharacter(it).containsMatchIn(unquoted) } ||
+            (asksIdentity && secondPersonIdentityAnswer.containsMatchIn(unquoted)) ||
+            (asksExperience && secondPersonExperienceAnswer.containsMatchIn(unquoted))) {
+            add(RoleplayOutputSignal(RoleplayLeakRule.SELF_SECOND_PERSON_NARRATION, "answer addresses player as the character"))
+        }
+        if (names.any { selfThirdPersonPattern(it).containsMatchIn(unquoted) } ||
+            (asksIdentity && names.any { thirdPersonIdentityAnswer(it).containsMatchIn(unquoted) }) ||
+            (asksExperience && thirdPersonExperienceAnswer.containsMatchIn(unquoted))) {
             add(RoleplayOutputSignal(RoleplayLeakRule.SELF_THIRD_PERSON_NARRATION, "character narration at sentence start"))
         }
         if (characterName.length >= 2 && selfNarrationPattern(characterName).containsMatchIn(unquoted)) {
@@ -147,7 +160,30 @@ internal object RoleplayLeakClassifier {
         }
     }
 
-    private val assistantIdentityPattern = Regex("作为(?:一个)?(?:AI|人工智能|语言模型|通用助手|助手)")
+    private const val AI_IDENTITY = "(?:MiniCPM|AI\\s*助手|人工智能助手|语言模型|通用助手)"
+    private val assistantIdentityPattern = Regex(
+        "作为(?:一个)?(?:AI|人工智能|语言模型|通用助手|助手)|" +
+            "我(?:是|作为)\\s*(?:一个|一名)?\\s*" +
+            "(?:由[^。！？；\n]{1,72}?(?:开发|训练)的\\s*)?$AI_IDENTITY",
+        RegexOption.IGNORE_CASE,
+    )
+    private val selfIdentityQuestion = Regex("^(?:请问[，, ]*)?(?:你|您)(?:到底|究竟)?(?:是谁|叫什么|的身份(?:是|是什么))")
+    private val selfExperienceQuestion = Regex(
+        "^(?:请问[，, ]*)?(?:你|您)(?:以前|过去|曾经|从前)?(?:做过什么|从事过什么|干过什么|是做什么的|在哪(?:里|儿)工作)",
+    )
+    private val secondPersonIdentityAnswer = Regex(
+        "(?:^|[。！？!?；;\\n])\\s*(?:你|您)是\\s*(?![说问想要在否我来个位])[^\\s，,。！？!?；;\\n]{2,12}(?=[。！？!?；;\\n]|\$)",
+    )
+    private val secondPersonExperienceAnswer = Regex("^\\s*(?:你|您)(?:以前|过去|从前|曾经?)(?:从事|担任|工作|做过|当过|是一)")
+    private val thirdPersonExperienceAnswer = Regex("^\\s*[他她](?:以前|过去|从前|曾经?)(?:从事|担任|工作|做过|当过|是一)")
+
+    private fun secondPersonNamesCharacter(name: String) = Regex(
+        "(?:^|[。！？!?；;，,\\n])\\s*(?:你|您)(?:就是|是)\\s*${Regex.escape(name)}(?=[。！？!?；;，,\\s]|\$)",
+    )
+
+    private fun thirdPersonIdentityAnswer(name: String) = Regex(
+        "^\\s*${Regex.escape(name)}(?:[—－–-]+|[，, ]+)?(?:就是|是|乃)",
+    )
     private fun hasUnquotedQuestion(text: String): Boolean {
         val closing = ArrayDeque<Char>()
         var questionInOpenQuote = false
@@ -211,8 +247,8 @@ internal object RoleplayLeakClassifier {
 
     private fun selfThirdPersonPattern(name: String): Regex = Regex(
         "(?:^|[。！？!?；;，,\\n])\\s*${Regex.escape(name)}[，、 ]*" +
-            "(?:(?:一直|仍然|已经|正在|曾经|全心|专心|一心|可能|仍|正|又)(?:在)?|在)?" +
-            "(?:思考|想着|心想|决定|决心|投入|想探讨|转身|抬眼|皱眉|沉默|说道|答道|开口|说)(?!明)",
+            "(?:(?:一直|仍然|已经|正在|曾经|曾|全心|专心|一心|可能|仍|正|又)(?:在)?|在)?" +
+            "(?:思考|想着|心想|决定|决心|投入|想探讨|从事|担任|做过|参与过|转身|抬眼|皱眉|沉默|说道|答道|开口|说)(?!明)",
     )
 
     private fun selfNarrationPattern(characterName: String): Regex = Regex(

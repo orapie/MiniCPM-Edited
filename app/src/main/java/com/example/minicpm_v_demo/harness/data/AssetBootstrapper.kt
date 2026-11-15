@@ -38,6 +38,7 @@ object AssetBootstrapper {
         // DatabaseBundleInstaller, never copied from the old Harness tree.
         val programAssets = listOf(
             "prompts/roleplay_system.prompt",
+            "prompts/roleplay_public_career.json",
             "prompts/final_prompt_rewriter_system.prompt",
         )
         programAssets.forEach { relative ->

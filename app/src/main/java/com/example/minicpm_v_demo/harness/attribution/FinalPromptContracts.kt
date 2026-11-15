@@ -71,9 +71,9 @@ data class ReferenceAttribution(
 data class FinalPromptDraft(
     val schemaVersion: Int,
     val rawPromptFingerprint: String,
-    /** Fixed raw system text echoed by A; free rewrites are rejected. */
+    /** Fixed system text from the raw request; live Agent A cannot replace it. */
     val systemPrompt: String,
-    /** Fixed player question echoed by A; free rewrites are rejected. */
+    /** Fixed player question from the raw request; live Agent A cannot replace it. */
     val userPrompt: String,
     val references: List<ReferenceAttribution>,
 )
@@ -188,27 +188,14 @@ class AttributionAgentRequestCompiler(
 object RawPromptPackageJsonCodec {
     fun encode(raw: RawPromptPackage): String = buildString {
         append('{')
-        field("schemaVersion", raw.schemaVersion.toString())
         append("\"focalCharacter\":{")
-        field("id", string(raw.focalCharacter.id))
         field("name", string(raw.focalCharacter.name))
         append("\"aliases\":"); stringArray(raw.focalCharacter.aliases); append("},")
-        field("rawPromptFingerprint", string(raw.fingerprint))
-        field("systemPrompt", string(raw.systemPrompt))
         field("userPrompt", string(raw.userQuestion))
-        append("\"conversationContext\":{")
-        field("text", string(raw.conversationContext.text))
-        field("sourceTurnCount", raw.conversationContext.sourceTurnCount.toString())
-        field("sourceChars", raw.conversationContext.sourceChars.toString())
-        append("\"fingerprint\":").append(string(raw.conversationContext.fingerprint)).append("},")
-        append("\"references\":[")
-        raw.references.forEachIndexed { index, reference ->
-            if (index > 0) append(',')
-            append('{')
-            field("referenceId", string(reference.id))
-            append("\"text\":").append(string(reference.text)).append('}')
-        }
-        append("]}")
+        if (!raw.conversationContext.isEmpty) field("conversationContext", string(raw.conversationContext.text))
+        append("\"references\":")
+        stringArray(raw.references.map { it.text })
+        append('}')
     }
 
     private fun StringBuilder.field(key: String, value: String) {
@@ -229,9 +216,66 @@ object RawPromptPackageJsonCodec {
             '\n' -> append("\\n")
             '\r' -> append("\\r")
             '\t' -> append("\\t")
-            else -> append(char)
+            else -> if (char < ' ') append("\\u%04x".format(char.code)) else append(char)
         } }
         append('\"')
+    }
+}
+
+/** Wire output is an ordered JSON array of classifications for this request. */
+internal object AgentAAttributionCodec {
+    private val roles = mapOf(
+        'S' to FocalRole.SPEAKER, 'A' to FocalRole.ADDRESSEE, 'J' to FocalRole.SUBJECT,
+        'O' to FocalRole.OBSERVER, 'N' to FocalRole.NONE, 'U' to FocalRole.UNKNOWN,
+    )
+    private val perspectives = mapOf(
+        '1' to Perspective.FIRST_PERSON, '2' to Perspective.SECOND_PERSON,
+        '3' to Perspective.THIRD_PERSON, 'M' to Perspective.MIXED, 'U' to Perspective.UNKNOWN,
+    )
+    private val relations = mapOf(
+        'D' to EvidenceRelation.DIRECT, 'H' to EvidenceRelation.HEARSAY,
+        'N' to EvidenceRelation.NARRATION, 'Q' to EvidenceRelation.QUOTE, 'U' to EvidenceRelation.UNKNOWN,
+    )
+    private val dispositions = mapOf(
+        'U' to ReferenceDisposition.USE, 'C' to ReferenceDisposition.CAUTION, 'R' to ReferenceDisposition.REJECT,
+    )
+
+    fun grammar(referenceCount: Int): String {
+        require(referenceCount > 0)
+        val entries = List(referenceCount) { "entry" }.joinToString(" \",\" ")
+        return "root ::= \"[\" $entries \"]\"\n" +
+            "entry ::= \"\\\"\" [${roles.keys.joinToString("")}] " +
+            "[${perspectives.keys.joinToString("")}] [${relations.keys.joinToString("")}] " +
+            "[${dispositions.keys.joinToString("")}] \"\\\"\"\n"
+    }
+
+    // Bound the ASCII wire format by one token per byte, plus headroom for EOG.
+    fun outputBudget(referenceCount: Int): Int = 2 + referenceCount * 7 + 8
+
+    fun decode(json: String, raw: RawPromptPackage): FinalPromptDraft {
+        val codes = SimpleJsonParser(json).parse().asJsonArray("agent_a_attributions")
+        require(codes.size == raw.references.size) { "attribution_count_mismatch" }
+        val references = raw.references.zip(codes).map { (reference, value) ->
+            val code = value as? String ?: error("invalid_attribution_code")
+            require(code.length == 4) { "invalid_attribution_code" }
+            val role = roles[code[0]] ?: error("invalid_attribution_code")
+            val perspective = perspectives[code[1]] ?: error("invalid_attribution_code")
+            val relation = relations[code[2]] ?: error("invalid_attribution_code")
+            val disposition = dispositions[code[3]] ?: error("invalid_attribution_code")
+            val unknown = ReferenceAttribution.UNKNOWN_ENTITY
+            ReferenceAttribution(
+                referenceId = reference.id,
+                speakerId = if (role == FocalRole.SPEAKER) raw.focalCharacter.id else unknown,
+                addresseeId = if (role == FocalRole.ADDRESSEE) raw.focalCharacter.id else unknown,
+                focalRole = role,
+                perspective = perspective,
+                evidenceRelation = relation,
+                disposition = if (role == FocalRole.UNKNOWN && disposition == ReferenceDisposition.USE)
+                    ReferenceDisposition.CAUTION else disposition,
+                confidence = if (role == FocalRole.UNKNOWN || disposition != ReferenceDisposition.USE) 0.0 else 0.5,
+            )
+        }
+        return FinalPromptDraft(raw.schemaVersion, raw.fingerprint, raw.systemPrompt, raw.userQuestion, references)
     }
 }
 
@@ -272,7 +316,7 @@ class FakeFinalPromptRewriteService(
         ?: AttributionAgentResult.Fallback("fake_no_draft")
 }
 
-/** Strict codec used by a future Agent-A adapter. Unknown/missing fields fail closed. */
+/** Full draft serialization; the on-device Agent A uses the compact attribution codec above. */
 object FinalPromptDraftJsonCodec {
     fun encode(draft: FinalPromptDraft): String = buildString {
         append('{')

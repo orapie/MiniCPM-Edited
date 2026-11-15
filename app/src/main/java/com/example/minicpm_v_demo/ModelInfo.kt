@@ -150,7 +150,7 @@ data class ModelInfo(
                 descriptionResName = "model_desc_minicpm5_2b",
                 ggufFileName = "MiniCPM5-2B-Q4_K_M.gguf",
                 msRepo = "OpenBMB/MiniCPM5-2B-gguf",
-                enableThinking = false
+                // enableThinking = true
             ),
             // VoxCPM2 — text-to-speech model, ~2B params, 48kHz output.
             // Two GGUF files: a BaseLM (the MiniCPM-4 based language model)

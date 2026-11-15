@@ -1,6 +1,7 @@
 #include <android/log.h>
 #include <jni.h>
 #include <chrono>
+#include <atomic>
 #include <iomanip>
 #include <cmath>
 #include <string>
@@ -77,6 +78,17 @@ static int                                g_image_max_slice_nums = 9;
 static int                                g_n_ctx = DEFAULT_CONTEXT_SIZE;
 
 using SteadyClock = std::chrono::steady_clock;
+
+#if defined(ATTRIBUTION_RUNTIME)
+static std::atomic<bool> g_attribution_cancelled{false};
+static SteadyClock::time_point g_attribution_deadline = SteadyClock::time_point::max();
+static std::string g_attribution_grammar;
+
+static bool attribution_should_abort(void *) {
+    return g_attribution_cancelled.load(std::memory_order_relaxed) ||
+           SteadyClock::now() >= g_attribution_deadline;
+}
+#endif
 
 extern "C"
 JNIEXPORT void JNICALL
@@ -257,6 +269,9 @@ static llama_context *init_context(llama_model *model, const int n_ctx = DEFAULT
     ctx_params.n_ubatch = BATCH_SIZE;
     ctx_params.n_threads = N_THREADS;
     ctx_params.n_threads_batch = N_THREADS;
+#if defined(ATTRIBUTION_RUNTIME)
+    ctx_params.abort_callback = attribution_should_abort;
+#endif
     auto *context = llama_init_from_model(g_model, ctx_params);
     if (context == nullptr) {
         LOGe("%s: llama_new_context_with_model() returned null)", __func__);
@@ -277,6 +292,12 @@ static common_sampler *new_sampler(float temp) {
     sparams.penalty_repeat = 1.12f;
     sparams.penalty_freq = 0.05f;
     sparams.penalty_present = 0.0f;
+#if defined(ATTRIBUTION_RUNTIME)
+    if (!g_attribution_grammar.empty()) {
+        sparams.grammar = common_grammar(COMMON_GRAMMAR_TYPE_USER, g_attribution_grammar);
+        sparams.temp = 0.0f;
+    }
+#endif
     return common_sampler_init(g_model, sparams);
 }
 
@@ -641,12 +662,16 @@ Java_com_example_minicpm_1v_1demo_LlamaEngine_fullReset(JNIEnv *, jobject) {
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_example_minicpm_1v_1demo_LlamaEngine_nativeCancelGeneration(JNIEnv *, jobject) {
+#if defined(ATTRIBUTION_RUNTIME)
+    g_attribution_cancelled.store(true, std::memory_order_relaxed);
+#else
     common_sampler_reset(g_sampler);
     assistant_ss.str("");
     assistant_ss.clear();
     cached_token_chars.clear();
     LOGi("%s: Generation cancelled, sampler reset, KV cache preserved at position %d",
          __func__, current_position);
+#endif
 }
 
 extern "C"

@@ -59,6 +59,7 @@ class RoleplayOutputObserverTest {
                 "unclosed_think_block",
                 "assistant_identity",
                 "meta_prompt_reference",
+                "self_third_person_narration",
                 "possible_self_narration",
             ),
             observation.signals.map { it.ruleId },

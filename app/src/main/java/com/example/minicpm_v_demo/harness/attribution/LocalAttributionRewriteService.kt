@@ -1,6 +1,7 @@
 package com.example.minicpm_v_demo.harness.attribution
 
 import android.content.Context
+import com.example.minicpm_v_demo.AttributionDeadlineExceeded
 import com.example.minicpm_v_demo.AttributionLlamaEngine
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -28,23 +29,34 @@ class LocalAttributionRewriteService(
         if (!isForegroundRuntimeReady()) return AttributionAgentResult.Fallback("foreground_runtime_unavailable")
         val files = modelStore.getSelectedModelFiles()
         if (!files.llmFile.isFile) return AttributionAgentResult.Fallback("agent_a_model_unavailable")
+        val spec = requireNotNull(files.entry.attributionSpec)
+        val referenceCount = request.raw.references.size
+        if (referenceCount == 0) return AttributionAgentResult.Fallback("no_authorized_references")
+        val budget = AgentAAttributionCodec.outputBudget(referenceCount)
+        if (budget > spec.maxOutputTokens) return AttributionAgentResult.Fallback("agent_a_output_budget_exceeded")
+        if (request.messages.sumOf { it.content.length } > spec.maxContextChars) {
+            return AttributionAgentResult.Fallback("agent_a_input_budget_exceeded")
+        }
         return runCatching {
+            val deadlineNanos = System.nanoTime() + timeoutMillis * 1_000_000
             runBlocking {
                 withTimeout(timeoutMillis) {
                     engine.loadTextModel(files.entry.model, files.llmFile)
                     val output = engine.generate(
                         systemPrompt = request.messages[0].content,
                         userPrompt = request.messages[1].content,
-                        maxOutputTokens = requireNotNull(files.entry.attributionSpec).maxOutputTokens,
+                        maxOutputTokens = budget,
+                        grammar = AgentAAttributionCodec.grammar(referenceCount),
+                        deadlineNanos = deadlineNanos,
                     )
                     AttributionAgentResult.Draft(
-                        FinalPromptDraftJsonCodec.decode(output.trim()),
+                        AgentAAttributionCodec.decode(output, request.raw),
                         files.entry.model.id,
                     )
                 }
             }
         }.getOrElse { error ->
-            val reason = if (error is kotlinx.coroutines.TimeoutCancellationException) {
+            val reason = if (error is kotlinx.coroutines.TimeoutCancellationException || error is AttributionDeadlineExceeded) {
                 "agent_a_timeout"
             } else {
                 "agent_a_${error.message?.takeIf(String::isNotBlank)?.replace(Regex("[^a-zA-Z0-9_]+"), "_") ?: "failed"}"
@@ -59,6 +71,6 @@ class LocalAttributionRewriteService(
     }
 
     companion object {
-        const val DEFAULT_TIMEOUT_MILLIS = 15_000L
+        const val DEFAULT_TIMEOUT_MILLIS = 60_000L
     }
 }

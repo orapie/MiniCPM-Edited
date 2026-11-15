@@ -53,10 +53,25 @@ class FinalPromptContractsTest {
         assertEquals("system", request.messages[0].role)
         assertEquals("user", request.messages[1].role)
         assertTrue(request.messages[1].content.contains("<RAW_PROMPT_JSON>"))
-        assertTrue(request.messages[1].content.contains(raw.fingerprint))
+        assertFalse(request.messages[1].content.contains(raw.fingerprint))
+        assertFalse(request.messages[1].content.contains(raw.systemPrompt))
         assertTrue(request.messages[1].content.contains("甲对罗辑说：你要继续执行计划。"))
         assertFalse(request.messages[1].content.contains("database/test"))
         assertTrue(runCatching { AttributionAgentRequestCompiler("不合格模板") }.isFailure)
+    }
+
+    @Test fun compactWireResultKeepsTrustedFieldsAndRejectsMissingOrInvalidRows() {
+        val raw = rawPrompt()
+        val draft = AgentAAttributionCodec.decode("""["A2QU"]""", raw)
+        assertEquals(FinalPromptValidation.Accepted, FinalPromptValidator().validate(raw, draft))
+        assertEquals(raw.references.single().id, draft.references.single().referenceId)
+        assertEquals(raw.focalCharacter.id, draft.references.single().addresseeId)
+        assertEquals(Perspective.SECOND_PERSON, draft.references.single().perspective)
+        assertEquals(ReferenceDisposition.CAUTION,
+            AgentAAttributionCodec.decode("""["UUUU"]""", raw).references.single().disposition)
+        listOf("""[]""", """["A2QU","UUUC"]""", """["X2QU"]""", """["A2"]""").forEach {
+            assertTrue(runCatching { AgentAAttributionCodec.decode(it, raw) }.isFailure)
+        }
     }
 
     private fun rawPrompt() = RawPromptPackage(

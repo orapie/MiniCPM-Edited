@@ -17,6 +17,9 @@ import com.example.minicpm_v_demo.harness.data.database.DatabaseCharacterCardAda
 import com.example.minicpm_v_demo.harness.rag.RagPromptSnapshot
 import com.example.minicpm_v_demo.harness.rag.RagPromptStage
 import com.example.minicpm_v_demo.harness.rag.RagPromptStageLog
+import com.example.minicpm_v_demo.harness.rag.SimpleJsonParser
+import com.example.minicpm_v_demo.harness.rag.asJsonObject
+import java.io.File
 
 class CharacterPromptCompiler(
     private val loader: CharacterJsonLoader,
@@ -30,6 +33,7 @@ class CharacterPromptCompiler(
     private val queryAnalyzer: CharacterQueryAnalyzer = CharacterQueryAnalyzer(),
     private val profileStore: CharacterProfileStore = CharacterProfileStore(),
     private val databaseBundle: DatabaseBundleHandle? = null,
+    private val publicCareer: Map<String, String> = emptyMap(),
 ) {
     private val events: List<StoryEvent> by lazy { loader.loadEvents() }
     private val eventsById: Map<String, StoryEvent> by lazy { events.associateBy { it.eventId } }
@@ -172,8 +176,16 @@ class CharacterPromptCompiler(
         val dynamicState = if (databaseBundle != null) npc.dynamicState else runtimeContext.dynamicState ?: npc.dynamicState
         val timedState = stateLoader?.currentState(npcId, cutoff)
 
+        val career = reviewedCareerFor(npc, userInput)
         val mandatoryBase = linkedMapOf(
-            "global_summary" to compileGlobalSummary(npc, cutoff),
+            "global_summary" to compileGlobalSummary(npc),
+            "character_name" to npc.identity.name,
+            "self_answer_instruction" to if (career == null) {
+                "回答玩家“你是谁？”时，直接说“我是${npc.identity.name}。”；"
+            } else "",
+            "public_career_instruction" to if (career != null) {
+                "\n本轮获准公开的是你的从业经历。直接回答：“我$career”"
+            } else "",
             "core_personality" to compileCorePersonality(npc),
             "speech_examples" to compileSpeechExamples(npc),
         )
@@ -673,24 +685,36 @@ class CharacterPromptCompiler(
         return rendered.trim()
     }
 
-    private fun compileGlobalSummary(npc: CharacterCard, cutoff: String): String {
+    private fun compileGlobalSummary(npc: CharacterCard): String {
         val identity = npc.identity
         val alias = identity.aliases.firstOrNull()?.let { "，亲近的人也会叫你$it" }.orEmpty()
-        return "${identity.name}$alias。${identity.worldviewPosition.take(58)}"
+        return "${identity.name}$alias。"
+    }
+
+    private fun reviewedCareerFor(npc: CharacterCard, userInput: String): String? {
+        // The cutoff adapter hides the biography in earlier scenes. Require a
+        // matching reviewed excerpt of the remaining card for a direct career question.
+        return publicCareer[npc.npcId]?.takeIf { excerpt ->
+            SelfCareerQuestion.containsMatchIn(userInput.trim()) &&
+                npc.identity.background.any { it.startsWith(excerpt.trimEnd('。')) }
+        }
     }
 
     private fun compileCorePersonality(npc: CharacterCard): String {
-        val identity = npc.identity
-        return identity.speechStyle.take(2).joinToString("；") { it.take(52) }
-            .ifBlank { "自然、简洁，像真实的人在交谈。" }
+        return npc.identity.speechStyle.asSequence()
+            .map { it.trim().trimEnd('。', '；', '，') }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .take(3)
+            .joinToString("；") { it.take(48) }
+            .ifBlank { "用简洁、自然的口语回答。" }
     }
 
     private fun compileSpeechExamples(npc: CharacterCard): String {
-        // Reserve enough of the fixed 900-character Android budget for
-        // per-turn evidence after adding stable role-boundary and state context.
-        return npc.identity.speechExamples.take(2)
-            .joinToString("\n") { "“${it.take(54)}”" }
-            .ifBlank { "“此事我知道多少，便只说多少。”" }
+        val examples = npc.identity.speechExamples.map(String::trim).filter(String::isNotBlank).take(2)
+        if (examples.isEmpty()) return ""
+        return "\n语气示例只用于节奏和措辞，不复述，也不作为事实：\n" +
+            examples.joinToString("\n") { "“${it.take(54)}”" }
     }
 
     private fun compileDynamicState(state: DynamicState): String {
@@ -942,14 +966,31 @@ class CharacterPromptCompiler(
     )
 
     companion object {
-        fun fromBundle(bundle: DatabaseBundleHandle, promptTemplate: java.io.File): CharacterPromptCompiler {
+        fun fromBundle(bundle: DatabaseBundleHandle, promptTemplate: File): CharacterPromptCompiler {
             fun path(key: String) = bundle.paths.resolve(bundle.manifest.paths.getValue(key))
             require(bundle.manifest.supports("v2")) { "database_v2_unsupported" }
             return CharacterPromptCompiler(
                 loader = CharacterJsonLoader(path("characters"), path("story_events"), promptTemplate),
                 v2KnowledgeStore = V2EpistemicKnowledgeStore(path("runtime_v2"), path("v2_database"), bundle.validated),
                 databaseBundle = bundle,
+                publicCareer = loadPublicCareer(File(promptTemplate.parentFile, "roleplay_public_career.json"),
+                    bundle.manifest.datasetFingerprint),
             )
+        }
+
+        private val SelfCareerQuestion = Regex(
+            "^(?:请问[，, ]*)?(?:你|您)(?:(?:以前|过去|曾经|从前)?(?:做过什么工作|从事过什么工作|干过什么工作|是做什么的)|的职业是什么)[？?。！! ]*\$",
+        )
+
+        private fun loadPublicCareer(file: File, datasetFingerprint: String): Map<String, String> {
+            if (!file.isFile) return emptyMap()
+            return runCatching {
+                val asset = SimpleJsonParser(file.readText(Charsets.UTF_8)).parse().asJsonObject("public_career")
+                if (asset["dataset_fingerprint"] != datasetFingerprint) return emptyMap()
+                asset["career"].asJsonObject("career").mapNotNull { (id, value) ->
+                    (value as? String)?.takeIf { it.isNotBlank() && it.length <= 64 }?.let { id to it }
+                }.toMap()
+            }.getOrDefault(emptyMap())
         }
 
         private val KnowledgeLeadIns = mapOf(

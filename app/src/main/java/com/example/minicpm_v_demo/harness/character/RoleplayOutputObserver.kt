@@ -115,8 +115,9 @@ object RoleplayOutputObserver {
         includeRawText: Boolean,
         attempt: Int = 0,
         decision: RoleplayOutputDecision? = null,
+        userInput: String = "",
     ): RoleplayOutputObservation {
-        val signals = RoleplayLeakClassifier.classify(rawOutput, visibleOutput, context.characterName, context.characterAliases)
+        val signals = RoleplayLeakClassifier.classify(rawOutput, visibleOutput, context.characterName, context.characterAliases, userInput)
         return RoleplayOutputObservation(
             context = context,
             attempt = attempt,

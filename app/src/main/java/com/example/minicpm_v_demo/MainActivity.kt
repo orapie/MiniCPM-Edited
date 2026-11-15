@@ -901,7 +901,7 @@ class MainActivity : AppCompatActivity() {
         for (attempt in 0..RoleplayGenerationCoordinator.MAX_REPAIR_ATTEMPTS) {
             when (val rawResult = collectRawResponse(request, promptInput.predictLength, promptInput.fixedResponse, useFixedResponse)) {
                 is RawGenerationResult.Failed -> {
-                    observeRoleplayAttempt(promptInput, rawResult.partialOutput, attempt, null, "failed")
+                    observeRoleplayAttempt(promptInput, userMsg, rawResult.partialOutput, attempt, null, "failed")
                     Log.e(TAG, "Roleplay generation failed", rawResult.error)
                     return GenerationOutcome(
                         visibleText = getString(
@@ -913,7 +913,7 @@ class MainActivity : AppCompatActivity() {
                 is RawGenerationResult.Completed -> {
                     val action = coordinator.resolve(attempt, rawResult.rawOutput, identity.name, userMsg,
                         identity.aliases, fixedResponse = useFixedResponse)
-                    observeRoleplayAttempt(promptInput, rawResult.rawOutput, attempt, action, "completed")
+                    observeRoleplayAttempt(promptInput, userMsg, rawResult.rawOutput, attempt, action, "completed")
                     when (action) {
                         is RoleplayGenerationAction.Deliver -> return GenerationOutcome(
                             visibleText = action.visibleText,
@@ -1014,6 +1014,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun observeRoleplayAttempt(
         promptInput: HarnessPromptInput,
+        userInput: String,
         rawOutput: String,
         attempt: Int,
         action: RoleplayGenerationAction?,
@@ -1032,6 +1033,7 @@ class MainActivity : AppCompatActivity() {
             includeRawText = includeRawRoleplayOutput,
             attempt = attempt,
             decision = decision,
+            userInput = userInput,
         )
         Log.i(TAG, observation.toLogLine(includeRawText = includeRawRoleplayOutput))
     }
@@ -1191,8 +1193,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun HarnessChatRequest.withRoleplayRepairInstruction(ruleIds: List<String>): HarnessChatRequest {
         val repairedSystemPrompt = listOfNotNull(systemPrompt?.trim()?.takeIf(String::isNotEmpty))
-            .plus(RoleplayGenerationCoordinator.REPAIR_INSTRUCTION)
-            .plus(if ("self_third_person_narration" in ruleIds) RoleplayGenerationCoordinator.SELF_NARRATION_REPAIR else "")
+            .plus(RoleplayGenerationCoordinator.repairInstruction(ruleIds))
             .joinToString("\n\n")
         return copy(
             systemPrompt = repairedSystemPrompt,

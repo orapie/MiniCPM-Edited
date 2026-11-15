@@ -5,8 +5,11 @@ import android.util.Log
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.io.File
+
+internal class AttributionDeadlineExceeded : RuntimeException()
 
 /**
  * Agent A's text-only GGUF runtime.
@@ -42,26 +45,39 @@ class AttributionLlamaEngine(context: Context) {
         systemPrompt: String,
         userPrompt: String,
         maxOutputTokens: Int,
+        grammar: String,
+        deadlineNanos: Long,
     ): String = withContext(dispatcher) {
         check(loadedModelPath != null) { "attribution_model_not_loaded" }
         require(systemPrompt.isNotBlank() && userPrompt.isNotBlank()) { "attribution_prompt_required" }
         require(maxOutputTokens in 1..1_024) { "attribution_output_limit_invalid" }
         check(!generating) { "attribution_generation_in_progress" }
+        val remainingMillis = (deadlineNanos - System.nanoTime()) / 1_000_000
+        if (remainingMillis <= 0) throw AttributionDeadlineExceeded()
         generating = true
         try {
+            configureRequest(remainingMillis, grammar)
             fullReset()
-            check(processSystemPrompt(systemPrompt) == 0) { "attribution_system_prefill_failed" }
-            check(processUserPrompt(userPrompt, maxOutputTokens) == 0) { "attribution_user_prefill_failed" }
+            val systemStatus = processSystemPrompt(systemPrompt)
+            if (requestAborted()) throw AttributionDeadlineExceeded()
+            check(systemStatus == 0) { "attribution_system_prefill_failed" }
+            val userStatus = processUserPrompt(userPrompt, maxOutputTokens)
+            if (requestAborted()) throw AttributionDeadlineExceeded()
+            check(userStatus == 0) { "attribution_user_prefill_failed" }
             buildString {
                 while (true) {
+                    coroutineContext.ensureActive()
+                    if (requestAborted()) throw AttributionDeadlineExceeded()
                     val token = generateNextToken() ?: break
                     append(token)
                 }
+                if (requestAborted()) throw AttributionDeadlineExceeded()
             }
         } catch (error: CancellationException) {
             nativeCancelGeneration()
             throw error
         } finally {
+            finishRequest()
             generating = false
         }
     }
@@ -97,6 +113,9 @@ class AttributionLlamaEngine(context: Context) {
     private external fun generateNextToken(): String?
     private external fun fullReset()
     private external fun nativeCancelGeneration()
+    private external fun configureRequest(remainingMillis: Long, grammar: String)
+    private external fun requestAborted(): Boolean
+    private external fun finishRequest()
     private external fun setEnableThinkingNative(enabled: Boolean)
     private external fun unload()
 

@@ -35,6 +35,7 @@ app/cmake_test_build2/
 # builds through GitHub Releases instead.
 artifacts/*.apk
 /release/
+/app/release/
 
 # Keep any directory named data, but ignore everything inside it.
 **/data/**

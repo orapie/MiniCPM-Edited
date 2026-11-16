@@ -4,7 +4,7 @@
 
 ## 构建与运行
 
-用 Android Studio 打开仓库根目录。构建需要 Android SDK 36.1、NDK `27.0.12077973`、CMake `4.1.2` 和 Python 3。应用版本为 `2.3`，最低支持 Android 7.0（API 24），目标版本为 API 36。APK 的原生库面向 `arm64-v8a`，请用 arm64 真机或模拟器运行。
+用 Android Studio 打开仓库根目录。构建需要 Android SDK 36.1、NDK `27.0.12077973`、CMake `4.1.2` 和 Python 3。应用版本为 `2.4`（`versionCode = 16`），最低支持 Android 7.0（API 24），目标版本为 API 36。APK 的原生库面向 `arm64-v8a`，请用 arm64 真机或模拟器运行。
 
 ```bash
 python3 scripts/prepare_database_bundle.py --check

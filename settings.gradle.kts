@@ -29,5 +29,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "MiniCPM-V-demo"
+rootProject.name = "MiniCPM-Edited"
 include(":app")

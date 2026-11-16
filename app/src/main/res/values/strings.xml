@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">MiniCPM-V-demo</string>
+    <string name="app_name">MiniCPM</string>
     <string name="app_title">MiniCPM-V</string>
     <string name="app_title_text">MiniCPM</string>
     <string name="welcome_title">Welcome to MiniCPM-V</string>

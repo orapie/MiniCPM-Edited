@@ -1,4 +1,4 @@
-# MiniCPM Android 端侧对话
+# MiniCPM-Edited
 
 在 Android 设备上运行本地 GGUF 模型，支持普通对话、RAG 和角色对话。内置《三体Ⅱ：黑暗森林》知识包，角色模式可以选择罗辑、史强、章北海、丁仪或庄颜，并按剧情截止点回答。已适配的 MiniCPM-V 模型支持图片输入，MiniCPM-V 4.6 提供视频理解入口，VoxCPM2 提供独立 TTS 页面。
 
@@ -11,9 +11,13 @@ python3 scripts/prepare_database_bundle.py --check
 bash ./gradlew :app:assembleDebug :app:verifyDebugDatabaseAssets
 ```
 
-调试 APK 位于 `app/build/outputs/apk/debug/app-debug.apk`。安装后在模型管理页下载并选中聊天模型。GGUF 权重由设备下载或已有的本地模型目录提供；视觉和 TTS 模型还需要各自配套文件。可用模型和能力以[聊天模型注册表](app/src/main/java/com/example/minicpm_v_demo/ModelInfo.kt)为准。
+调试 APK 位于 `app/build/outputs/apk/debug/MiniCPM-Edited-debug.apk`。应用安装后在手机桌面显示为 **MiniCPM**。在模型管理页下载并选中聊天模型。GGUF 权重由设备下载或已有的本地模型目录提供；视觉和 TTS 模型还需要各自配套文件。可用模型和能力以[聊天模型注册表](app/src/main/java/com/example/minicpm_v_demo/ModelInfo.kt)为准。
 
 使用双 Agent 时，先在模型管理页选择并备齐 Agent A 的纯文本 GGUF，再启用“双 Agent”。它默认关闭，模型选择由[独立注册表](app/src/main/java/com/example/minicpm_v_demo/harness/attribution/AttributionModelRegistry.kt)管理。双 Agent 会额外使用本地内存。
+
+## 打包发布
+
+在 Android Studio 中选择 **Build → Generate Signed Bundle / APK**，用上一次发布的签名密钥生成 `release` APK。将 `MiniCPM-Edited-release.apk` 上传到 GitHub Releases，标题可用 `MiniCPM-Edited v2.4`。若选择 Android App Bundle，生成的文件名为 `MiniCPM-Edited-release.aab`。
 
 ## 对话模式
 

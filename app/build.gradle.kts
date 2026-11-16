@@ -19,6 +19,10 @@ plugins {
     alias(libs.plugins.android.application)
 }
 
+base {
+    archivesName.set(rootProject.name)
+}
+
 abstract class PrepareDatabaseBundleTask @Inject constructor(
     private val execOperations: ExecOperations,
 ) : DefaultTask() {
@@ -229,7 +233,7 @@ tasks.register<Exec>("verifyDebugDatabaseAssets") {
     dependsOn("assembleDebug")
     commandLine(providers.gradleProperty("databasePython").orElse("python3").get(),
         rootProject.file("scripts/verify_database_apk.py").absolutePath,
-        "--apk", layout.buildDirectory.file("outputs/apk/debug/app-debug.apk").get().asFile.absolutePath,
+        "--apk", layout.buildDirectory.file("outputs/apk/debug/${rootProject.name}-debug.apk").get().asFile.absolutePath,
         "--source", rootProject.file("database").absolutePath,
         "--program-source", file("src/main/assets").absolutePath,
         "--report", layout.buildDirectory.file("reports/database/apk_inventory.json").get().asFile.absolutePath)

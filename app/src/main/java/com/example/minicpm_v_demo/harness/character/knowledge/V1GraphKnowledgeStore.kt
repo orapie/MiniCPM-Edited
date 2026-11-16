@@ -18,6 +18,7 @@ class V1GraphKnowledgeStore(
 ) {
     private val document: V1RelationshipDocument by lazy { loadDocument() }
 
+    /** 查询旧版关系图，将加载或解析失败转为结构化状态，供上层选择可用结果。 */
     fun retrieveSafely(request: V1RelationshipQuery): V1RelationshipRetrieval {
         if (request.limit <= 0 || request.characterId.isBlank() || request.storyCutoff.isBlank()) {
             return V1RelationshipRetrieval(KnowledgeStoreStatus.INVALID_REQUEST, emptyList(), emptyList(), "invalid_request")

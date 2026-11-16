@@ -109,6 +109,7 @@ class AudioRecorder(private val context: Context) {
         }
     }
 
+    /** 在原始 PCM 数据之前写入 RIFF/WAVE 文件头，使录音可以作为参考音频读取。 */
     private fun convertRawToWav(rawFile: File, wavFile: File) {
         val rawSize = rawFile.length()
         val dataSize = rawSize
@@ -157,6 +158,7 @@ class AudioRecorder(private val context: Context) {
         (v shr 8 and 0xFF).toByte()
     )
 
+    /** 通知后台写入循环退出并释放麦克风。返回的是此刻的文件大小，WAV 封装由后台线程完成。 */
     fun stopRecording(): Long {
         isRecording = false
         audioRecord?.apply {

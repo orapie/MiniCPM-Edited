@@ -1,28 +1,29 @@
 package com.example.minicpm_v_demo.harness.session
 
-internal fun jsonObject(values: Map<String, Any?>): String {
+internal fun jsonObject(values: Map<String, Any?>, escapeTokenDelimiters: Boolean = false): String {
     return values.entries.joinToString(prefix = "{", postfix = "}") { (key, value) ->
-        "${jsonString(key)}:${jsonValue(value)}"
+        "${jsonString(key, escapeTokenDelimiters)}:${jsonValue(value, escapeTokenDelimiters)}"
     }
 }
 
-internal fun jsonArray(values: List<Any?>): String {
-    return values.joinToString(prefix = "[", postfix = "]") { jsonValue(it) }
+internal fun jsonArray(values: List<Any?>, escapeTokenDelimiters: Boolean = false): String {
+    return values.joinToString(prefix = "[", postfix = "]") { jsonValue(it, escapeTokenDelimiters) }
 }
 
-internal fun jsonValue(value: Any?): String {
+/** 将会话和记忆存储使用的 Kotlin 值编码为 JSON。字符串、集合与对象可递归嵌套。 */
+internal fun jsonValue(value: Any?, escapeTokenDelimiters: Boolean = false): String {
     return when (value) {
         null -> "null"
-        is String -> jsonString(value)
+        is String -> jsonString(value, escapeTokenDelimiters)
         is Number -> value.toString()
         is Boolean -> value.toString()
-        is Map<*, *> -> jsonObject(value.entries.associate { it.key.toString() to it.value })
-        is List<*> -> jsonArray(value)
-        else -> jsonString(value.toString())
+        is Map<*, *> -> jsonObject(value.entries.associate { it.key.toString() to it.value }, escapeTokenDelimiters)
+        is List<*> -> jsonArray(value, escapeTokenDelimiters)
+        else -> jsonString(value.toString(), escapeTokenDelimiters)
     }
 }
 
-internal fun jsonString(value: String): String {
+internal fun jsonString(value: String, escapeTokenDelimiters: Boolean = false): String {
     val output = StringBuilder(value.length + 8)
     output.append('"')
     for (char in value) {
@@ -35,7 +36,7 @@ internal fun jsonString(value: String): String {
             '\r' -> output.append("\\r")
             '\t' -> output.append("\\t")
             else -> {
-                if (char.code < 0x20) {
+                if (char.code < 0x20 || (escapeTokenDelimiters && char in "<>[]")) {
                     output.append("\\u")
                     output.append(char.code.toString(16).padStart(4, '0'))
                 } else {

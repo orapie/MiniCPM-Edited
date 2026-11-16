@@ -30,6 +30,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
+/** 语音合成界面，负责选择或录制参考音频、提交合成请求并播放生成结果。 */
 class TtsActivity : AppCompatActivity() {
 
     companion object {
@@ -396,6 +397,7 @@ class TtsActivity : AppCompatActivity() {
         }
     }
 
+    /** 从界面读取要合成的文本与参考音频，启动异步合成并把结果交给播放流程。 */
     private fun doGenerate() {
         val text = etText.text.toString().trim()
         if (text.isEmpty()) {

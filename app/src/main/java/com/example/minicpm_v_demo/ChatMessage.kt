@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import com.example.minicpm_v_demo.harness.rag.RagMode
 import com.example.minicpm_v_demo.harness.rag.RagSource
 
+/** 聊天列表支持的行类型。助手消息还携带来源和提示词诊断信息，供详情弹窗读取。 */
 sealed class ChatMessage {
     abstract val id: Long
 

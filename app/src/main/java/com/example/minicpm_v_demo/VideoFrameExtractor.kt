@@ -40,6 +40,7 @@ object VideoFrameExtractor {
     /** JPEG quality used for each extracted frame; matches iOS (0.5). */
     private const val JPEG_QUALITY = 50
 
+    /** 携带抽帧结果及视频元数据，供模型预填充和聊天界面的性能摘要使用。 */
     data class Result(
         /** First extracted frame, used as the chat-cell thumbnail. */
         val thumbnail: Bitmap,

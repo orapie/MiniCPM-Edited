@@ -8,6 +8,7 @@ data class SplitPrompt(
     val userPrompt: String,
 )
 
+/** 同时携带按模板拼接的诊断文本和供推理接口使用的分段消息。 */
 data class RenderedChatPrompt(
     val messages: List<HarnessChatMessage>,
     val renderedSinglePrompt: String,
@@ -15,6 +16,7 @@ data class RenderedChatPrompt(
     val profile: String,
 )
 
+/** 校验消息顺序并同时保留分开的 system/user 文本和按模型模板拼接的预览。 */
 class ChatTemplateRenderer(
     private val profile: String = "android_send_user_prompt_v1",
 ) {

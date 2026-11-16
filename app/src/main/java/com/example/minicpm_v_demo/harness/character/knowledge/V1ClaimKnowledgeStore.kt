@@ -32,6 +32,7 @@ class V1ClaimKnowledgeStore(
         }
     }
 
+    // 按已保存的事实 ID 续接追问，并重新执行当前角色与剧情截止点的访问检查。
     /** Revalidates, rather than blindly replays, one prior authorized claim ID. */
     fun retrieveByClaimIdSafely(
         characterId: String,

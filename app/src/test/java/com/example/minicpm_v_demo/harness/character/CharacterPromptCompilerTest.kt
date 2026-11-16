@@ -75,20 +75,52 @@ class CharacterPromptCompilerTest {
     }
 
     @Test
-    fun reviewedPublicCareerOnlyAppliesToDirectSelfQuestionsAtTheCardCutoff() {
+    fun publicProfileOnlyAppliesToMatchingSelfQuestionsAtTheCardCutoff() {
         val compiler = compiler()
         fun system(question: String, cutoff: String) = compiler.buildNpcPrompt(
             "zhang_beihai", question, RuntimeContext(storyCutoff = cutoff),
         ).messages[0].content
-        val excerpt = "从海军转入太空军政治工作"
+        val excerpt = "我从海军转入太空军，从事政治工作"
         val selfQuestion = "你以前做过什么工作？"
         val careerPrompt = system(selfQuestion, "evt-125")
-        assertTrue(careerPrompt.contains("我$excerpt"))
+        assertTrue(careerPrompt.contains(excerpt))
         assertFalse(careerPrompt.contains("直接说“我是章北海"))
         assertFalse(system(selfQuestion, "evt-001").contains(excerpt))
         assertFalse(system("你知道罗辑以前做过什么工作？", "evt-125").contains(excerpt))
+        assertFalse(system("你的朋友以前做过什么工作？", "evt-125").contains(excerpt))
+        assertFalse(system("你在哪个学校读过书？", "evt-125").contains(excerpt))
         assertFalse(system("你怎么看待责任？", "evt-125").contains(excerpt))
         assertFalse(system(selfQuestion, "evt-125").contains("失败主义"))
+        val shi = compiler.buildNpcPrompt("shi_qiang", selfQuestion, RuntimeContext(storyCutoff = "evt-125"))
+        assertTrue(shi.messages[0].content.contains("我曾任刑警"))
+        assertTrue(shi.debug.profileInjectedChars > 0)
+        assertTrue(shi.debug.publicProfileAnswersQuestion)
+        val context = RuntimeContext(storyCutoff = "evt-125")
+        val luo = compiler.buildNpcPrompt("luo_ji", selfQuestion, context)
+        assertTrue(luo.messages[0].content.contains("曾学习天文学，后在大学教授社会学"))
+        assertFalse(luo.messages[0].content.contains("曾任刑警"))
+        assertTrue(luo.debug.profileInjectedChars > 0)
+        assertTrue(luo.debug.publicProfileAnswersQuestion)
+        val ding = compiler.buildNpcPrompt("ding_yi", "你主要研究什么？", context)
+        assertTrue(ding.messages[0].content.contains("理论物理学家"))
+        assertFalse(ding.messages[0].content.contains("杨冬死亡带来的长期创伤"))
+        assertTrue(ding.debug.profileInjectedChars > 0)
+        assertTrue(ding.debug.publicProfileAnswersQuestion)
+        val zhuang = compiler.buildNpcPrompt("zhuang_yan", "你学的什么？", context)
+        assertTrue(zhuang.messages[0].content.contains("学习中国画"))
+        assertTrue(zhuang.debug.profileInjectedChars > 0)
+        assertTrue(zhuang.debug.publicProfileAnswersQuestion)
+        val unrelated = compiler.buildNpcPrompt("luo_ji", "你知道史强以前做过什么工作？", context)
+        assertEquals(0, unrelated.debug.profileInjectedChars)
+        val followUp = compiler.buildNpcPrompt("luo_ji", "以前教的呢？", context)
+        assertEquals(0, followUp.debug.profileInjectedChars)
+        val mixed = compiler.buildNpcPrompt("luo_ji", "你在大学教什么？后来为什么成了面壁者？", context)
+        assertTrue(mixed.debug.profileInjectedChars > 0)
+        assertFalse(mixed.debug.publicProfileAnswersQuestion)
+        val earlier = compiler.buildNpcPrompt("luo_ji", selfQuestion, RuntimeContext(storyCutoff = "evt-001"))
+        assertFalse(earlier.debug.publicProfileAnswersQuestion)
+        val noBudget = compiler.buildNpcPrompt("luo_ji", selfQuestion, context.copy(profileTopK = 0))
+        assertFalse(noBudget.debug.publicProfileAnswersQuestion)
     }
 
     @Test

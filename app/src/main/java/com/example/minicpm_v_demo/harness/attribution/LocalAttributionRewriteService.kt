@@ -17,13 +17,14 @@ class LocalAttributionRewriteService(
 ) : FinalPromptRewriteService, AutoCloseable {
     private val modelStore = AttributionModelStore(context)
     private val featureFlags = AttributionFeatureFlags(context)
-    private val engine = AttributionLlamaEngine(context)
+    private val engine = AttributionLlamaEngine.getInstance(context)
 
     override val enabled: Boolean
         get() = featureFlags.localAgentAEnabled &&
             isForegroundRuntimeReady() &&
             modelStore.isSelectedModelDownloaded()
 
+    /** 检查当前运行时、模型文件和请求预算，在共享时限内加载模型、生成并解析归因结果。任一环节失败都返回回退原因。 */
     override fun rewrite(request: AttributionAgentRequest): AttributionAgentResult {
         if (!featureFlags.localAgentAEnabled) return AttributionAgentResult.Fallback("feature_disabled")
         if (!isForegroundRuntimeReady()) return AttributionAgentResult.Fallback("foreground_runtime_unavailable")
@@ -41,8 +42,9 @@ class LocalAttributionRewriteService(
             val deadlineNanos = System.nanoTime() + timeoutMillis * 1_000_000
             runBlocking {
                 withTimeout(timeoutMillis) {
-                    engine.loadTextModel(files.entry.model, files.llmFile)
                     val output = engine.generate(
+                        model = files.entry.model,
+                        modelFile = files.llmFile,
                         systemPrompt = request.messages[0].content,
                         userPrompt = request.messages[1].content,
                         maxOutputTokens = budget,

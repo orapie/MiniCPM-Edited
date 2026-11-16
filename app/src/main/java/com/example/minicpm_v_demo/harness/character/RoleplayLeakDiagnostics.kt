@@ -12,6 +12,7 @@ object RoleplayLeakDiagnostics {
     private const val PREFS_NAME = "roleplay_leak_diagnostics"
     private const val KEY_RAW_OUTPUT_LOGGING = "raw_output_logging"
 
+    /** 读取原始角色输出的调试日志开关，并限制其生效的构建类型。 */
     fun isRawOutputLoggingEnabled(context: Context): Boolean {
         val isDebuggable = context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
         return isDebuggable && context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

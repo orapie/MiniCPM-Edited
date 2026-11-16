@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 
+/** 表示一次后端生成请求所需的提示词和诊断元数据。 */
 data class HarnessChatRequest(
     val userPrompt: String,
     val systemPrompt: String? = null,
@@ -24,6 +25,7 @@ data class HarnessChatRequest(
     }
 }
 
+/** 应用层与推理实现之间的契约。统一模型生命周期、媒体预填充、生成流和取消操作。 */
 interface HarnessBackend {
     companion object {
         private const val TAG = "HarnessBackend"

@@ -17,6 +17,7 @@ data class LlamaModelFiles(
     val artifactFiles: Map<String, File>
 )
 
+/** 把已选模型及其文件路径、可用性和本地删除操作统一暴露给 Harness。 */
 class LlamaModelStore(private val context: Context) {
 
     fun migrateLegacyLayoutIfNeeded() {
@@ -55,6 +56,7 @@ class LlamaModelStore(private val context: Context) {
         )
     }
 
+    /** 分别检查所选模型要求的文件，供界面判断是否可以加载。 */
     fun getSelectedModelAvailability(): HarnessModelAvailability {
         val files = getSelectedModelFiles()
         val ggufMissing = files.artifactFiles["llm"]?.exists() != true

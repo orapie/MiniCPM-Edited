@@ -6,6 +6,7 @@ import com.example.minicpm_v_demo.harness.rag.asJsonObject
 import com.example.minicpm_v_demo.harness.rag.stringValue
 import java.security.MessageDigest
 
+/** 声明数据集身份、支持的能力和文件校验值，安装时据此验证数据包完整性。 */
 data class DatabaseBundleManifest(
     val schemaVersion: String,
     val datasetId: String,

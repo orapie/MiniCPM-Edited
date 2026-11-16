@@ -7,6 +7,7 @@ import com.example.minicpm_v_demo.harness.rag.intValue
 import com.example.minicpm_v_demo.harness.rag.stringValue
 import java.io.File
 
+/** 从指定数据路径读取角色卡、剧情事件和系统提示词模板，并将 JSON 解析为角色运行时使用的数据模型。 */
 class CharacterJsonLoader(
     private val charactersDir: File,
     private val storyEventsFile: File,
@@ -65,6 +66,13 @@ class CharacterJsonLoader(
                 hardConstraints = identity.stringList("hard_constraints"),
             ),
             profileEvidenceRefs = evidenceRefs.filterKeys { key -> key.startsWith("identity_core.") },
+            publicProfile = (root["public_profile"] as? Map<*, *>).orEmpty()
+                .mapNotNull { (key, value) ->
+                    val path = key as? String ?: return@mapNotNull null
+                    val cues = (value as? List<*>)?.filterIsInstance<String>().orEmpty()
+                        .map(String::trim).filter { it.length >= 2 }
+                    if (cues.isEmpty()) null else path to cues
+                }.toMap(),
             relationships = root["relationships"].asJsonArray("relationships").map { raw ->
                 val relation = raw.asJsonObject("relationship")
                 CharacterRelationship(

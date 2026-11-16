@@ -9,6 +9,11 @@ class AttributionFeatureFlags(context: Context) {
     val localAgentAEnabled: Boolean
         get() = preferences.getBoolean(KEY_LOCAL_AGENT_A_ENABLED, false)
 
+    val agentBPromptFormat: AgentBPromptFormat
+        get() = if (preferences.getBoolean("agent_b_json_prompt", false)) AgentBPromptFormat.JSON
+            else AgentBPromptFormat.TEXT
+
+    /** 保存本地 Agent A 的显式启用状态，归因服务在请求时读取。 */
     fun setLocalAgentAEnabled(enabled: Boolean) {
         preferences.edit().putBoolean(KEY_LOCAL_AGENT_A_ENABLED, enabled).apply()
     }

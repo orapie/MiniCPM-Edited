@@ -1,5 +1,6 @@
 package com.example.minicpm_v_demo.harness.rag
 
+/** 定义批量文本到向量的接口，让同一向量索引可以配合不同编码实现。 */
 interface EmbeddingModel {
     fun embed(texts: List<String>): List<DoubleArray>
 }

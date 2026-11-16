@@ -7,7 +7,7 @@
     "v2": true,
     "vector": true
   },
-  "dataset_fingerprint": "2c0b90db9383839146dbd703a4bd7ab2e74040760a31ba3549877d5130df5a53",
+  "dataset_fingerprint": "ca4319d90e48ab9ff7938f3a166904636168f55a207f974976e5e6fa6bd46bd2",
   "dataset_id": "three_body_2",
   "dataset_version": "2026-11-03-bge-stage2",
   "default_character_id": "luo_ji",
@@ -26,23 +26,23 @@
   "files": [
     {
       "path": "characters/ding_yi.json",
-      "sha256": "4ddd6400966ea5287bed90cfe8ab2dae5f113fed63b6ec39db340c2ceaf9136e"
+      "sha256": "92d57cda2c134a0ce402a618f4218ee4b2edd0fe2db9ec23e11521b1e66dcd19"
     },
     {
       "path": "characters/luo_ji.json",
-      "sha256": "6550cf1dbaa14685a5dcfa2f0a28c34c916e8345d0f7e268c1cbbc6e45a76b90"
+      "sha256": "967f77f8227a8ec9492ecdffde8bc8e56514005f9705aebdeb8428b1965d9711"
     },
     {
       "path": "characters/shi_qiang.json",
-      "sha256": "a319da776f1ff1eeccef825afb60897f6196da81d371a75215d29af1f8c27415"
+      "sha256": "d12fe145a297b37013c6bd3a861276de061711c9130b69717432454eb32b1b0d"
     },
     {
       "path": "characters/zhang_beihai.json",
-      "sha256": "bfd04cea8149bd4e120fe47df04096b8f49c755ffd919cd27aa542f5904f0475"
+      "sha256": "ac15a6538cdb62b7a36c7be0be132fb12b2e11c9bc04dda4af3b3212f51baa4d"
     },
     {
       "path": "characters/zhuang_yan.json",
-      "sha256": "a7dac3acfc5199ee540ca2fa42708e47a7e748cc9d2d64754550d958f26f762c"
+      "sha256": "1cd3aa568c6b14598664b4b2bfcc0a69c338751ea8975af289729bd130e0888e"
     },
     {
       "path": "embedding/bge-small-zh-v1.5/model.onnx",

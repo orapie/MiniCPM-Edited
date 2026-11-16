@@ -21,6 +21,7 @@ data class ConversationContextIdentity(
 class ConversationContextCompressor(
     private val summaryBuilder: ConversationSummaryBuilder = ConversationSummaryBuilder(),
 ) {
+    /** 只从数据包指纹、角色和剧情截止点均匹配的历史生成本轮摘要，并按当前问题压缩到指定预算。 */
     fun compress(
         session: ChatSession?,
         currentQuestion: String,

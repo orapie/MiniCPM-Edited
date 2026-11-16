@@ -8,6 +8,7 @@ internal class LegacyHarnessCleanup(
     private val filesDir: File,
     private val knownFiles: Map<String, String> = shippedHashes,
 ) {
+    /** 新数据库就绪后，仅在旧资源路径与内容摘要匹配时清理预置文件。 */
     fun run(databaseReady: Boolean) {
         if (!databaseReady) return
         val parent = filesDir.canonicalFile

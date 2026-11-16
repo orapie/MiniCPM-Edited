@@ -14,6 +14,7 @@ data class KnowledgeDecision(
 
 enum class KnowledgeDisposition { SELECTED, DROPPED }
 
+/** 稳定的审计原因用于说明候选为何入选或被丢弃，并供生成前的可回答性判断使用。 */
 enum class KnowledgeDecisionReason {
     SELECTED,
     NO_CHARACTER_KNOWLEDGE_EDGE,

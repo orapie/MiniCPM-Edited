@@ -30,6 +30,7 @@ data class RetrievedMemoryRecord(
     val score: Double,
 )
 
+/** 以 JSON Lines 追加记录记忆，按数据集、角色和关键词查询。 */
 class MemoryStore(private val paths: HarnessDataPaths) {
     private val memoryFile: File = File(paths.memoryDir, "memories.jsonl")
 
@@ -38,6 +39,7 @@ class MemoryStore(private val paths: HarnessDataPaths) {
         memoryFile.appendText(jsonObject(serializeMap(record)) + "\n", Charsets.UTF_8)
     }
 
+    /** 将已完成的回合记为一条会话范围的观察记录。 */
     fun observeTurn(session: ChatSession, turn: ChatTurn): MemoryRecord {
         val record = MemoryRecord(
             memoryId = UUID.randomUUID().toString().replace("-", ""),

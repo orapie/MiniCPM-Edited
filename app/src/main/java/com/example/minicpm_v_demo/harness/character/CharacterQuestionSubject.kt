@@ -2,6 +2,7 @@ package com.example.minicpm_v_demo.harness.character
 
 /** Conservative subject check before expanding a question into the speaker's own profile. */
 object CharacterQuestionSubject {
+    /** 识别玩家是否在问当前角色自己的来历，供档案扩展和可回答性判断使用。 */
     fun isSelfOrigin(question: String): Boolean {
         val compact = question.trim().replace(Regex("[\\s？?！!。,.，]"), "")
         if ("自己" in compact) return true

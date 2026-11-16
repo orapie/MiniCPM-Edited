@@ -3,6 +3,7 @@ package com.example.minicpm_v_demo.harness.data
 import android.content.Context
 import java.io.File
 
+/** 集中维护应用私有目录中的会话、记忆、设置和诊断路径。 */
 data class HarnessDataPaths(val rootDir: File) {
     val sessionsDir: File get() = File(rootDir, "sessions")
     val memoryDir: File get() = File(rootDir, "memory")

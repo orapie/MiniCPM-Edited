@@ -222,6 +222,7 @@ class V2EpistemicKnowledgeStore(
         verificationStatus = raw.stringValue("verification_status"),
     )
 
+    /** 根据当前知识来源验证事实证据，已审核数据包与兼容路径使用各自的验证依据。 */
     private fun sourceAccepted(claim: V2Claim): Boolean = if (reviewedBundle != null) {
         claim.sourceTier == "canon" && claim.verificationStatus == "source_span_verified" &&
             claim.canonStatus == "accepted" && reviewedBundle.authorizedFacts.any {
@@ -300,6 +301,7 @@ class V2EpistemicKnowledgeStore(
     }
 }
 
+/** 指定角色与剧情截止点来查询 V2 知识库，可附带向量候选分数辅助匹配。 */
 data class V2KnowledgeQuery(
     val characterId: String,
     val query: String,

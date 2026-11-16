@@ -17,10 +17,9 @@ import com.example.minicpm_v_demo.harness.data.database.DatabaseCharacterCardAda
 import com.example.minicpm_v_demo.harness.rag.RagPromptSnapshot
 import com.example.minicpm_v_demo.harness.rag.RagPromptStage
 import com.example.minicpm_v_demo.harness.rag.RagPromptStageLog
-import com.example.minicpm_v_demo.harness.rag.SimpleJsonParser
-import com.example.minicpm_v_demo.harness.rag.asJsonObject
 import java.io.File
 
+/** 按角色与剧情截止点汇总可用档案、状态和剧情事实，再按优先级及字符预算填入角色系统模板。 */
 class CharacterPromptCompiler(
     private val loader: CharacterJsonLoader,
     private val retriever: KeywordStoryRetriever = KeywordStoryRetriever(),
@@ -33,7 +32,6 @@ class CharacterPromptCompiler(
     private val queryAnalyzer: CharacterQueryAnalyzer = CharacterQueryAnalyzer(),
     private val profileStore: CharacterProfileStore = CharacterProfileStore(),
     private val databaseBundle: DatabaseBundleHandle? = null,
-    private val publicCareer: Map<String, String> = emptyMap(),
 ) {
     private val events: List<StoryEvent> by lazy { loader.loadEvents() }
     private val eventsById: Map<String, StoryEvent> by lazy { events.associateBy { it.eventId } }
@@ -41,6 +39,7 @@ class CharacterPromptCompiler(
 
     fun availableCharacters(): List<CharacterCard> = loader.listCharacters()
 
+    /** 解析本轮检索意图和截止点，再从可用知识源取证并记录每个候选的选择结果。 */
     fun buildNpcPrompt(
         npcId: String,
         userInput: String,
@@ -176,16 +175,15 @@ class CharacterPromptCompiler(
         val dynamicState = if (databaseBundle != null) npc.dynamicState else runtimeContext.dynamicState ?: npc.dynamicState
         val timedState = stateLoader?.currentState(npcId, cutoff)
 
-        val career = reviewedCareerFor(npc, userInput)
+        val publicCandidates = if (isDirectSelfProfileQuestion(npc, userInput)) {
+            profileStore.publicMatches(npc, userInput)
+        } else emptyList()
+        // 先渲染固定的角色身份与行为约束，以此计算可选证据的剩余字符预算。
         val mandatoryBase = linkedMapOf(
             "global_summary" to compileGlobalSummary(npc),
             "character_name" to npc.identity.name,
-            "self_answer_instruction" to if (career == null) {
-                "回答玩家“你是谁？”时，直接说“我是${npc.identity.name}。”；"
-            } else "",
-            "public_career_instruction" to if (career != null) {
-                "\n本轮获准公开的是你的从业经历。直接回答：“我$career”"
-            } else "",
+            "self_answer_instruction" to "回答玩家“你是谁？”时，直接说“我是${npc.identity.name}。”；",
+            "public_profile_facts" to "",
             "core_personality" to compileCorePersonality(npc),
             "speech_examples" to compileSpeechExamples(npc),
         )
@@ -199,20 +197,35 @@ class CharacterPromptCompiler(
         // Conversation history is no longer embedded in this shared character
         // template.  It is compressed by ConversationContextCompressor and
         // supplied separately with the user-side turn context.
-        val mandatory = mandatoryBase.toMap()
+        val publicFacts = mutableListOf<ProfileRecord>()
+        val mandatory = mandatoryBase.toMutableMap()
+        for (candidate in publicCandidates) {
+            if (publicFacts.size >= queryPlan.profileLimit) break
+            val proposed = (publicFacts + candidate).joinToString("\n") { it.statement }
+            if (proposed.length > queryPlan.profileCharBudget) continue
+            val section = "\n以下是你本轮可公开的本人事实。用“我”直接回答，只说其中与问题有关的内容：\n$proposed"
+            val values = mandatory + mapOf("public_profile_facts" to section, "self_answer_instruction" to "")
+            if (render(values).length > runtimeContext.maxChars) continue
+            mandatory["public_profile_facts"] = section
+            mandatory["self_answer_instruction"] = ""
+            publicFacts += candidate
+        }
         var content = render(mandatory)
         require(content.length <= runtimeContext.maxChars) {
             "mandatory character prompt exceeds maxChars: ${content.length} > ${runtimeContext.maxChars}"
         }
         val optionalItems = mutableListOf<PromptCandidate>()
         val graphPreDropped = mutableListOf<DroppedPromptItem>()
+        val completePublicFact = completePublicProfileFact(npc, userInput, publicFacts)
         var profileChars = 0
         val profileCandidates = if (queryPlan.retrieveProfile) {
             profileCandidates(npc, userInput, queryPlan.profileLimit, queryPlan.analysis, followUpTarget)
         } else {
             emptyList()
         }
+        val profileCandidateIds = (profileCandidates.map { it.id } + publicCandidates.map { it.id }).distinct()
         val profileRoute = when {
+            publicCandidates.isNotEmpty() -> "public_match"
             !queryPlan.retrieveProfile && queryPlan.analysis.isGreeting -> "skipped_greeting"
             !queryPlan.retrieveProfile -> "not_requested"
             followUpTarget?.kind == "relevant_profile" -> "follow_up"
@@ -337,13 +350,15 @@ class CharacterPromptCompiler(
                     definitionBoost(item.event.eventId, primaryDefinitionEventId),
             )
         }
+        // 跨提示词段落按优先级比较可选条目，每次放入候选后核对完整模板的渲染长度。
         val rankedItems = optionalItems.sortedWith(
             compareByDescending<PromptCandidate> {
                 it.priority + ContextController.queryBoost(userInput, it.text)
             }.thenBy { it.id },
         )
 
-        val selected = mutableListOf<SelectedPromptItem>()
+        val publicFactIds = publicFacts.mapTo(hashSetOf()) { it.id }
+        val selected = publicFacts.mapTo(mutableListOf()) { SelectedPromptItem("relevant_profile", it.id, 1.0) }
         val dropped = graphPreDropped
         val sectionLines = mutableMapOf(
             "relevant_profile" to mutableListOf<String>(),
@@ -354,6 +369,7 @@ class CharacterPromptCompiler(
             "retrieved_memories" to mutableListOf<String>(),
         )
         for (item in rankedItems) {
+            if (item.section == "relevant_profile" && item.id in publicFactIds) continue
             val proposedLines = sectionLines.mapValues { it.value.toMutableList() }.toMutableMap()
             proposedLines.getValue(item.section).add(item.text)
             val values = mandatory.toMutableMap()
@@ -376,8 +392,7 @@ class CharacterPromptCompiler(
         }
 
         val mandatorySize = render(mandatory).length
-        // Selected legacy items are retained only for the Answerability Gate's
-        // ID-level compatibility during Phase 1. They are not prompt evidence.
+        // Legacy selections are ID-only. Public profile text is rendered separately above.
         val dynamicEvidenceFingerprint = "none"
         val selectedItemsFingerprint = selected
             .joinToString("\n") { item -> "${item.kind}:${item.id}" }
@@ -520,13 +535,14 @@ class CharacterPromptCompiler(
                 v1RelationshipGraphDecisions = relationRetrieval?.decisions.orEmpty(),
                 v1RelationshipGraphInjectedChars = 0,
                 profileRoute = profileRoute,
-                profileCandidateCount = profileCandidates.size,
-                profileCandidateIds = profileCandidates.map { it.id },
+                profileCandidateCount = profileCandidateIds.size,
+                profileCandidateIds = profileCandidateIds,
                 profileSelectedIds = selected.filter { it.kind == "relevant_profile" }.map { it.id },
                 profileBudgetDroppedCount = dropped.count {
                     it.kind == "relevant_profile" && it.reason == "character_profile_budget"
                 },
-                profileInjectedChars = 0,
+                profileInjectedChars = mandatory.getValue("public_profile_facts").length,
+                publicProfileAnswersQuestion = completePublicFact != null,
                 stateRoute = stateRoute,
                 stateCandidateCount = stateCandidates.size,
                 stateCandidateIds = stateCandidates.map { it.id },
@@ -560,6 +576,7 @@ class CharacterPromptCompiler(
                 ),
             ),
             stageLogs = stageLogs,
+            publicProfileReply = completePublicFact?.statement?.takeIf { it.startsWith("我") },
         )
     }
 
@@ -691,12 +708,27 @@ class CharacterPromptCompiler(
         return "${identity.name}$alias。"
     }
 
-    private fun reviewedCareerFor(npc: CharacterCard, userInput: String): String? {
-        // The cutoff adapter hides the biography in earlier scenes. Require a
-        // matching reviewed excerpt of the remaining card for a direct career question.
-        return publicCareer[npc.npcId]?.takeIf { excerpt ->
-            SelfCareerQuestion.containsMatchIn(userInput.trim()) &&
-                npc.identity.background.any { it.startsWith(excerpt.trimEnd('。')) }
+    private fun isDirectSelfProfileQuestion(npc: CharacterCard, userInput: String): Boolean {
+        if (npc.publicProfile.isEmpty() || "{{public_profile_facts}}" !in template) return false
+        val question = userInput.trim().replace(Regex("^请问[，,\\s]*"), "")
+        if (!question.startsWith("你") && !question.startsWith("您")) return false
+        if (OtherSubjectQuestion.containsMatchIn(question)) return false
+        return availableCharacters().none { card ->
+            card.npcId != npc.npcId && (listOf(card.identity.name) + card.identity.aliases)
+                .any { it.length >= 2 && it in question }
+        }
+    }
+
+    private fun completePublicProfileFact(npc: CharacterCard, userInput: String, facts: List<ProfileRecord>): ProfileRecord? {
+        if (facts.isEmpty()) return null
+        // A substring is enough to select a fact, but only a complete match
+        // can replace external context. A follow-up clause needs the normal RAG path.
+        val question = userInput.trim().trimEnd('？', '?')
+            .replaceFirst(PublicProfileQuestionPrefix, "")
+        val core = question.replace(PublicProfileQuestionSuffix, "")
+        return facts.singleOrNull { fact ->
+            val path = fact.sourcePath ?: return@singleOrNull false
+            npc.publicProfile[path].orEmpty().any { cue -> cue == question || cue == core }
         }
     }
 
@@ -884,6 +916,7 @@ class CharacterPromptCompiler(
         character.npcId to (listOf(character.identity.name) + character.identity.aliases).distinct()
     }
 
+    /** 把问题意图和追问目标转成具体检索选项，决定要访问的知识源及各类结果的上限。 */
     private fun planKnowledgeQuery(
         userInput: String,
         runtimeContext: RuntimeContext,
@@ -973,25 +1006,14 @@ class CharacterPromptCompiler(
                 loader = CharacterJsonLoader(path("characters"), path("story_events"), promptTemplate),
                 v2KnowledgeStore = V2EpistemicKnowledgeStore(path("runtime_v2"), path("v2_database"), bundle.validated),
                 databaseBundle = bundle,
-                publicCareer = loadPublicCareer(File(promptTemplate.parentFile, "roleplay_public_career.json"),
-                    bundle.manifest.datasetFingerprint),
             )
         }
 
-        private val SelfCareerQuestion = Regex(
-            "^(?:请问[，, ]*)?(?:你|您)(?:(?:以前|过去|曾经|从前)?(?:做过什么工作|从事过什么工作|干过什么工作|是做什么的)|的职业是什么)[？?。！! ]*\$",
+        private val OtherSubjectQuestion = Regex(
+            "^(?:你|您)(?:知道|听说|听过|了解|能告诉我|觉得|认为|和|跟|与|(?:的)?(?:朋友|家人|父亲|母亲|同学|同事|老师|搭档|孩子|亲人|伴侣))|[他她](?:们|的|以前|曾)",
         )
-
-        private fun loadPublicCareer(file: File, datasetFingerprint: String): Map<String, String> {
-            if (!file.isFile) return emptyMap()
-            return runCatching {
-                val asset = SimpleJsonParser(file.readText(Charsets.UTF_8)).parse().asJsonObject("public_career")
-                if (asset["dataset_fingerprint"] != datasetFingerprint) return emptyMap()
-                asset["career"].asJsonObject("career").mapNotNull { (id, value) ->
-                    (value as? String)?.takeIf { it.isNotBlank() && it.length <= 64 }?.let { id to it }
-                }.toMap()
-            }.getOrDefault(emptyMap())
-        }
+        private val PublicProfileQuestionPrefix = Regex("^(?:请问[，,\\s]*)?(?:你|您)(?:以前|过去|曾经|从前|之前)?的?(?:主要)?")
+        private val PublicProfileQuestionSuffix = Regex("(?:是什么|吗|呢)$")
 
         private val KnowledgeLeadIns = mapOf(
             "direct" to "你亲历并确认：",

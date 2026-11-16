@@ -15,6 +15,7 @@ class BgeWordPieceTokenizer(vocabulary: List<String>, private val maxLength: Int
         require(vocabularyIds.size == vocabulary.size) { "Duplicate BERT vocabulary tokens" }
     }
 
+    /** 为 BGE 输入保留起止标记所需位置，再按最大序列长度截断词元。 */
     fun encode(text: String): LongArray {
         val ids = mutableListOf(specialIds.getValue("[CLS]").toLong())
         for (token in tokens(text)) {
@@ -71,6 +72,7 @@ class BgeWordPieceTokenizer(vocabulary: List<String>, private val maxLength: Int
         return output
     }
 
+    /** 逐段选择词表中可匹配的最长子词。如果任一位置无法切分，整个词映射到未知标记。 */
     private fun wordPiece(word: String): List<Int> {
         val count = word.codePointCount(0, word.length)
         if (count > 100) return listOf(specialIds.getValue("[UNK]"))

@@ -4,6 +4,7 @@ import android.content.res.AssetManager
 import java.io.File
 import java.io.InputStream
 
+/** 安装器从统一的相对路径读取字节流，数据可以来自 APK 资源或显式指定的目录。 */
 fun interface DatabaseBundleSource {
     fun open(relativePath: String): InputStream
 }

@@ -2,6 +2,7 @@ package com.example.minicpm_v_demo.harness.rag
 
 class JsonParseException(message: String) : IllegalArgumentException(message)
 
+/** 用递归下降读取 JSON 对象、数组和标量。解析错误包含输入中的字符位置。 */
 class SimpleJsonParser(private val input: String) {
     private var index = 0
 

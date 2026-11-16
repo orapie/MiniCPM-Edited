@@ -36,6 +36,7 @@ data class CompiledRagPrompt(
     val contextDecisions: List<RagContextDecision> = emptyList(),
 )
 
+/** 将普通 RAG 命中的文本片段选入提示词，记录预算裁剪和来源区间。 */
 class PromptBuilder(
     private val maxContextChars: Int = 900,
 ) {
@@ -43,6 +44,7 @@ class PromptBuilder(
         require(maxContextChars >= 500) { "maxContextChars must be at least 500" }
     }
 
+    /** 依据候选顺序和上下文预算生成引用正文，并输出供界面展示的来源。 */
     fun build(query: String, results: List<SearchResult>): CompiledRagPrompt {
         val (contextText, sources, decisions) = compileContext(query, results)
         val system = listOf(

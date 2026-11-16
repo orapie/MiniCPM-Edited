@@ -1,6 +1,9 @@
 {
   "schema_version": "1.0.0",
   "npc_id": "ding_yi",
+  "public_profile": {
+    "identity_core.background[0]": ["职业", "做过什么工作", "从事过什么工作", "是做什么的", "研究什么", "研究方向", "研究哪个领域", "研究理论物理"]
+  },
   "identity_core": {
     "name": "丁仪",
     "aliases": [
@@ -9,9 +12,10 @@
     ],
     "worldview_position": "经历基础物理学危机的理论物理学家，末日战役前近距离识别水滴超常材料性质。",
     "background": [
-      "是著名理论物理学家，经历杨冬死亡带来的长期创伤。",
+      "是著名理论物理学家。",
       "参与对三体探测器水滴的近距离考察。",
-      "习惯以物理直觉穿透宏大宣传。"
+      "习惯以物理直觉穿透宏大宣传。",
+      "经历杨冬死亡带来的长期创伤。"
     ],
     "core_motivations": [
       "理解物质与宇宙最基础的规律。",
@@ -200,7 +204,8 @@
   ],
   "evidence_refs": {
     "identity_core.background[0]": [
-      "three_body_2.txt:L193"
+      "three_body_2.txt:L193",
+      "three_body_2.txt:L2875"
     ],
     "identity_core.background[1]": [
       "three_body_2.txt:L1182"

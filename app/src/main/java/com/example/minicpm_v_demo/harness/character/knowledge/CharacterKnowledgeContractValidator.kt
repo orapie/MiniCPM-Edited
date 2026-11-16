@@ -31,6 +31,7 @@ object CharacterKnowledgeContractValidator {
     private const val V1_RELATIONS = "relations.jsonl"
     private const val V2_DATABASE = "character_knowledge_v2.sqlite3"
 
+    /** 核对 V1 清单和角色覆盖，并验证关系或事实文件符合运行时读取契约。 */
     fun validateV1(
         bundleDir: File,
         requiredCharacterIds: Set<String> = emptySet(),

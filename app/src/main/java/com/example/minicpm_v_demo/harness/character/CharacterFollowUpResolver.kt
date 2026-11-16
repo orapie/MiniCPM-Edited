@@ -19,6 +19,7 @@ object CharacterFollowUpResolver {
         "relevant_profile",
     )
 
+    /** 结合玩家问法和已保存的引用目标判断是否续接上一轮。目标携带稳定 ID，证据由本轮重新检索。 */
     fun resolve(
         session: ChatSession?,
         userInput: String,

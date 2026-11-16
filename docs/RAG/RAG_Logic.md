@@ -1,207 +1,52 @@
-# RAG 工作逻辑与运行流程
+# RAG 与角色对话运行指南
 
-本文描述当前 Android 代码使用的知识数据、检索、角色授权、prompt 编译、生成及会话边界。2026-11-03 已将 V2.2 数据包接入 BGE 查询编码及语义索引；本次工程改动尚未进行最终构建或设备运行验证。
+## 知识包与检索
 
-## 1. 唯一知识来源和安装
+[根目录 database](../../database/) 是 Android 应用的知识数据输入。Gradle 的 `prepareDatabaseBundle` 校验 manifest 和受控文件，再暂存到 `app/build/generated/databaseAssets/database/`。应用启动时由 `DatabaseBundleInstaller` 校验并激活 `<filesDir>/database/` 中的数据包，活动回合持有该包的句柄，直到生成及保存结束。程序提示模板与 TTS 参考音频走独立资源流程。
 
-```text
-repository/database/                         唯一知识输入
-  ├─ manifest.json                           包身份、能力、受控路径和文件哈希
-  ├─ characters/、story/                     角色卡和时间轴
-  ├─ knowledge_base_v2/                      SQLite 审计源及原始候选
-  ├─ reviewed/atomic_facts.json              经角色知情审核的短事实
-  └─ runtime/android/                         当前包的导出和向量索引
-       ↓ scripts/prepare_database_bundle.py --check
-app/build/generated/databaseAssets/database/ 构建输出，勿手工修改
-       ↓ APK assets/database/
-<Android filesDir>/database/                 设备唯一当前知识包
-```
+当前 `three_body_2` 包声明 `v2/vector=true`、`v1/timed_state=false`。普通和角色 RAG 使用包内 BGE ONNX 查询模型和 512 维语义索引。Android 在内存中查询索引，SQLite 用于离线构建与审计。384 维 hash n-gram 索引保留给未声明 BGE 路径的旧包。当前包的 BGE 初始化或查询失败会报告诊断状态；默认关闭的混合检索可额外融合词项候选。
 
-`prepareDatabaseBundle` 校验仓库根 `../../database` 并生成 APK 受控 assets；`verifyDebugDatabaseAssets` 检查最终 APK 的文件和哈希。数据变更后先运行生成命令，再用 `--check` 校验；不要直接编辑 generated 目录或 APK 内的索引。
+- `OFF` 由主界面把用户原始输入交给聊天后端。
+- `RAG` 按本轮问句检索，并将选中的片段作为 `user` 消息里的参考资料。
+- `CHARACTER_RAG` 在检索之外编译当前角色的身份、说话风格和已授权的本人事实。外部候选按来源、角色和剧情截止点筛选后，作为本轮参考。
 
-`DatabaseBundleInstaller` 从 APK 的 `assets/database/` 安装到同父 staging，验证 manifest、每个文件、事实授权和向量契约后整包替换。应用启动时在后台完成安装与校验，主界面在初始化完成前暂不处理对话，随后绑定对应会话和检索器。相同数据集更新失败可以保留已验证旧版本并报告 `RETAINED_PREVIOUS`；不同数据集失败不发布旧包句柄。`DatabaseRuntime` 提供已验证的当前 bundle，回合 lease 防止活动生成中激活另一个包。
+向量召回、角色知情授权和正文注入是三个可分别观察的步骤。V2 已审核剧情事实当前用于匹配、边界判断、追问及门控，也保留选中 ID 供诊断。当前角色系统模板负责渲染身份、口吻和 `public_profile_facts`。V2 剧情、旧动态状态、关系和记忆正文没有对应的角色 system 段。外部片段保留在 `user`，其中的代词和人物视角属于来源文本。
 
-程序模板另由白名单打包至 `assets/prompts/roleplay_system.prompt`，安装至 `<filesDir>/program/prompts/roleplay_system.prompt`。其源码位于 `../../app/src/main/assets/prompts/roleplay_system.prompt`。TTS 参考音频也是程序资源。
+## 角色卡与对话承接
 
-旧 `character/` 和源码中的 `assets/harness/rag/` 已删除；旧角色 fixture 仅用于尚未迁移的 JVM 测试。新数据库验证成功后启动一次性设备清理，仅删除路径及哈希与旧内置清单一致的文件；修改过或来源不明的文件保留，生产 factory 不从旧目录加载知识。
+`CharacterJsonLoader` 从卡片加载 `identity_core`、`public_profile` 和 `evidence_refs`。卡片到达其声明的截止点后才可使用完整档案。对于直接问当前角色本人的问句，`CharacterProfileStore` 按已配置短语选取有证据引用的条目，编译器最多将两条预算内的公开事实放入 system。更早 cutoff 会移除完整档案和对应公开映射。
 
-## 2. 当前数据集与能力
+单一问句完整命中唯一已注入条目时，编译器使用角色卡独立作答。外部资料不进入 B 请求，A 记录 `not_requested / public_profile_sufficient`。复合问句、模糊匹配或条目超预算时沿用普通参考流程。对于这条单一事实路径，若角色卡原句以第一人称写成，B 仍先生成，输出流程再判断可见文字与审核原句是否一致。相符时交付模型回答，其他情况用原句回退并记录 `public_profile_unverified`，可见回复与模型质量分别计数。
 
-当前 `../../database/manifest.json` 指向 `three_body_2`，默认角色为罗辑。包内有 5 张角色卡、536 条来源证据候选、768 条源认知边、8 条源关系和 3 条沿用既有审核依据的罗辑可知短事实。
+`ConversationContextCompressor` 独立生成适合当前问句的有预算摘要。会话必须匹配数据集 ID、数据包 fingerprint、角色和截止点才能参与。摘要放在 user 消息中，用于代词消歧和明确承接。上一轮追问目标会重新走本轮授权。会话及 Memory 按数据包身份隔离，旧会话可从历史记录查看。
 
-| 数据 | 当前用途 | 不能推导出的结论 |
-| --- | --- | --- |
-| 536 条原文证据候选 | 向量候选；普通 RAG 和角色模式可作为本轮参考资料 | 场景相关不证明角色知道全部旁白、秘密或他人想法 |
-| 768 条源认知边（含 approved/candidate） | 保存来源标注和获取时间 | 不自动成为本项目的角色知识授权 |
-| 3 条 reviewed 原子事实 | 经过角色、时间和预算过滤后可进入角色 system | 不能覆盖所有问题；本包当前均属于罗辑 |
-| 8 条源关系 | 当前没有带角色认知审核的运行导出 | 不自动作为角色已知关系；角色卡有向关系按卡的 cutoff 使用 |
-| SQLite/FTS5 与 512 维 BGE 向量 | 构建期从 SQLite 导出语义向量供 Android 检索 | Android 不在线查询 SQLite FTS；相似度不保证角色知情 |
-| 384 维 hash n-gram 向量索引 | 兼容没有 BGE 路径的旧格式数据包 | 新包的 BGE 出错时不会静默切换到 hash |
+## 双 Agent 与提示格式
 
-包的能力标记当前为 `vector=true`、`v2=true`、`v1=false`、`timed_state=false`。缺失 V1、时间状态或已授权 V2 关系不会回退到旧库；状态和物品不足时按未知处理。
+| 环节 | 数据 |
+|---|---|
+| Kotlin → A | `system` 是归因任务指令，`user` 内含角色、当前问题、可选对话摘要和参考原文的 JSON。 |
+| A → Kotlin | 固定顺序的 JSON 数组，每条参考对应一个紧凑归因编码。Kotlin 从原始请求恢复引用 ID、问题和规则，再校验 `FinalPromptDraft`。 |
+| Kotlin → B | 文本 `system` 承载角色规则与本人事实。默认 `user` 文本承载当前问题、适用摘要和带归因标签的参考。调试版可用同一份数据生成 JSON `user`。 |
 
-## 3. 向量索引与 V2 事实的区别
+A 使用独立的纯文本 GGUF 和原生运行时。只有显式启用、模型可用且本轮有待处理参考时才运行。默认时限为 60 秒，包含模型加载和推理。A 关闭、超时或校验失败时，B 沿用原始 system/user。已授权公开事实在 system 内，各路径共用同一份内容。A 只标注参考的说话者、受话者和视角，原文及授权范围均由程序控制。
 
-当前数据包由 `../../scripts/prepare_database_bundle.py` 将 SQLite 的 536 条 BGE 证据向量导出到 `runtime/android/vector/bge_index.json`。App 根据清单加载 `BAAI/bge-small-zh-v1.5` 的固定版本 ONNX 模型和词表，对当前问题的编码副本添加查询前缀，生成 512 维向量并按余弦相似度排序；不改变用户原始问题。索引初始化时加载，回合中不重新读取 SQLite。角色模式先按来源范围和 cutoff 排除不符合的候选，再排序；参考资料仍需后续过滤。缺失模型或编码失败会记录失败，不会冒充 BGE 成功或静默回退。旧格式数据包继续使用自身的 `hash_ngram` 索引。少量模拟器样本已证明该链路能够运行并把资料放入 prompt，但样本存在首条内容不回答问题的情况，尚不能证明检索准确率达标。可选实验模式 `rag_retrieval_flags/hybrid_retrieval` 在同一证据原文上使用 Kotlin 词项召回，按 evidence ID 与 BGE 结果进行 RRF（k=60）；默认关闭，避免未经对照评测即替换语义排序。旧余弦阈值仅用于语义候选，词项候选使用独立启发式门槛，融合分数不套用余弦阈值。
+调试器把 `rag_attribution_flags` 的 `agent_b_json_prompt` 布尔值设为 `true` 后，A 成功且校验通过的回合尝试 JSON 定稿。JSON user 超过 4,000 个 UTF-16 代码单元时使用原有 TEXT 定稿，完整保留参考和问题。日志中的 `format`、`schema`、`formatFallback` 分别记录实际输入格式、JSON 版本和格式回退原因。设为 `false` 恢复默认 TEXT。
 
-V2 `knowledge_fallback.json` 包含经单独审核的短事实、角色认知边、获取 sequence 和 cutoff；`V2EpistemicKnowledgeStore` 对问题做中文 2/3 gram 词项召回，旧 hash 索引还可提供 `reviewed_fact` 向量候选 ID/分数；当前 BGE 证据索引以场景候选为主，审核事实仍走词项召回。两者用于召回和排序，最终仍检查来源策略、角色、`believed`、获取时间与有效时间。`scene_candidate` 不被直接提升为角色事实。
+B 生成前由 `RoleplayAnswerabilityGate` 检查可回答性。门控可以在特定未来知识或证据不足的回合直接返回保守答复。生成后由 `RoleplayGenerationCoordinator` 检查缓冲的可见输出，普通角色回答必要时有一次修复重试，随后采用安全回退。B 的 JSON user 格式见[契约和对照方案](../double_agent/Agent_B_JSON_Prompt_Experiment_Plan.md)。
 
-当前来源策略是已验证包的 `canon / source_span_verified / accepted` 加独立 `dialogue_context_inspection` 审核。独立旧 fixture 仍可测试原有 `curated / verified_curated` 规则；生产不能借此读旧包。
-
-<a id="routing-modes"></a>
-
-## 4. 三种模式
-
-| 模式 | 实际入口 | 检索与 prompt |
-| --- | --- | --- |
-| OFF | `MainActivity` 直接构造普通用户请求 | 正常聊天；MainActivity 的 OFF 路径不会调用编排器。编排器另有 OFF 向量观测开关，只有显式调用编排器时生效，结果不注入 |
-| RAG | `AndroidRagOrchestrator.compile()` | 默认每轮查询当前包向量索引；`PromptBuilder` 将压缩资料放入 user 的 `<检索资料>`，system 给出普通 RAG 规则 |
-| CHARACTER_RAG | 同一编排器及 `CharacterPromptCompiler` | 默认每轮查当前包向量索引；审核通过的角色事实和角色卡片段进入 system；检索候选压缩后作为参考资料与当前问题一起进入 user |
-
-`always_on_vector_retrieval` 默认为 true，可通过调试偏好关闭；关闭时 trace 为 `disabled_by_flag`，不能声称该轮执行了向量查询。`retrieve_in_off_mode` 仅影响直接调用编排器的 OFF 路径。`hybrid_retrieval` 是默认关闭的实验偏好；启用后须重新绑定检索器，当前没有界面开关。无论开关组合如何，都不会重新注册旧外部索引。
-
-角色模式不再用“世界杯、文档、搜索”等关键词打开旧外部库；向量候选只来自当前 `../../database`，可压缩后作为未审核的本轮资料附加到 user 消息。角色模式会用已验证的 cutoff 和源行范围拒绝明确未来、跨 cutoff 或未知来源的片段，并限制 reviewed 事实的角色授权；未审核场景在时间内仍可能包含角色不知道的旁白或秘密。
-
-<a id="routing-rules"></a>
-
-## 5. 角色回合的处理顺序
-
-1. `MainActivity` 固定本轮的 bundle、角色、cutoff、会话、模式和模型 family，取得回合 lease。
-2. 编排器验证句柄仍指向当前 manifest；角色 ID 和 cutoff 必须在当前包内。
-3. 对当前 user 输入进行向量搜索；实验混合模式另外召回词项候选并融合，且在日志 `retrievalMode` 和 `candidateScores` 中记录最终候选各路排名及分数；默认角色候选上限为 `max(topK × 8, 20)`、最低分 0.10。候选结果带当前包标识与 claim ID。
-4. `CharacterQueryAnalyzer` 分类身份、来历、关系、状态、物品、剧情或追问。当前包中的非问候回合也会检查 V2 已审核事实；只有判定询问角色自身来历时才补充通用经历、背景、职业等检索词，第三人来历不借用说话者的 profile。
-5. V2 将词项和 reviewed 向量候选交给角色授权、时间和来源检查。单一、合法的上一轮目标可以按 ID 重查，但不能绕过这些检查。
-6. `DatabaseCharacterCardAdapter` 只在回合 cutoff 达到卡本身声明的 cutoff 后使用完整卡；早期回合只保留基本姓名和语气。无时间状态时不把卡的最终场景、任务或物品当作此刻状态。
-7. `CharacterPromptCompiler` 将身份、约束、风格与动态证据放入 system；向量匹配不等于注入，候选还可能因 topK、角色授权、cutoff 和字符预算被丢弃。旧 story/Memory fallback 在当前包模式关闭。
-8. `CharacterReferenceFilter` 先按当前包、角色和 cutoff 过滤候选；`CharacterRagPromptBuilder` 在包含分隔符和标头的 600 字符预算内按句挑选有意义的正文，并和问题共同放入 user；system 标记资料不是角色亲身记忆或指令。无候选时保留原始 user 问题。`ChatTemplateRenderer` 形成 system/user 和用于显示的渲染版本。
-9. `RoleplayAnswerabilityGate` 在仅命中未来事实，或未来事实显著强于仅由共名产生的当前事实匹配时，返回固定的安全回复。询问第三人的来历而没有相关证据时也返回未知；其他普通无命中继续交给模型。这些指代和相关性判断是启发式，不能保证完全理解所有复合问题。
-10. 模型通过 `HarnessBackend.sendChatPrompt()` 接收分离的 system/user；结构化请求会清空 native context 并设置本轮 system。生成结果由 `RoleplayGenerationCoordinator` / `RoleplayOutputGuard` 缓冲检查，必要时最多修复重试一次，然后安全回退。
-
-阶段 trace 中的 `authorizedFactIds` 是通过认知授权的候选，`selected` 是真正进入最终 prompt 的项目。二者不同可能只是预算淘汰；用例必须断言目标 ID 实际注入，而不是只断言搜索非空。
-
-<a id="routing-examples"></a>
-
-## 6. 问题示例
-
-| 问题与截止点 | 当前实现可能使用的证据 | 边界 |
-| --- | --- | --- |
-| 罗辑 `evt-001`：“你的来历是什么？” | `reviewed-luo-ji-profession`：曾研究天文学、当时在大学教社会学 | 已知职业不等于有家乡信息；全传角色卡不会在早期直接注入 |
-| 罗辑 `evt-002`：“叶文洁提出的宇宙社会学公理是什么？” | `reviewed-luo-ji-civilization-axioms`，获取方式 `reported` | 把它作为罗辑听到的观点，不能自动视为经验证的宇宙定律 |
-| 同一问题在 `evt-001` | 公理边的获取时间在 cutoff 之后 | 审核事实不进入角色 system；明确未来或跨截止点的参考片段被过滤，生成前 gate 可在匹配到未来事实时阻止模型生成 |
-| 罗辑 `evt-125`：“你怎么看史强？” | 罗辑角色卡中的有向态度 | 早于角色卡声明的 cutoff 时不使用整张卡的关系 |
-| 史强问罗辑才知道的公理 | 没有史强的已审核认知边 | 未经审核的向量片段可能作为参考资料进入 user，不能证明史强知道该事实 |
-| “你手里有什么？” | 当前包没有 `timed_state` | 不从剧情中的历史物品猜测当前携带状态 |
-| “世界杯文件中陆江仙来自哪里？” | 当前包索引内与问题相关的候选 | 不查询旧世界杯索引或旧角色卡；无可信事实时模型仍可能自行回答，需检查实际输出 |
-
-## 7. 预算、会话与换包
-
-Android 角色 system 默认最多 900 字符；编译器限制 profile、状态、物品、关系、事实各自的候选和预算，并在压缩历史前为本轮证据保留空间。普通 RAG `PromptBuilder` 默认资料预算为 900 字符。具体候选是否被裁掉由 `selectedItems`、`droppedItems` 和对应原因判断。
-
-会话目录为 `<filesDir>/harness/sessions/by-dataset/<dataset_id>/<fingerprint>/`，仅同包、同 fingerprint、有效角色/cutoff 的 recent session 可自动恢复。旧 `<filesDir>/harness/sessions/recent_session.json` 缺少身份时只供历史查看；通过“清空对话 → 查看历史记录”打开，不会进入新回合摘要。Memory 搜索与可注入选择也要求相同包身份和角色 ID；目前生产 prompt 没有启用长期 Memory 注入。
-
-数据包以根 `../../database` 为入口，修改后重新生成并构建 APK；当前没有设备内任意数据库导入或热切换 UI。活动 lease 期间安装请求返回 `database_turn_active`，必须先取消并等待回合收敛。绑定变化后，主界面在下次回合或选择角色时重建检索消费者并清空 native context。模型切换只影响推理与聊天模板，不选择另一条知识目录。
-
-## 8. 回答前后控制与质量限制
-
-角色模式使用本轮绑定角色卡的非歧义名字和别名检查高置信度自我旁白；命中可重试一次，仍失败则保守回复，固定 gate 回复不会被重试绕过。引用及单独出现的“你/他”不会只因代词被拦截。该规则是有限启发式，不能判断所有资料说话者或第二人称错指。
-
-`RoleplayAnswerabilityGate` 仅处理受匹配和截止点约束的未来事实，不是通用事实正确性检查。`RoleplayOutputGuard` 检查模板 token、提示词泄露、助手身份、可见文本及未引用的反问；修复重试仍可能失败并显示保守回退。引号内的历史原话允许包含问号。分类器无法完美判断所有标点、反问或语义幻觉。
-
-检索到相关依据并不保证模型会完整、自然或准确地回答。当前仅有 3 条已审核短事实，覆盖面有限；完整角色卡的未结构化叙述也不等同于逐事实审核。模型、采样设置与上下文会影响输出，必须区分 prompt 编译结果和真实设备生成结果。
-
-<a id="routing-debug"></a>
-
-## 9. 调试与排查
-
-1. 确认设备运行的是新 APK：检查 `DatabaseInstallation` 的 `dataset`、active/requested fingerprint 和状态；不要以旧 Logcat 条目推断当前版本。
-2. 在回答的 Final Prompt 对话框查看 system/user 和 trace；system 的固定角色规则相同是正常现象，关键是动态证据和 user 输入。
-3. 查看 `RAG_TRACE`：`dataset`、`fingerprint`、`indexFingerprint`、`vectorExecuted`、`candidates`、`authorized`、`injected`、`rejected`。候选、授权和注入分别是不同阶段。
-4. 未查询时检查模式和 `disabled_by_flag`；执行但无目标候选时检查输入与索引；有候选但无授权时看角色边、来源和 `ACQUIRED_AFTER_CUTOFF`；已授权但未注入时看 `dropped` 和预算；已注入而回答不佳时再检查模型生成与 guard。
-5. trace/JSONL 默认不含用户问题或事实正文，JNI 只记录 prompt 长度、token 数和状态，不逐 token 打印正文。`RagPromptDebug` 阶段原文日志默认关闭，仅在 Debug 构建且 `rag_debug` SharedPreferences 的 `raw_prompt_logcat=true` 时启用；已有显式设置为 true 的设备升级后仍会记录原文。应用内 Final Prompt 仍可查看。
-6. 设备安装使用 `adb install -r` 保留数据；在保存本地模型的设备上避免会卸载应用的测试任务。JVM、APK 清单和设备 prompt 测试不代替真实模型输出验证。
-
-### 9.1 使用 Logcat 确认本轮读取了哪个数据库
-
-先运行当前项目构建的 **Debug APK**，选择角色卡模式并发出一个具体问题。在 Android Studio 的 Logcat 选中目标设备和 `com.example.minicpm_v_demo` 进程，再搜索下列标签或文本；确认日志时间对应刚才的提问。安装日志只在应用进程启动时输出，若没有看到，可重新启动应用后查看，不必清除应用数据。
-
-| 搜索词 / 标签 | 看什么 | 如何判断 |
-| --- | --- | --- |
-| `DatabaseInstallation` | `database status=... dataset=... active=... requested=...` | `INSTALLED`、`UNCHANGED`、`UPDATED`、`SWITCHED`、`REPAIRED` 表示有已验证的活动包；`RETAINED_PREVIOUS` 表示更新失败后保留了已验证的同数据集旧包，需对比 `active` 和 `requested`；`unavailable` 表示没有可用包。 |
-| `MainActivity` 和 `RAG_TRACE` | `mode`、`querySha`、`dataset`、`fingerprint`、`indexFingerprint`、`external`、`candidates` 等 | 每条 trace 对应一次 prompt 编译；`dataset` 和 `fingerprint` 应与预期包一致，`indexFingerprint` 应与该包 manifest 中 `vector_index` 对应文件的 SHA-256 一致；`indexVersion` 为索引 schema。`contextDecisions` 显示片段 ID、父条目、来源范围、分数与裁剪原因；`selectionBoost` 和 `selectionScore` 分别是资料选句最大词项匹配分数及其与候选向量分数之和；未参与该排序时为 `none`。`spansUtf16` 是实际保留句子相对于原始片段的半开 UTF-16 偏移，可能有多段；不是源文件行号或 Unicode 码点偏移，需先定位对应片段。 |
-| `Compiled CHARACTER_RAG prompt` | `knowledgeIntent`、`followUp`、`v2`、`profile`、`state`、`possession`、`legacyStory` | 辅助判断问题路由、知识源状态与注入字符数；当前数据包中 `legacyStory` / `legacyMemory` 应为 `false`。 |
-| `Database prompt compilation failed`、`Database rebind failed` | 初始化、重新绑定或编译错误 | 结合异常与安装状态检查，不能把缺失 trace 直接解释为“没有检索结果”。 |
-
-也可以在终端实时查看（多个设备时将 `-s <设备序列号>` 加在 `adb` 后）：
+## 排查
 
 ```bash
 adb logcat -v threadtime -s DatabaseInstallation:I MainActivity:D RagPromptDebug:D '*:S'
 ```
 
-停止查看按 `Ctrl+C`。过滤器中的 `MainActivity:D` 包含其他主界面消息；在 Android Studio 内搜索 `RAG_TRACE` 可以进一步缩小范围。如果 Logcat 丢失或截断长行，Debug 版本还会将不含正文的记录追加到应用私有目录，可查看最后几行：
+| 日志或入口 | 核对内容 |
+|---|---|
+| `DatabaseInstallation` | 设备活动包与 APK 请求的 dataset/fingerprint。出现 `RETAINED_PREVIOUS` 时检查实际活动版本。 |
+| `RAG_TRACE` | 向量是否执行、失败原因、候选 ID、角色授权、外部参考和最终注入。当前包应显示 BGE 后端。 |
+| `ATTRIBUTION_TRACE` | A 的状态、原因、模型及请求指纹。公开事实分流是 `public_profile_sufficient`，超时是 `agent_a_timeout`。 |
+| 应用内 Final Prompt 与 `BACKEND_REQUEST` | 核对最终 system/user。将应用编译的请求与真实生成记录配对；`FINAL_RENDERED` 用于预览。 |
 
-```bash
-adb shell run-as com.example.minicpm_v_demo cat files/harness/diagnostics/rag_turn_trace.jsonl | tail -n 5
-```
+默认诊断只保留元数据和指纹。需要查看阶段原文时，在可调试版本中通过调试器将 `rag_debug` 的 `raw_prompt_logcat` 布尔值临时设为 `true`。在 `RagPromptDebug` 中按同一 `turn`、`seq` 及 `BEGIN/CHUNK/END` 顺序读取，完成后恢复为 `false`。原文可能含用户输入和检索资料，复测使用合成用例。
 
-`run-as` 需要可调试应用及设备支持；Release 包或设备限制可能使其失败。JSONL 是追加记录，必须结合本轮 `querySha256`、时间顺序及角色/cutoff 分辨，不能只看文件中任意一行。向量索引在初始化时加载到内存，后续每轮搜索内存索引；一次成功的检索并不意味着每轮重新打开 SQLite。
-
-如需核对项目当前包的身份及索引哈希，可在项目根目录运行：
-
-```bash
-python3 - <<'PY'
-import json
-from pathlib import Path
-root = Path('database')
-manifest = json.loads((root / 'manifest.json').read_text(encoding='utf-8'))
-index_path = manifest['paths']['vector_index']
-print('dataset:', manifest['dataset_id'])
-print('fingerprint:', manifest['dataset_fingerprint'])
-print('vector index:', index_path)
-print('index fingerprint:', next(item['sha256'] for item in manifest['files'] if item['path'] == index_path))
-PY
-```
-
-上面读取的是源码 manifest 的声明值；要检查实际文件与 APK 是否一致，运行 `python3 scripts/prepare_database_bundle.py --check` 和 `bash ./gradlew :app:verifyDebugDatabaseAssets`。如果安装日志显示不同 fingerprint，应先检查设备安装版本或 `RETAINED_PREVIOUS`，而不是仅根据源码判断设备正在使用哪个包。
-
-### 9.2 判断“执行、命中、授权、注入”
-
-同一条 `RAG_TRACE` 按以下顺序看，四步不可互相替代：
-
-1. **是否执行：** `external=vectorExecuted=true` 表示尝试执行了向量搜索；还要检查 `failure=none`。`vectorExecuted=true` 且 `failure` 为异常名只表示尝试失败。`vectorExecuted=false` 时检查 `backend=disabled_by_flag` 等原因、模式和诊断开关。实际 UI 的 OFF 普通对话直接走普通推理路径，不应强行期待每轮都有 RAG trace。
-2. **是否命中当前索引：** `collection=database:<dataset_id>:<fingerprint>` 应与当前包一致，`backend=hash_ngram` 表示当前哈希 n-gram 向量实现。`external` 内的 `candidates=数量/上限` 是过滤后的候选数；行尾独立的 `candidates=` 列出候选 ID。零候选表示该次搜索在阈值和上限下没有结果，不等于数据库为空。
-3. **是否获得角色授权：** 角色模式看 `authorized=` 和 `rejected=`。例如 `ACQUIRED_AFTER_CUTOFF` 表示事实在当前时间点尚不可知，`NO_LEXICAL_MATCH` 表示未形成对应匹配。向量候选可以是未经审核的场景，出现候选 ID 不代表角色可以使用该内容。
-4. **是否进入最终 prompt：** 角色模式看行尾 `injected=`、Final Prompt 内 `selected` 和 `dropped`，再直接检查最终 system 文本。授权事实可能被预算裁掉；`injected` 也可能包含 profile 或关系，并不全是向量候选。普通 RAG 资料在 user 消息的检索资料段中，查看其 `contextChars`、来源和最终 user prompt；角色模式的 `external` 内 `injected` 表示作为参考资料进入 user 的来源；行尾独立的 `injected` 表示进入 system 的角色条目。两者分别判断。
-
-例如对当前 `three_body_2` 数据，选择罗辑、cutoff `evt-001`，提问“你的来历是什么？”：已有设备样本中 `reviewed-luo-ji-profession` 同时出现在候选、授权和 `authorized_story_facts:` 注入结果里，system 包含大学社会学相关内容。使用同一个问题，在不同角色、cutoff、数据版本或预算下结果可能不同。`evt-002` 下询问“叶文洁提出的宇宙社会学公理是什么？”可查看 `reviewed-luo-ji-civilization-axioms`；改到 `evt-001` 应检查该事实的 `ACQUIRED_AFTER_CUTOFF`，而不是期望它被注入。实测记录见 [Phase 5 设备样本](../char_inte_plan/Phase_5_Device_Evidence.md)。
-
-对比不同问题时，可用 `querySha` 确认是否是不同输入、用 `systemSha` 与选中 ID 对比动态证据，但哈希相同或不同本身不能证明检索准确。`querySha` 是输入 UTF-8 的 SHA-256 前 16 个十六进制字符；包括标点和空格。短输入的哈希仍可能被猜测，不应当作匿名化保证。
-
-### 9.3 查看阶段正文和检索关键词的限制
-
-默认的 `RAG_TRACE` 和 JSONL **不打印用户问题、事实正文或实际分词后的关键词**；独立的 `RagPromptDebug` 阶段正文默认关闭，已有显式启用的 preference 不会被覆盖。`querySha` 不是关键词；`knowledgeIntent`、`intents`、`routeCodes` 是路由分类，也不是搜索词。当前没有直接展示向量查询分词列表的正式日志，不能从这些字段还原检索实际用了哪些 n-gram。应用内 Final Prompt 可以核对本轮 user 原文和最终 system；如果还需要查看阶段正文，可在 **Debug 可调试构建** 中临时打开 `rag_debug` SharedPreferences 的 `raw_prompt_logcat` 布尔值：
-
-1. 在 Android Studio 用调试器连接应用，在 `MainActivity` 的 prompt 编译逻辑处暂停；使用 Evaluate Expression，在当前 `MainActivity` 上执行：
-
-   ```kotlin
-   getSharedPreferences("rag_debug", 0).edit().putBoolean("raw_prompt_logcat", true).apply()
-   ```
-
-   恢复运行后重新提问，并在 Logcat 搜索 `RagPromptDebug`。若当前调试器上下文不是 Activity，在表达式前使用实际的 Activity 实例；不要覆盖整个 preferences 文件，以免丢失其他设置。
-2. 在同一 `turn=` 下按 `seq=` 查找 `V2_RETRIEVAL_RESULT`、`CHARACTER_AFTER_V2`、`CHARACTER_PROMPT_COMPILED`、`FINAL_RENDERED` 和 `BACKEND_REQUEST`。长内容使用 `BEGIN`、多个 `CHUNK`、`END` 分段，须按顺序查看。`V2_RETRIEVAL_RESULT` 的 `status`、`authorizedCandidateCount`、`id` 和正文描述已授权的 V2 候选，**不是**所有向量候选，也不是最终 prompt 注入的保证；`SKIPPED reason=...` 说明对应阶段没有可展示内容。`BACKEND_REQUEST` 是交给后端的 system/user 文本。
-3. 调试结束后，在调试器中将相同布尔值设为 `false`：
-
-   ```kotlin
-   getSharedPreferences("rag_debug", 0).edit().putBoolean("raw_prompt_logcat", false).apply()
-   ```
-
-原文日志会包含用户输入、角色资料和检索文本；开启后产生的 Logcat 内容可能被设备或日志收集工具保留，关闭开关不会自动擦除已经产生的日志。Debug 阶段日志也不显示模型内部推理或所有 n-gram；需要逐项核对匹配词时，应在 `HashEmbeddingModel`、`VectorIndex.search` 或 `V2EpistemicKnowledgeStore.retrieveAudited` 设置断点，检查本次调用的输入和局部变量，注意不要把原文写入持久化日志。
-
-## 10. 关键源码与计划
-
-- `../../app/build.gradle.kts`、`scripts/prepare_database_bundle.py`：唯一输入、生成和 APK 校验。
-- `harness/data/database/`：路径、manifest、validator、installer、runtime、lease 与角色卡时间适配。
-- `harness/rag/AndroidRagOrchestrator.kt`、`RagSearchService.kt`、`VectorIndex.kt`：模式分流、当前包候选搜索及 trace。
-- `harness/character/CharacterPromptCompiler.kt`、`knowledge/V2EpistemicKnowledgeStore.kt`：问题意图、角色/时间授权、排序、预算及 system 编译。
-- `harness/session/ChatSessionStore.kt`、`MemoryStore.kt`、`CharacterFollowUpResolver.kt`：包身份隔离、只读历史和追问复核。
-- `harness/character/RoleplayAnswerabilityGate.kt`、`RoleplayOutputGuard.kt`：未来事实 gate 和可见输出保护。
-- [统一路径实施计划](../char_inte_plan/Database_Path_Unification_Plan.md)、[数据库说明](../../database/README.md)：阶段状态、数据协议及待删除范围。
+在设备上复现见[角色评测与命令](../double_agent/roleplay_eval/results.md)。源码入口为 [AndroidRagOrchestrator](../../app/src/main/java/com/example/minicpm_v_demo/harness/rag/AndroidRagOrchestrator.kt)、[CharacterPromptCompiler](../../app/src/main/java/com/example/minicpm_v_demo/harness/character/CharacterPromptCompiler.kt) 和 [FinalPromptContracts](../../app/src/main/java/com/example/minicpm_v_demo/harness/attribution/FinalPromptContracts.kt)。

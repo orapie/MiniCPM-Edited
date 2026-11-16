@@ -10,6 +10,7 @@ object DatabaseRuntime {
     var installation: DatabaseInstallResult? = null
         private set
 
+    /** 在回合边界安装 APK 携带的数据包，并发布经过校验的可用句柄。 */
     @Synchronized
     fun initialize(context: Context): DatabaseInstallResult = turnGate.atBoundary {
         installation = null

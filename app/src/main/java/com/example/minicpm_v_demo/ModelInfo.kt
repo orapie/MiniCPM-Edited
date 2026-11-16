@@ -84,7 +84,34 @@ data class ModelInfo(
     val hasHfMsSources: Boolean
         get() = !hfRepo.isNullOrBlank() && !msRepo.isNullOrBlank()
 
+    /** 登记应用可选模型及其所需文件、来源与默认配置，供界面、下载器和推理引擎共同使用。 */
     companion object {
+        internal val POPULAR_TEXT_MODELS = listOf(
+            ModelInfo(
+                id = "qwen3.5-2b",
+                displayName = "Qwen3.5 2B (Q4_K_M)",
+                descriptionResName = "model_desc_qwen35_2b",
+                ggufFileName = "Qwen3.5-2B-Q4_K_M.gguf",
+                hfRepo = "unsloth/Qwen3.5-2B-GGUF",
+                enableThinking = false,
+            ),
+            ModelInfo(
+                id = "llama-3.2-3b-instruct",
+                displayName = "Llama 3.2 3B Instruct (Q4_K_M)",
+                descriptionResName = "model_desc_llama32_3b",
+                ggufFileName = "Llama-3.2-3B-Instruct-Q4_K_M.gguf",
+                hfRepo = "bartowski/Llama-3.2-3B-Instruct-GGUF",
+            ),
+            ModelInfo(
+                id = "qwen3.5-4b",
+                displayName = "Qwen3.5 4B (Q4_K_M)",
+                descriptionResName = "model_desc_qwen35_4b",
+                ggufFileName = "Qwen3.5-4B-Q4_K_M.gguf",
+                hfRepo = "unsloth/Qwen3.5-4B-GGUF",
+                enableThinking = false,
+            ),
+        )
+
         val AVAILABLE_MODELS = listOf(
             ModelInfo(
                 id = "minicpm-v-4",
@@ -185,7 +212,7 @@ data class ModelInfo(
                 hfRepo = "unsloth/Qwen3.5-0.8B-GGUF",
                 msRepo = "unsloth/Qwen3.5-0.8B-GGUF"
             )
-        )
+        ) + POPULAR_TEXT_MODELS
 
         val DEFAULT_MODEL = AVAILABLE_MODELS.first()
     }

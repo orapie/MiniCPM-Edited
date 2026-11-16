@@ -70,6 +70,7 @@ data class RoleplayOutputObservation(
     }
 }
 
+/** 为角色生成尝试收集轮次标识、输出特征和命中规则，供日志分析生成与输出检查各阶段。 */
 object RoleplayOutputObserver {
     fun createContext(
         observationId: String,
@@ -107,6 +108,7 @@ object RoleplayOutputObserver {
         predictLength = predictLength,
     )
 
+    /** 针对一次生成尝试记录输出摘要与检查结果，原文是否写入日志由调试开关决定。 */
     fun observe(
         context: RoleplayObservationContext,
         rawOutput: String,

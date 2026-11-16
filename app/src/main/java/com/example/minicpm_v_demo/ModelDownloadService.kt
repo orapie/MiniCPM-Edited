@@ -14,7 +14,10 @@ import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import com.example.minicpm_v_demo.harness.HarnessModelRegistry
 import com.example.minicpm_v_demo.harness.LlamaDownloadManager
+import com.example.minicpm_v_demo.harness.attribution.AttributionModelRegistry
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -40,10 +43,10 @@ import kotlinx.coroutines.launch
  */
 class ModelDownloadService : Service() {
 
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
     private var downloadJob: Job? = null
-    private var wakeLock: PowerManager.WakeLock? = null
     private lateinit var downloadManager: LlamaDownloadManager
+    private var wakeLock: PowerManager.WakeLock? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -53,39 +56,45 @@ class ModelDownloadService : Service() {
         ensureNotificationChannel(this)
     }
 
+    /** 处理前台下载或取消指令，并将进度与终止状态发布给模型管理页。 */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action ?: ACTION_START
         if (action == ACTION_CANCEL) {
             Log.i(TAG, "Cancel requested")
-            downloadJob?.cancel()
-            ModelDownloadController.markCancelled()
-            stopForegroundCompat()
-            stopSelf()
+            downloadJob?.cancel() ?: stopSelf()
             return START_NOT_STICKY
         }
 
         // Only one download at a time. If a job is already running, just
         // re-attach the foreground notification and bail.
-        if (downloadJob?.isActive == true) {
+        if (downloadJob?.isCompleted == false) {
             startForegroundWithNotification(buildNotification(getString(R.string.status_downloading)))
             return START_NOT_STICKY
         }
 
+        val modelId = intent?.getStringExtra(EXTRA_MODEL_ID)
+        val model = modelId?.let {
+            HarnessModelRegistry.findLegacyModel(it) ?: AttributionModelRegistry.findEligibleEntry(it)?.model
+        } ?: LlamaEngine.getSelectedModel(applicationContext)
+
         startForegroundWithNotification(buildNotification(getString(R.string.download_preparing)))
         acquireWakeLock()
-        ModelDownloadController.markStarted()
+        ModelDownloadController.markStarted(model.id)
 
         downloadJob = scope.launch {
             try {
-                downloadManager.downloadSelectedModel { message ->
+                downloadManager.downloadModel(model) { message ->
                     ModelDownloadController.publishProgress(message)
                     updateNotification(message)
                 }
-                ModelDownloadController.markCompleted()
+                ModelDownloadController.markCompleted(model.id)
                 updateNotification(getString(R.string.download_complete_short))
+            } catch (e: CancellationException) {
+                ModelDownloadController.markCancelled(model.id)
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Download failed", e)
-                ModelDownloadController.markFailed(e.message ?: e::class.java.simpleName)
+                ModelDownloadController.markFailed(model.id, e.message ?: e::class.java.simpleName)
                 updateNotification(getString(R.string.download_failed, e.message))
             } finally {
                 releaseWakeLock()
@@ -200,10 +209,13 @@ class ModelDownloadService : Service() {
         const val ACTION_START = "com.example.minicpm_v_demo.action.DOWNLOAD_START"
         const val ACTION_CANCEL = "com.example.minicpm_v_demo.action.DOWNLOAD_CANCEL"
 
-        fun start(context: Context) {
+        private const val EXTRA_MODEL_ID = "model_id"
+
+        fun start(context: Context, modelId: String) {
             ensureNotificationChannel(context)
             val intent = Intent(context, ModelDownloadService::class.java).apply {
                 action = ACTION_START
+                putExtra(EXTRA_MODEL_ID, modelId)
             }
             ContextCompat.startForegroundService(context, intent)
         }
@@ -244,15 +256,16 @@ class ModelDownloadService : Service() {
  * This lives outside the service so that observers don't need to bind to the
  * service or worry about IPC - the JVM-local StateFlow is enough for our
  * single-process app.
+ * 前台服务通过此控制器发布下载状态，界面重新创建后仍可订阅当前结果。
  */
 object ModelDownloadController {
 
-    sealed class Status {
-        object Idle : Status()
-        data class Running(val message: String) : Status()
-        object Completed : Status()
-        object Cancelled : Status()
-        data class Failed(val message: String) : Status()
+    sealed class Status(val modelId: String?) {
+        object Idle : Status(null)
+        data class Running(val id: String, val message: String) : Status(id)
+        data class Completed(val id: String) : Status(id)
+        data class Cancelled(val id: String) : Status(id)
+        data class Failed(val id: String, val message: String) : Status(id)
     }
 
     private val _status = MutableStateFlow<Status>(Status.Idle)
@@ -261,40 +274,29 @@ object ModelDownloadController {
     val isRunning: Boolean
         get() = _status.value is Status.Running
 
-    internal fun markStarted() {
-        _status.value = Status.Running("")
+    internal fun markStarted(modelId: String) {
+        _status.value = Status.Running(modelId, "")
     }
 
     internal fun publishProgress(message: String) {
-        // Only overwrite when we're actually in the running phase - we don't
-        // want a late tail-progress callback to clobber a Completed/Failed
-        // state.
-        if (_status.value is Status.Running) {
-            _status.value = Status.Running(message)
-        }
+        val running = _status.value as? Status.Running ?: return
+        _status.value = running.copy(message = message)
     }
 
-    internal fun markCompleted() {
-        _status.value = Status.Completed
+    internal fun markCompleted(modelId: String) {
+        _status.value = Status.Completed(modelId)
     }
 
-    internal fun markFailed(reason: String) {
-        _status.value = Status.Failed(reason)
+    internal fun markFailed(modelId: String, reason: String) {
+        _status.value = Status.Failed(modelId, reason)
     }
 
-    internal fun markCancelled() {
-        _status.value = Status.Cancelled
+    internal fun markCancelled(modelId: String) {
+        _status.value = Status.Cancelled(modelId)
     }
 
-    /**
-     * Drop a terminal state (Completed/Cancelled/Failed) back to Idle once
-     * the UI has acknowledged it. Calling this while a download is running
-     * is a no-op.
-     */
     fun acknowledge() {
-        val cur = _status.value
-        if (cur is Status.Completed || cur is Status.Cancelled || cur is Status.Failed) {
-            _status.value = Status.Idle
-        }
+        val current = _status.value
+        if (current !is Status.Running) _status.compareAndSet(current, Status.Idle)
     }
 }

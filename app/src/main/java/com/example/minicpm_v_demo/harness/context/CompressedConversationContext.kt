@@ -9,6 +9,7 @@ data class CompressedConversationContext(
 ) {
     val isEmpty: Boolean get() = text.isBlank()
 
+    /** 无可用历史时使用统一空对象，诊断计数和指纹也采用空上下文的约定值。 */
     companion object {
         val EMPTY = CompressedConversationContext("", 0, 0, "none")
     }

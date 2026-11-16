@@ -7,6 +7,7 @@ data class HarnessChatMessage(
     val content: String,
 )
 
+/** 角色提示词编译的逐轮配置，包含剧情截止、检索开关、候选信号与各段预算。 */
 data class RuntimeContext(
     val storyCutoff: String? = null,
     val dynamicState: DynamicState? = null,
@@ -36,8 +37,10 @@ data class CompiledCharacterPrompt(
     val debug: CharacterPromptDebug,
     /** Raw-text, in-memory only snapshots for Debug Logcat. Never persist these. */
     val stageLogs: List<RagPromptStageLog> = emptyList(),
+    val publicProfileReply: String? = null,
 )
 
+/** 记录角色检索、授权和段落预算的编译结果，供日志、后续追问和可回答性判断读取。 */
 data class CharacterPromptDebug(
     val npcId: String,
     val storyCutoff: String,
@@ -72,6 +75,7 @@ data class CharacterPromptDebug(
     val profileSelectedIds: List<String> = emptyList(),
     val profileBudgetDroppedCount: Int = 0,
     val profileInjectedChars: Int = 0,
+    val publicProfileAnswersQuestion: Boolean = false,
     /** Content-free audit fields for the current DynamicState retrieval path. */
     val stateRoute: String = "not_requested",
     val stateCandidateCount: Int = 0,
@@ -129,6 +133,7 @@ data class RetrievalDecision(
     val score: Double,
 )
 
+/** 承载角色身份、关系、知识范围和状态等运行时信息，供角色选择与提示词编译使用。 */
 data class CharacterCard(
     val npcId: String,
     val identity: IdentityCore,
@@ -138,6 +143,8 @@ data class CharacterCard(
     val knowledgeScope: KnowledgeScope,
     val dynamicState: DynamicState,
     val episodicMemory: List<EpisodicMemory>,
+    /** Reviewed public entries keyed by card path, with question cues for each entry. */
+    val publicProfile: Map<String, List<String>> = emptyMap(),
 )
 
 data class IdentityCore(

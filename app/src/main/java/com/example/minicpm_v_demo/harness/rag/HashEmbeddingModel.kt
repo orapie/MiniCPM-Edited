@@ -2,6 +2,7 @@ package com.example.minicpm_v_demo.harness.rag
 
 import java.nio.charset.StandardCharsets
 
+/** 使用字符 n-gram 的带符号哈希生成固定维度向量，供哈希索引检索复用。 */
 class HashEmbeddingModel(
     private val dimensions: Int = 384,
     private val ngramMin: Int = 2,

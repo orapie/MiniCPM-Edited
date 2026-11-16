@@ -1,5 +1,6 @@
 package com.example.minicpm_v_demo.harness.character
 
+/** 根据角色知识范围、事件可见性和剧情时间线审核旧版事件，并为每个候选记录准入结果。 */
 class KnowledgeBoundaryFilter {
     fun filter(
         candidates: List<RetrievedEvent>,

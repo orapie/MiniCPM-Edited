@@ -8,6 +8,7 @@ package com.example.minicpm_v_demo.harness.character
 class RoleplayGenerationCoordinator(
     private val fallbackText: String = DEFAULT_SAFE_FALLBACK,
 ) {
+    /** 根据输出检查结果交付可见文本、发起一次修复重试，或使用固定回退文本。 */
     fun resolve(
         attempt: Int,
         rawOutput: String,
@@ -15,29 +16,45 @@ class RoleplayGenerationCoordinator(
         userInput: String,
         characterAliases: List<String> = emptyList(),
         fixedResponse: Boolean = false,
-    ): RoleplayGenerationAction = when (
+        publicProfileReply: String? = null,
+    ): RoleplayGenerationAction {
         val decision = RoleplayOutputGuard.evaluate(rawOutput, characterName, userInput, characterAliases)
-    ) {
-        is RoleplayOutputDecision.Accept -> RoleplayGenerationAction.Deliver(
-            visibleText = decision.visibleText,
-            persistVisibleText = true,
-        )
-        is RoleplayOutputDecision.RetryWithRepair -> {
-            if (!fixedResponse && attempt < MAX_REPAIR_ATTEMPTS) {
-                RoleplayGenerationAction.Retry(decision.ruleIds)
-            } else {
-                RoleplayGenerationAction.Fallback(fallbackText, decision.ruleIds)
+        if (!fixedResponse && publicProfileReply != null) {
+            val approved = RoleplayOutputGuard.evaluate(publicProfileReply, characterName, userInput, characterAliases)
+            if (approved is RoleplayOutputDecision.Accept && (decision !is RoleplayOutputDecision.Accept ||
+                    comparableReply(decision.visibleText) != comparableReply(approved.visibleText))) {
+                return RoleplayGenerationAction.Fallback(
+                    approved.visibleText,
+                    listOf(PUBLIC_PROFILE_FALLBACK),
+                    persistVisibleText = true,
+                )
             }
         }
-        is RoleplayOutputDecision.SafeFallback -> RoleplayGenerationAction.Fallback(
-            visibleText = fallbackText,
-            ruleIds = decision.ruleIds,
-        )
+        return when (decision) {
+            is RoleplayOutputDecision.Accept -> RoleplayGenerationAction.Deliver(
+                visibleText = decision.visibleText,
+                persistVisibleText = true,
+            )
+            is RoleplayOutputDecision.RetryWithRepair -> {
+                if (!fixedResponse && attempt < MAX_REPAIR_ATTEMPTS) {
+                    RoleplayGenerationAction.Retry(decision.ruleIds)
+                } else {
+                    RoleplayGenerationAction.Fallback(fallbackText, decision.ruleIds)
+                }
+            }
+            is RoleplayOutputDecision.SafeFallback -> RoleplayGenerationAction.Fallback(
+                visibleText = fallbackText,
+                ruleIds = decision.ruleIds,
+            )
+        }
     }
+
+    private fun comparableReply(reply: String): String = reply.trim().trimEnd('。', '.', '！', '!')
 
     companion object {
         const val MAX_REPAIR_ATTEMPTS = 1
         const val DEFAULT_SAFE_FALLBACK = "这话我一时说不清。"
+        const val PUBLIC_PROFILE_FALLBACK = "public_profile_unverified"
         const val REPAIR_INSTRUCTION =
             "只直接用角色第一人称回答玩家，不反问或追问玩家，不谈论你收到的说明或材料。"
 
@@ -62,9 +79,10 @@ sealed interface RoleplayGenerationAction {
 
     data class Retry(val ruleIds: List<String>) : RoleplayGenerationAction
 
-    /** Safe text is shown but not persisted as a conversational fact/target. */
+    /** Generic fallback text is display-only. A reviewed profile reply may be persisted. */
     data class Fallback(
         val visibleText: String,
         val ruleIds: List<String>,
+        val persistVisibleText: Boolean = false,
     ) : RoleplayGenerationAction
 }

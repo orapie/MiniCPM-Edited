@@ -6,6 +6,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.io.File
 
@@ -18,43 +21,51 @@ internal class AttributionDeadlineExceeded : RuntimeException()
  * object that has its own model/context/KV/sampler globals. It must be used
  * only after Agent B has initialized llama.cpp's process-wide backend.
  */
-class AttributionLlamaEngine(context: Context) {
+class AttributionLlamaEngine private constructor(context: Context) {
     private val appContext = context.applicationContext
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val dispatcher = Dispatchers.IO.limitedParallelism(1)
 
-    private var initialized = false
-    private var loadedModelPath: String? = null
-    private var generating = false
+    @Volatile private var initialized = false
+    private val _loadedModelPath = MutableStateFlow<String?>(null)
+    val loadedModelPath = _loadedModelPath.asStateFlow()
 
-    suspend fun loadTextModel(model: ModelInfo, modelFile: File) = withContext(dispatcher) {
+    suspend fun loadTextModel(model: ModelInfo, modelFile: File) {
+        awaitBackend()
+        withContext(dispatcher) {
+            loadTextModelOnDispatcher(model, modelFile, reload = true)
+        }
+    }
+
+    private fun loadTextModelOnDispatcher(model: ModelInfo, modelFile: File, reload: Boolean) {
         require(model.isTextOnly) { "attribution_model_must_be_text_only" }
         require(modelFile.isFile && modelFile.canRead()) { "attribution_gguf_unavailable" }
         ensureInitialized()
-        if (loadedModelPath == modelFile.absolutePath) return@withContext
+        if (!reload && _loadedModelPath.value == modelFile.absolutePath) return
         unloadLoadedModel()
         check(load(modelFile.absolutePath) == 0) { "attribution_model_load_failed" }
         setEnableThinkingNative(model.enableThinking)
         check(prepare() == 0) { "attribution_model_prepare_failed" }
-        loadedModelPath = modelFile.absolutePath
+        _loadedModelPath.value = modelFile.absolutePath
         Log.i(TAG, "Agent A GGUF ready: ${model.id}")
     }
 
+    /** 在同一串行任务中加载模型并完成归因，避免管理页的操作跨入生成过程。 */
     suspend fun generate(
+        model: ModelInfo,
+        modelFile: File,
         systemPrompt: String,
         userPrompt: String,
         maxOutputTokens: Int,
         grammar: String,
         deadlineNanos: Long,
     ): String = withContext(dispatcher) {
-        check(loadedModelPath != null) { "attribution_model_not_loaded" }
+        loadTextModelOnDispatcher(model, modelFile, reload = false)
         require(systemPrompt.isNotBlank() && userPrompt.isNotBlank()) { "attribution_prompt_required" }
         require(maxOutputTokens in 1..1_024) { "attribution_output_limit_invalid" }
-        check(!generating) { "attribution_generation_in_progress" }
         val remainingMillis = (deadlineNanos - System.nanoTime()) / 1_000_000
         if (remainingMillis <= 0) throw AttributionDeadlineExceeded()
-        generating = true
         try {
             configureRequest(remainingMillis, grammar)
             fullReset()
@@ -78,7 +89,6 @@ class AttributionLlamaEngine(context: Context) {
             throw error
         } finally {
             finishRequest()
-            generating = false
         }
     }
 
@@ -89,11 +99,23 @@ class AttributionLlamaEngine(context: Context) {
 
     suspend fun unloadModel() = withContext(dispatcher) { unloadLoadedModel() }
 
+    suspend fun deleteModelFile(modelFile: File): Boolean = withContext(dispatcher) {
+        if (_loadedModelPath.value == modelFile.absolutePath) unloadLoadedModel()
+        modelFile.delete()
+    }
+
     private fun unloadLoadedModel() {
-        if (loadedModelPath != null) {
+        if (_loadedModelPath.value != null) {
             unload()
-            loadedModelPath = null
+            _loadedModelPath.value = null
         }
+    }
+
+    private suspend fun awaitBackend() {
+        val state = LlamaEngine.getInstance(appContext).state.first {
+            it !is LlamaState.Uninitialized && it !is LlamaState.Initializing
+        }
+        if (state is LlamaState.Error) throw state.exception
     }
 
     private fun ensureInitialized() {
@@ -122,15 +144,18 @@ class AttributionLlamaEngine(context: Context) {
     companion object {
         private const val TAG = "AttributionLlamaEngine"
 
-        @Volatile private var libraryLoaded = false
+        @Volatile private var instance: AttributionLlamaEngine? = null
 
-        private fun loadNativeLibrary() = synchronized(this) {
-            if (libraryLoaded) return
+        fun getInstance(context: Context): AttributionLlamaEngine =
+            instance ?: synchronized(this) {
+                instance ?: AttributionLlamaEngine(context.applicationContext).also { instance = it }
+            }
+
+        private fun loadNativeLibrary() {
             // Ensure the foreground JNI DSO and its llama.cpp dependencies are
             // resident before loading the Agent-A bridge.
             System.loadLibrary("minicpm_v_demo")
             System.loadLibrary("minicpm_attribution")
-            libraryLoaded = true
         }
     }
 }

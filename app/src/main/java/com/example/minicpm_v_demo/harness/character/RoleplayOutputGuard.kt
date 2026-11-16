@@ -50,6 +50,7 @@ sealed interface RoleplayOutputDecision {
  * in-character fallback.  The guard itself has no Android/UI dependencies.
  */
 object RoleplayOutputGuard {
+    /** 从模型输出提取可见文本，按检测规则决定交付、修复重试或使用回退文本。 */
     fun evaluate(
         rawOutput: String,
         characterName: String,
@@ -85,6 +86,7 @@ object RoleplayVisibleText {
         val hasUnclosedThink: Boolean,
     )
 
+    /** 提取思考区块之外的正文。遇到未闭合的思考区块时返回空正文，并设置相应标记。 */
     fun extract(rawOutput: String): Extraction {
         val visible = StringBuilder()
         var cursor = 0
@@ -164,7 +166,9 @@ internal object RoleplayLeakClassifier {
     private val assistantIdentityPattern = Regex(
         "作为(?:一个)?(?:AI|人工智能|语言模型|通用助手|助手)|" +
             "我(?:是|作为)\\s*(?:一个|一名)?\\s*" +
-            "(?:由[^。！？；\n]{1,72}?(?:开发|训练)的\\s*)?$AI_IDENTITY",
+            "(?:由[^。！？；\n]{1,72}?(?:开发|训练)的\\s*)?$AI_IDENTITY|" +
+            "(?:^|[。！？!?；;，,\n])\\s*(?:(?:毕竟|因为|其实)\\s*(?:我\\s*)?|我\\s*)" +
+            "是\\s*(?:AI|人工智能)(?=\\s*(?:[嘛呀啊呢哦。！？!?，,；;\n]|$))",
         RegexOption.IGNORE_CASE,
     )
     private val selfIdentityQuestion = Regex("^(?:请问[，, ]*)?(?:你|您)(?:到底|究竟)?(?:是谁|叫什么|的身份(?:是|是什么))")

@@ -74,6 +74,7 @@ data class RagPromptSnapshot(
     }
 }
 
+/** 记录一个阶段的执行状态及可选提示词快照，供调试输出定位上下文变化。 */
 data class RagPromptStageLog(
     val stage: RagPromptStage,
     val status: RagPromptStageStatus,

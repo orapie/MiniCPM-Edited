@@ -18,6 +18,7 @@ internal object DatabaseVectorContractValidator {
         "hash_algorithm" to "blake2b-64", "bucket_byte_order" to "big", "sign_byte_index" to "4",
         "normalization" to "l2", "empty_text" to "zero_vector")
 
+    /** 在加载向量索引前检查索引条目与数据包中的来源证据和向量描述是否一致。 */
     fun validate(
         index: Map<String, Any?>,
         manifest: DatabaseBundleManifest,

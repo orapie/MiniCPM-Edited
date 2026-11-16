@@ -23,6 +23,7 @@ sealed class TtsState {
     data class Error(val exception: Exception) : TtsState()
 }
 
+/** 封装语音合成的 JNI 调用，在专用调度器上加载语言与声学模型并执行生成。 */
 class TtsEngine private constructor(
     private val context: Context
 ) {
@@ -109,6 +110,7 @@ class TtsEngine private constructor(
         }
     }
 
+    /** 将文本、采样参数、可选的参考音频和输出路径交给原生合成器，再根据结果更新引擎状态。 */
     suspend fun generate(
         text: String,
         cfgValue: Float = 2.0f,

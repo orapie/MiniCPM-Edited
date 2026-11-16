@@ -22,6 +22,7 @@ internal object V22SourceProjection {
         }
     }
 
+    /** 将证据引文映射回原文的指定行范围，校验文本摘要并返回匹配片段的位置。 */
     fun verify(lines: List<String>, lineStart: Int, lineEnd: Int, quote: String, quoteSha256: String): Result {
         require(lineStart >= 1 && lineEnd >= lineStart && lineEnd <= lines.size) { "Invalid V2.2 source line range" }
         require(quote.isNotEmpty() && sha256(quote) == quoteSha256) { "V2.2 quote hash mismatch" }

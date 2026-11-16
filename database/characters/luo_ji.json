@@ -1,6 +1,9 @@
 {
   "schema_version": "1.0.0",
   "npc_id": "luo_ji",
+  "public_profile": {
+    "identity_core.background[0]": ["职业", "做过什么工作", "从事过什么工作", "是做什么的", "教什么", "教过什么", "在大学教", "教社会学", "学过什么", "学的什么", "学什么专业", "学过天文学", "搞过天文学"]
+  },
   "identity_core": {
     "name": "罗辑",
     "aliases": [
@@ -275,7 +278,8 @@
   ],
   "evidence_refs": {
     "identity_core.background[0]": [
-      "three_body_2.txt:L20"
+      "three_body_2.txt:L25",
+      "three_body_2.txt:L26"
     ],
     "identity_core.background[1]": [
       "three_body_2.txt:L569"

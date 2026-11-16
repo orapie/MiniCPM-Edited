@@ -38,11 +38,9 @@ data class AttributionModelEntry(
     val attributionSpec: AttributionModelSpec?,
 )
 
+/** 登记归因模型目录和使用约束，具有归因规格的条目才可供 Agent A 选择。 */
 object AttributionModelRegistry {
-    /**
-     * Keep this independently declared list byte-for-byte equivalent in
-     * metadata to Agent B's current ModelInfo.AVAILABLE_MODELS at introduction.
-     */
+    // Keep Agent A's catalog independent of changes to Agent B's lineup.
     private val mirroredModels: List<ModelInfo> = listOf(
         ModelInfo(
             id = "minicpm-v-4",
@@ -107,7 +105,7 @@ object AttributionModelRegistry {
             hfRepo = "unsloth/Qwen3.5-0.8B-GGUF",
             msRepo = "unsloth/Qwen3.5-0.8B-GGUF",
         ),
-    )
+    ) + ModelInfo.POPULAR_TEXT_MODELS.map { it.copy() }
 
     private val entries: List<AttributionModelEntry> = mirroredModels.map { model ->
         val harnessSpec = model.toHarnessSpec()

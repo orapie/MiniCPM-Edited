@@ -13,6 +13,7 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.progressindicator.LinearProgressIndicator
 import io.noties.markwon.Markwon
 
+/** 将用户消息、助手回复和欢迎卡片绑定到聊天列表。生成中的回复使用独立更新路径，避免每个片段都重新提交列表。 */
 class ChatAdapter(
     private val markwon: Markwon
 ) : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCallback()) {
@@ -56,6 +57,7 @@ class ChatAdapter(
         activeAiHolder = null
     }
 
+    /** 仅刷新当前生成消息所绑定的可见气泡。完整的消息状态由聊天页维护。 */
     fun updateStreamingText(id: Long, text: String) {
         if (id == activeAiId) {
             activeAiHolder?.updateText(text)

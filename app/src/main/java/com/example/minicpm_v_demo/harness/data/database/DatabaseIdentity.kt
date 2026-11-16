@@ -30,6 +30,7 @@ class DatabaseTurnGate {
         }
     }
 
+    /** 仅在没有活跃回合持有租约时执行切换，并在操作退出后释放切换状态。 */
     @Synchronized fun <T> atBoundary(action: () -> T): T {
         check(!switching && active == 0) { "database_turn_active" }
         switching = true

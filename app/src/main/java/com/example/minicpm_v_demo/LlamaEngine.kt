@@ -44,6 +44,7 @@ sealed class LlamaState {
     data class Error(val exception: Exception) : LlamaState()
 }
 
+/** 管理主聊天模型的 JNI 生命周期。加载、预填充和生成在专用协程调度器执行，状态变化供界面订阅。 */
 class LlamaEngine private constructor(
     private val context: Context,
     private val nativeLibDir: String
@@ -326,6 +327,7 @@ class LlamaEngine private constructor(
             val contentLength: Long,
         )
 
+        /** 按所选模型的文件清单准备本地模型文件，并把分阶段进度报告给调用方。 */
         suspend fun downloadModels(
             context: Context,
             onProgress: (String) -> Unit,
@@ -948,6 +950,7 @@ class LlamaEngine private constructor(
         }
     }
 
+    /** 加载 GGUF，并在提供路径时加载视觉投影器，再准备原生上下文。 */
     suspend fun loadModel(pathToModel: String, pathToMmproj: String? = null) =
         withContext(llamaDispatcher) {
             check(_state.value is LlamaState.Initialized) {
@@ -1038,6 +1041,7 @@ class LlamaEngine private constructor(
         }
     }
 
+    /** 在原生上下文允许写入系统消息时预填充系统提示，并将引擎恢复到可继续接收输入的状态。 */
     suspend fun setSystemPrompt(prompt: String) =
         withContext(llamaDispatcher) {
             require(prompt.isNotBlank()) { "Cannot process empty system prompt!" }
@@ -1180,6 +1184,7 @@ class LlamaEngine private constructor(
         }
     }
 
+    /** 清空原生侧上下文，为重置会话或下一次系统提示预填充做准备。 */
     suspend fun clearContext() =
         withContext(llamaDispatcher) {
             check(_state.value is LlamaState.ModelReady) {
@@ -1190,6 +1195,7 @@ class LlamaEngine private constructor(
             Log.i(TAG, "Context fully reset - context recreated, ready for new conversation")
         }
 
+    /** 在推理调度器上预填充用户输入，再按生成顺序发出非空文本片段。完成、取消或失败时恢复模型就绪状态。 */
     fun sendUserPrompt(
         message: String,
         predictLength: Int = DEFAULT_PREDICT_LENGTH

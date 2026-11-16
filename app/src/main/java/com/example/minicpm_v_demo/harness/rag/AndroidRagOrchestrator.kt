@@ -6,6 +6,7 @@ import com.example.minicpm_v_demo.harness.HarnessModelFamily
 import com.example.minicpm_v_demo.harness.attribution.AttributionAgentRequestCompiler
 import com.example.minicpm_v_demo.harness.attribution.AttributionAgentResult
 import com.example.minicpm_v_demo.harness.attribution.AttributionRewriteTrace
+import com.example.minicpm_v_demo.harness.attribution.AgentBPromptFormat
 import com.example.minicpm_v_demo.harness.attribution.FinalPromptMaterializer
 import com.example.minicpm_v_demo.harness.attribution.FinalPromptRewriteService
 import com.example.minicpm_v_demo.harness.attribution.FinalPromptValidation
@@ -48,8 +49,10 @@ data class CompiledAndroidPrompt(
     val stageLogs: List<RagPromptStageLog> = emptyList(),
     /** Content-free evidence-selection record for this compiled turn. */
     val turnTrace: RagTurnTrace,
+    val publicProfileReply: String? = null,
 )
 
+/** 按本轮模式编译 Android 推理请求，协调向量候选召回、角色授权筛选与可选的 Agent A 归因。 */
 class AndroidRagOrchestrator(
     private val ragSearchService: RagSearchService,
     private val characterCompiler: CharacterPromptCompiler,
@@ -81,6 +84,7 @@ class AndroidRagOrchestrator(
         }
     }
 
+    /** 按普通聊天、文本 RAG 或角色 RAG 组装本轮提示词，并附上与该模式对应的检索诊断。 */
     fun compile(
         userInput: String,
         mode: RagMode = RagMode.OFF,
@@ -92,6 +96,7 @@ class AndroidRagOrchestrator(
         knowledgeGraphEnabled: Boolean = true,
         followUpTarget: CharacterFollowUpTarget? = null,
         modelFamily: HarnessModelFamily = HarnessModelFamily.MINICPM_TEXT,
+        agentBPromptFormat: AgentBPromptFormat = AgentBPromptFormat.TEXT,
     ): CompiledAndroidPrompt {
         requireCurrentBundle()
         if (mode == RagMode.CHARACTER_RAG && databaseBundle != null) {
@@ -192,7 +197,6 @@ class AndroidRagOrchestrator(
                 minScore = CHARACTER_RAG_MIN_SCORE,
                 maxSourceEnd = maxSourceEnd,
             )
-            val externalInjectionRequested = vectorRetrieval.attempt.executed
             val characterPrompt = characterCompiler.buildNpcPrompt(
                 npcId = characterId,
                 userInput = userInput,
@@ -236,7 +240,10 @@ class AndroidRagOrchestrator(
                 conversationContext = conversationContext,
                 references = prompt.references,
             )
-            val attribution = rewriteFinalPrompt(rawPrompt, prompt.messages)
+            val externalSkipReason = if (prompt.characterDebug.publicProfileAnswersQuestion) {
+                "public_profile_sufficient"
+            } else null
+            val attribution = rewriteFinalPrompt(rawPrompt, prompt.messages, externalSkipReason, agentBPromptFormat)
             val finalMessages = attribution.messages
             val referenceDecisions = references.rejected + prompt.contextDecisions
             val rendered = renderer.render(finalMessages)
@@ -245,7 +252,7 @@ class AndroidRagOrchestrator(
                     RagPromptSnapshot(systemPrompt = finalMessages[0].content, userPrompt = finalMessages[1].content))
             } else {
                 RagPromptStageLog.skipped(RagPromptStage.EXTERNAL_CONTEXT_COMPILED,
-                    if (vectorRetrieval.attempt.executed) "no_reference_context" else "vector_retrieval_not_requested")
+                    externalSkipReason ?: if (vectorRetrieval.attempt.executed) "no_reference_context" else "vector_retrieval_not_requested")
             }
             val stageLogs = finalStageLogs(characterPrompt.stageLogs + externalStage + attribution.stageLogs, rendered)
             CompiledAndroidPrompt(
@@ -258,6 +265,7 @@ class AndroidRagOrchestrator(
                 contextDecisions = referenceDecisions,
                 attributionTrace = attribution.trace,
                 stageLogs = stageLogs,
+                publicProfileReply = characterPrompt.publicProfileReply,
                 turnTrace = RagTurnTrace.create(
                     mode = mode,
                     userInput = userInput,
@@ -265,7 +273,7 @@ class AndroidRagOrchestrator(
                     rendered = rendered,
                     contextText = prompt.contextText,
                     vectorRetrieval = vectorRetrieval.attempt,
-                    externalInjectionRequested = externalInjectionRequested,
+                    externalInjectionRequested = vectorRetrieval.attempt.executed && externalSkipReason == null,
                     sources = prompt.sources,
                     contextDecisions = referenceDecisions,
                     characterDebug = prompt.characterDebug,
@@ -282,18 +290,22 @@ class AndroidRagOrchestrator(
         val stageLogs: List<RagPromptStageLog>,
     )
 
+    /** 可选归因通过本地编译和验证后才用于生成。归因不可用或失败时保留 Raw Prompt 作为本轮请求。 */
     private fun rewriteFinalPrompt(
         raw: RawPromptPackage,
         rawMessages: List<HarnessChatMessage>,
+        skipReason: String?,
+        format: AgentBPromptFormat,
     ): AttributionResolution {
         if (raw.references.isEmpty()) {
+            val reason = skipReason ?: "no_authorized_references"
             return AttributionResolution(
                 messages = rawMessages,
-                trace = AttributionRewriteTrace("not_requested", "no_authorized_references"),
+                trace = AttributionRewriteTrace("not_requested", reason),
                 stageLogs = listOf(
-                    RagPromptStageLog.skipped(RagPromptStage.RAW_PROMPT_COMPILED, "no_authorized_references"),
-                    RagPromptStageLog.skipped(RagPromptStage.AGENT_A_REQUEST, "no_authorized_references"),
-                    RagPromptStageLog.skipped(RagPromptStage.FINAL_PROMPT_VALIDATED, "no_authorized_references"),
+                    RagPromptStageLog.skipped(RagPromptStage.RAW_PROMPT_COMPILED, reason),
+                    RagPromptStageLog.skipped(RagPromptStage.AGENT_A_REQUEST, reason),
+                    RagPromptStageLog.skipped(RagPromptStage.FINAL_PROMPT_VALIDATED, reason),
                 ),
             )
         }
@@ -374,7 +386,8 @@ class AndroidRagOrchestrator(
                     ),
                 )
                 FinalPromptValidation.Accepted -> {
-                    val materialized = FinalPromptMaterializer().materialize(raw, result.draft)
+                    val started = System.nanoTime()
+                    val materialized = FinalPromptMaterializer().materialize(raw, result.draft, format)
                     val messages = listOf(
                         HarnessChatMessage("system", materialized.systemPrompt),
                         HarnessChatMessage("user", materialized.userPrompt),
@@ -384,6 +397,10 @@ class AndroidRagOrchestrator(
                         trace = baseTrace.copy(
                             status = "success",
                             modelId = result.modelId,
+                            finalPromptFormat = materialized.format,
+                            finalPromptSchemaVersion = materialized.schemaVersion,
+                            formatFallbackReason = materialized.formatFallbackReason,
+                            materializationElapsedMs = (System.nanoTime() - started) / 1_000_000,
                             finalPromptFingerprint = ContentFingerprint.sha256Short(
                                 materialized.systemPrompt + '\u0000' + materialized.userPrompt,
                             ),

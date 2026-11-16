@@ -18,6 +18,7 @@ class BgeOnnxEmbeddingModel(
     private var tokenizer: BgeWordPieceTokenizer? = null
     private var closed = false
 
+    /** 在问题前加入查询指令，再进行分词和编码，并检查输出的维度、数值和单位范数。 */
     @Synchronized
     override fun embed(texts: List<String>): List<DoubleArray> {
         check(!closed) { "BGE encoder is closed" }
@@ -45,6 +46,7 @@ class BgeOnnxEmbeddingModel(
         }
     }
 
+    /** 为当前数据包的 BGE 模型创建本地 ONNX Runtime 会话，供后续编码复用。 */
     private fun createSession(): OrtSession {
         require(modelFile.isFile && vocabularyFile.isFile) { "BGE model assets are unavailable" }
         OrtSession.SessionOptions().use { options ->

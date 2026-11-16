@@ -8,6 +8,7 @@ data class RoleplayCharacterIdentity(
     companion object {
         private val genericNames = setOf("我", "你", "他", "她", "它", "角色", "玩家", "先生", "女士", "老师", "师父", "师傅")
 
+        /** 从当前角色卡提取用于输出检查的姓名和别名，并剔除通用称谓及与其他角色重名的称呼。 */
         fun fromCards(characterId: String, cards: List<CharacterCard>): RoleplayCharacterIdentity {
             val current = cards.firstOrNull { it.npcId == characterId } ?: return RoleplayCharacterIdentity("")
             fun normalized(name: String) = name.trim()

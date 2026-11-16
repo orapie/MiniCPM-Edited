@@ -1,5 +1,6 @@
 package com.example.minicpm_v_demo.harness.character
 
+/** 从角色的情节记忆里选出仍在有效期且关联已授权事件的记录，并结合置信度排序。 */
 class MemoryRetriever {
     fun retrieve(
         npc: CharacterCard,

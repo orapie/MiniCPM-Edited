@@ -1,5 +1,6 @@
 package com.example.minicpm_v_demo.harness.character
 
+/** 通过关键词和词项重合为旧版剧情事件排序，检索结果随后由知识边界检查。 */
 class KeywordStoryRetriever {
     fun retrieve(query: String, events: List<StoryEvent>, limit: Int = 12): List<RetrievedEvent> {
         val queryTerms = terms(query)

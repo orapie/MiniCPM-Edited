@@ -2,6 +2,7 @@ package com.example.minicpm_v_demo.harness.rag
 
 import com.example.minicpm_v_demo.harness.data.database.DatabaseBundleHandle
 
+/** 把编码器和向量索引组合成检索入口。BGE 路径开启混合检索时，会合并语义与词法排名。 */
 class RagSearchService(
     private val index: VectorIndex,
     private val embeddingModel: EmbeddingModel = HashEmbeddingModel(),

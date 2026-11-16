@@ -6,6 +6,7 @@ import com.example.minicpm_v_demo.LlamaState
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
+/** 将 Harness 的推理接口映射到应用内共享的 LlamaEngine 实例。 */
 class LlamaBackendAdapter(context: Context) : HarnessBackend {
     private val engine = LlamaEngine.getInstance(context.applicationContext)
 

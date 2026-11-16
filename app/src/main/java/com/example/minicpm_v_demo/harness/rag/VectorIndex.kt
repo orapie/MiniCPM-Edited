@@ -28,6 +28,7 @@ data class SearchResult(
     val fusionScore: Double? = null,
 )
 
+/** 加载文本块的预计算向量并执行相似度检索，为支持的索引提供词法召回。 */
 class VectorIndex(
     private val items: List<IndexedChunk>,
     val schemaVersion: String = "synthetic",
@@ -39,6 +40,7 @@ class VectorIndex(
         items.associate { it.chunk.id to lexicalTerms(it.chunk.text, removeQuestionWords = false) }
     }
 
+    /** 将本轮问题编码后与已索引向量比较，并按得分选出前若干个文本块。 */
     fun search(query: String, embeddingModel: EmbeddingModel, topK: Int = 5, maxSourceEnd: Long? = null): List<SearchResult> {
         require(topK > 0) { "topK must be positive" }
         val queryEmbedding = embeddingModel.embed(listOf(query)).first()

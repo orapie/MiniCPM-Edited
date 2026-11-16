@@ -39,6 +39,7 @@ data class VectorRetrievalFeatureFlags(
 class AlwaysOnVectorRetrievalService(
     private val ragSearchService: RagSearchService,
 ) {
+    /** 一次检索同时返回候选和诊断数据。索引或编码器失败时返回空候选，并记录失败类型。 */
     fun searchAlways(
         query: String,
         candidateLimit: Int,

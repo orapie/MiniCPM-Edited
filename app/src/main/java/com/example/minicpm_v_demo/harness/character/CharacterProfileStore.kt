@@ -9,6 +9,7 @@ package com.example.minicpm_v_demo.harness.character
  * story knowledge.
  */
 class CharacterProfileStore {
+    /** 按问题意图限制可用的角色档案类别，再按匹配程度选出档案条目。 */
     fun retrieve(
         card: CharacterCard,
         userInput: String,
@@ -47,6 +48,17 @@ class CharacterProfileStore {
     }
 
     fun allRecords(card: CharacterCard): List<ProfileRecord> = indexFor(card).records
+
+    /** Rank only explicitly public, sourced entries whose cues match this question. */
+    fun publicMatches(card: CharacterCard, question: String): List<ProfileRecord> =
+        buildRecords(card).mapNotNull { record ->
+            val path = record.sourcePath ?: return@mapNotNull null
+            if (card.profileEvidenceRefs[path].orEmpty().none { it.isNotBlank() }) return@mapNotNull null
+            val matchLength = card.publicProfile[path].orEmpty()
+                .filter { it in question }.maxOfOrNull(String::length)
+            matchLength?.let { record to it }
+        }.sortedWith(compareByDescending<Pair<ProfileRecord, Int>> { it.second }.thenBy { it.first.id })
+            .map { it.first }
 
     private fun indexFor(card: CharacterCard): ProfileIndex {
         val records = buildRecords(card)
@@ -93,6 +105,7 @@ class CharacterProfileStore {
             statement = statement,
             keywords = keywords,
             evidenceRefs = evidenceFor(card, evidenceKey, "identity_core.$cardKey"),
+            sourcePath = evidenceKey,
         )
     }
 
@@ -144,6 +157,7 @@ data class ProfileRecord(
     val statement: String,
     val keywords: List<String>,
     val evidenceRefs: List<String>,
+    val sourcePath: String? = null,
 )
 
 enum class ProfileFacet { IDENTITY, BACKGROUND, MOTIVATION, VALUES, TRAITS, BEHAVIOR }

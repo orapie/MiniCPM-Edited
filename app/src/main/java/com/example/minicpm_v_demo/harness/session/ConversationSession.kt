@@ -3,6 +3,7 @@ package com.example.minicpm_v_demo.harness.session
 import com.example.minicpm_v_demo.harness.rag.RagSource
 import com.example.minicpm_v_demo.harness.character.CharacterFollowUpTarget
 
+/** 记录一次聊天关联的数据集、角色、剧情截止点与模型，并保存已经完成的回合。 */
 data class ChatSession(
     val sessionId: String,
     val characterId: String,

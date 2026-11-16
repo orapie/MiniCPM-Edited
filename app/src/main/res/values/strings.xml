@@ -126,16 +126,6 @@
     <string name="model_files_deleted">模型文件已删除</string>
     <string name="toast_no_files_to_delete">没有可删除的文件</string>
     <string name="toast_delete_failed">删除失败: %1$s</string>
-    <string name="attribution_agent_title">双 Agent：资料归属处理</string>
-    <string name="attribution_agent_hint">Agent A 只处理本轮资料中的人物指代，再交由当前聊天模型生成回答。仅支持本地纯文本 GGUF，需额外占用内存。</string>
-    <string name="attribution_select_model">选择 Agent A</string>
-    <string name="attribution_enable">启用双 Agent</string>
-    <string name="attribution_status_ready">Agent A：%1$s，已就绪</string>
-    <string name="attribution_status_missing">Agent A：%1$s，需下载</string>
-    <string name="attribution_download_started">正在下载 Agent A：%1$s</string>
-    <string name="attribution_download_complete">Agent A 下载完成</string>
-    <string name="attribution_download_failed">Agent A 下载失败：%1$s</string>
-    <string name="attribution_enable_requires_model">请先下载 Agent A 模型</string>
 
     <!-- ChatAdapter -->
     <string name="thinking_in_progress">思考中…</string>
@@ -220,4 +210,17 @@
     <string name="tts_preset_load_failed">加载预设失败: %1$s</string>
     <string name="tts_baselm_missing">BaseLM GGUF 文件不存在，请下载模型</string>
     <string name="tts_acoustic_missing">Acoustic GGUF 文件不存在，请下载模型</string>
+    <string name="agent_a_tab">模型 A</string>
+    <string name="agent_b_tab">模型 B</string>
+    <string name="select_agent_b_model">选择模型 B</string>
+    <string name="attribution_select_model">选择模型 A</string>
+    <string name="attribution_agent_hint">Agent A 处理资料归属，支持纯文本 GGUF。与 Agent B 同时加载会增加内存占用。</string>
+    <string name="attribution_enable">启用双 Agent</string>
+    <string name="attribution_status_downloaded">%1$s 已下载，可以加载</string>
+    <string name="attribution_status_missing">%1$s 需下载</string>
+    <string name="attribution_enable_requires_model">请先下载 Agent A 模型</string>
+    <string name="shared_model_delete_note">两个列表共用此文件。删除后，两个 Agent 都需要重新下载才能加载。</string>
+    <string name="model_desc_qwen35_2b">多语言文本对话（2B，约 1.3 GB）</string>
+    <string name="model_desc_llama32_3b">多语言指令模型（3B，约 2.0 GB）</string>
+    <string name="model_desc_qwen35_4b">多语言文本对话（4B，约 2.7 GB）</string>
 </resources>

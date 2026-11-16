@@ -50,6 +50,7 @@ data class HarnessRuntimeHints(
     val supportsSystemPrompt: Boolean = true
 )
 
+/** 描述推理所需文件、下载来源、模型能力和运行时参数。 */
 data class HarnessModelSpec(
     val id: String,
     val displayName: String,
@@ -60,6 +61,7 @@ data class HarnessModelSpec(
     val runtimeHints: HarnessRuntimeHints
 )
 
+/** 从既有模型配置派生能力、文件和下载来源，让 Harness 读取同一套模型信息。 */
 fun ModelInfo.toHarnessSpec(): HarnessModelSpec {
     val capabilities = linkedSetOf(HarnessCapability.TEXT)
     if (mmprojFileName != null) {

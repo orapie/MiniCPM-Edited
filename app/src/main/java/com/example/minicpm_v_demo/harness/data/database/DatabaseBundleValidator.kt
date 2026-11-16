@@ -9,6 +9,7 @@ import java.security.MessageDigest
 
 /** Read-only boundary for portable bundles. It does not switch the app's active data source. */
 object DatabaseBundleValidator {
+    /** 交叉校验清单、文件摘要、来源证据和审核结果，构建运行时可使用的数据包。 */
     fun validate(paths: DatabaseDataPaths): ValidatedDatabaseBundle {
         val manifest = DatabaseBundleManifest.parse(readObjectText(paths.manifestFile))
         require(manifest.schemaVersion == "1.0") { "Unsupported database bundle schema" }
@@ -362,6 +363,7 @@ data class ValidatedDatabaseBundle(
 ) {
     val authorizedFactCount: Int get() = authorizedFacts.size
 
+    /** 按角色和剧情截止点返回通过审核且在该节点已经获知的事实。 */
     fun authorizedFactsAt(characterId: String, storyCutoff: String): List<DatabaseAuthorizedFact> {
         require(characterId in characterIds) { "Unknown character in current database" }
         val sequence = cutoffs[storyCutoff] ?: error("Unknown cutoff in current database")

@@ -43,6 +43,7 @@ class DatabaseBundleInstaller(
     private val active = File(parent, "database")
     private val previous = File(parent, ".database.previous")
 
+    /** 通过进程内互斥和文件锁串行化安装。调用方通过结果区分可用句柄与不可用状态。 */
     fun install(source: DatabaseBundleSource): DatabaseInstallResult = synchronized(PROCESS_LOCK) {
         try {
             check(parent.isDirectory || parent.mkdirs()) { "Cannot create database parent" }
@@ -56,6 +57,7 @@ class DatabaseBundleInstaller(
         }
     }
 
+    /** 先恢复中断的旧安装，再校验新包。新文件在暂存目录验证通过后才替换活动目录。 */
     private fun installLocked(source: DatabaseBundleSource): DatabaseInstallResult {
         recoverPrevious()
         cleanInterruptedStaging()
@@ -134,6 +136,7 @@ class DatabaseBundleInstaller(
         }
     }
 
+    /** 检查活动目录与上次保留目录，处理进程在目录替换中途退出的情况。 */
     private fun recoverPrevious() {
         require(active.canonicalFile == active.absoluteFile) { "Unsafe active database directory" }
         require(previous.canonicalFile == previous.absoluteFile) { "Unsafe recovery directory" }

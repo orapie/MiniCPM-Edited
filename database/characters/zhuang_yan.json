@@ -1,6 +1,9 @@
 {
   "schema_version": "1.0.0",
   "npc_id": "zhuang_yan",
+  "public_profile": {
+    "identity_core.background[0]": ["学的什么", "学过什么", "学什么专业", "学的专业", "什么专业", "学国画", "学中国画", "画国画", "画中国画", "会画什么画", "擅长画什么"]
+  },
   "identity_core": {
     "name": "庄颜",
     "aliases": [
@@ -190,7 +193,7 @@
   ],
   "evidence_refs": {
     "identity_core.background[0]": [
-      "three_body_2.txt:L1465"
+      "three_body_2.txt:L1486"
     ],
     "identity_core.background[1]": [
       "three_body_2.txt:L1519"

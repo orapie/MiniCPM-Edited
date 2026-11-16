@@ -12,6 +12,7 @@ import com.example.minicpm_v_demo.harness.character.knowledge.KnowledgeDispositi
 object RoleplayAnswerabilityGate {
     const val FUTURE_FACT_RESPONSE = "此事我尚不清楚，不能妄言。"
 
+    /** 在调用模型前检查本轮知识诊断。当相关事实超出当前截止点，或特定的来历问题缺少可用证据时，可返回角色口吻的固定回应。 */
     fun evaluate(debug: CharacterPromptDebug?, userInput: String? = null): RoleplayAnswerabilityDecision {
         if (debug == null) return RoleplayAnswerabilityDecision.Allow
         val future = evaluate(debug.knowledgeGraphDecisions + debug.v1ClaimGraphDecisions)

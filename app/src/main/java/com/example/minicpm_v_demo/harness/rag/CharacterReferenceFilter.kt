@@ -6,6 +6,7 @@ import com.example.minicpm_v_demo.harness.data.database.ValidatedDatabaseBundle
 internal object CharacterReferenceFilter {
     data class Result(val allowed: List<SearchResult>, val rejected: List<RagContextDecision>)
 
+    /** 逐项验证向量候选在当前角色与剧情截止点下能否作为原文参考，并保留拒绝原因。 */
     fun filter(results: List<SearchResult>, bundle: ValidatedDatabaseBundle?, character: String, cutoff: String): Result {
         val sequence = bundle?.cutoffs?.get(cutoff)
         val authorized = if (bundle != null && sequence != null && character in bundle.characterIds)

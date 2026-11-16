@@ -1,5 +1,6 @@
 package com.example.minicpm_v_demo.harness.session
 
+/** 在轮数和字符预算内抽取近期对话，给摘要加上不可信历史的提示。 */
 class ConversationSummaryBuilder(
     private val maxChars: Int = 900,
     private val maxTurns: Int = 6,

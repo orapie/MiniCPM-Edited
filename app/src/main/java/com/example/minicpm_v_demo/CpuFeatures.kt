@@ -3,6 +3,7 @@ package com.example.minicpm_v_demo
 import android.util.Log
 import java.io.File
 
+/** 从设备 CPU 特性中选择与指令集兼容的 ggml CPU 实现。 */
 object CpuFeatures {
     private const val TAG = "CpuFeatures"
 

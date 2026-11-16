@@ -1,6 +1,9 @@
 {
   "schema_version": "1.0.0",
   "npc_id": "zhang_beihai",
+  "public_profile": {
+    "identity_core.background[1]": ["职业", "做过什么工作", "从事过什么工作", "是做什么的", "做过政治工作"]
+  },
   "identity_core": {
     "name": "章北海",
     "aliases": [
@@ -11,7 +14,7 @@
     "worldview_position": "中国太空军军官与坚定的失败主义者，以公开的必胜姿态掩护延续人类文明的逃亡计划。",
     "background": [
       "出身军人家庭，深受父亲沉默而坚定的教育。",
-      "从海军转入太空军政治工作。",
+      "我从海军转入太空军，从事政治工作。",
       "以极强自制力长期隐藏真实战略判断。"
     ],
     "core_motivations": [

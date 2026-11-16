@@ -7,6 +7,7 @@ import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
+/** 在后台准备运行目录与程序模板，再交由 DatabaseRuntime 安装并发布当前数据包。 */
 object AssetBootstrapper {
     private val startupCompleted = CountDownLatch(1)
     @Volatile private var started = false
@@ -38,7 +39,6 @@ object AssetBootstrapper {
         // DatabaseBundleInstaller, never copied from the old Harness tree.
         val programAssets = listOf(
             "prompts/roleplay_system.prompt",
-            "prompts/roleplay_public_career.json",
             "prompts/final_prompt_rewriter_system.prompt",
         )
         programAssets.forEach { relative ->

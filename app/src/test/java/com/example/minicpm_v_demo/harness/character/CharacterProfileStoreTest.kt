@@ -27,6 +27,21 @@ class CharacterProfileStoreTest {
     }
 
     @Test
+    fun publicSelectionUsesCardCuesForAnyTopicAndRequiresAnEntrySource() {
+        val card = loader.loadCharacter("luo_ji")
+        val path = "identity_core.background[0]"
+        val fixture = card.copy(
+            identity = card.identity.copy(background = listOf("曾在示例学院读书。")),
+            publicProfile = mapOf(path to listOf("在哪读书")),
+            profileEvidenceRefs = mapOf(path to listOf("test-source")),
+        )
+        assertEquals("曾在示例学院读书。", store.publicMatches(fixture, "你在哪读书？").single().statement)
+        assertTrue(store.publicMatches(fixture, "你的故乡在哪里？").isEmpty())
+        assertTrue(store.publicMatches(fixture.copy(profileEvidenceRefs = emptyMap()), "你在哪读书？").isEmpty())
+        assertTrue(store.publicMatches(fixture.copy(publicProfile = emptyMap()), "你在哪读书？").isEmpty())
+    }
+
+    @Test
     fun preferenceRetrievalUsesMotivationRecordsWithoutScanningStoryFacts() {
         val card = loader.loadCharacter("luo_ji")
         val analysis = analyzer.analyze("你最想去哪里？", listOf("史强"))

@@ -39,6 +39,7 @@ data class RagTurnTrace(
     val rejectedFactReasons: List<String> = emptyList(),
     val attribution: AttributionRewriteTrace? = null,
 ) {
+    /** 将回合的检索、证据选择与归因结果压缩为一行诊断日志。 */
     fun toLogLine(): String = buildString {
         append("RAG_TRACE")
         append(" mode=").append(mode.name)
@@ -400,6 +401,12 @@ private fun AttributionRewriteTrace.appendJson(out: StringBuilder) {
     out.append(',')
     out.jsonField("modelId", modelId ?: "none")
     out.append(",\"referenceCount\":").append(referenceCount)
+    out.append(',')
+    out.jsonField("finalPromptFormat", finalPromptFormat.name)
+    out.append(",\"finalPromptSchemaVersion\":").append(finalPromptSchemaVersion?.toString() ?: "null")
+    out.append(',')
+    out.jsonField("formatFallbackReason", formatFallbackReason ?: "none")
+    out.append(",\"materializationElapsedMs\":").append(materializationElapsedMs?.toString() ?: "null")
     out.append('}')
 }
 

@@ -6,11 +6,14 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 
+/** 将模型目录绑定到管理页列表，并按模型 ID 更新当前选中样式。 */
 class ModelAdapter(
     private val models: List<ModelInfo>,
     private val selectedModelId: String,
     private val onModelSelected: (ModelInfo) -> Unit
 ) : RecyclerView.Adapter<ModelAdapter.ViewHolder>() {
+
+    var canSelect: () -> Boolean = { true }
 
     private var currentSelectedId = selectedModelId
 
@@ -36,7 +39,7 @@ class ModelAdapter(
         holder.tvSelected.alpha = if (isSelected) 1.0f else 0.4f
 
         holder.itemView.setOnClickListener {
-            if (model.id != currentSelectedId) {
+            if (canSelect() && model.id != currentSelectedId) {
                 val oldIndex = models.indexOfFirst { it.id == currentSelectedId }
                 currentSelectedId = model.id
                 notifyItemChanged(oldIndex)

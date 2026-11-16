@@ -1,6 +1,7 @@
 package com.example.minicpm_v_demo.harness.rag
 
 import com.example.minicpm_v_demo.harness.HarnessModelFamily
+import com.example.minicpm_v_demo.harness.attribution.AgentBPromptFormat
 import com.example.minicpm_v_demo.harness.attribution.EvidenceRelation
 import com.example.minicpm_v_demo.harness.attribution.FakeFinalPromptRewriteService
 import com.example.minicpm_v_demo.harness.attribution.FinalPromptDraft
@@ -22,6 +23,76 @@ import java.io.File
 import java.nio.file.Files
 
 class AndroidRagOrchestratorTest {
+    @Test fun jsonIsSentOnlyAfterSuccessfulAttributionAndPreservesTheSystem() {
+        val question = "大学社会学"
+        orchestrator(FakeFinalPromptRewriteService(::validDraft)).use {
+            val text = it.compile(question, RagMode.CHARACTER_RAG, "luo_ji", "evt-001")
+            val json = it.compile(question, RagMode.CHARACTER_RAG, "luo_ji", "evt-001",
+                agentBPromptFormat = AgentBPromptFormat.JSON)
+            val backend = json.stageLogs.last { stage -> stage.stage == RagPromptStage.BACKEND_REQUEST }.snapshot
+            assertEquals(AgentBPromptFormat.TEXT, text.attributionTrace?.finalPromptFormat)
+            assertEquals(AgentBPromptFormat.JSON, json.attributionTrace?.finalPromptFormat)
+            assertEquals(text.attributionTrace?.rawPromptFingerprint, json.attributionTrace?.rawPromptFingerprint)
+            assertEquals(text.rendered.splitPrompt.systemPrompt, backend?.systemPrompt)
+            assertEquals(json.rendered.splitPrompt.userPrompt, backend?.userPrompt)
+            val user = SimpleJsonParser(checkNotNull(backend?.userPrompt)).parse().asJsonObject("backend")
+            assertEquals(question, user["question"])
+            assertEquals(text.sources, json.sources)
+        }
+        orchestrator().use {
+            val text = it.compile(question, RagMode.CHARACTER_RAG, "luo_ji", "evt-001")
+            val json = it.compile(question, RagMode.CHARACTER_RAG, "luo_ji", "evt-001",
+                agentBPromptFormat = AgentBPromptFormat.JSON)
+            assertEquals(text.rendered.splitPrompt, json.rendered.splitPrompt)
+            assertEquals("disabled", json.attributionTrace?.status)
+            assertEquals(AgentBPromptFormat.TEXT, json.attributionTrace?.finalPromptFormat)
+        }
+    }
+
+    @Test fun completePublicCardQuestionDoesNotSendExternalReferencesOrRequestAttribution() {
+        val question = "你以前做过什么工作？"
+        val service = FakeFinalPromptRewriteService { error("Agent A should be skipped") }
+        val enabled = orchestrator(service).use {
+            it.compile(question, RagMode.CHARACTER_RAG, "zhang_beihai", "evt-125")
+        }
+        val disabled = orchestrator().use {
+            it.compile(question, RagMode.CHARACTER_RAG, "zhang_beihai", "evt-125")
+        }
+        assertEquals(enabled.rendered.splitPrompt, disabled.rendered.splitPrompt)
+        assertTrue(enabled.rendered.splitPrompt.systemPrompt.contains("我从海军转入太空军，从事政治工作"))
+        assertEquals("我从海军转入太空军，从事政治工作。", enabled.publicProfileReply)
+        assertEquals(question, enabled.rendered.splitPrompt.userPrompt)
+        assertTrue(enabled.turnTrace.external.vectorSearchExecuted)
+        assertFalse(enabled.turnTrace.external.externalInjectionRequested)
+        assertTrue(enabled.sources.isEmpty())
+        assertEquals("not_requested", enabled.attributionTrace?.status)
+        assertEquals("public_profile_sufficient", enabled.attributionTrace?.reason)
+        assertEquals("public_profile_sufficient", enabled.stageLogs
+            .single { it.stage == RagPromptStage.EXTERNAL_CONTEXT_COMPILED }.reason)
+    }
+
+    @Test fun publicCardFactSurvivesAttributionSuccessAndFallback() {
+        fun compile(service: FinalPromptRewriteService) = orchestrator(service).use {
+            it.compile("你以前做过什么工作，又怎么看待责任？", RagMode.CHARACTER_RAG, "zhang_beihai", "evt-125")
+        }
+
+        val success = compile(FakeFinalPromptRewriteService { validDraft(it) })
+        val fallback = compile(FakeFinalPromptRewriteService { null })
+        val disabled = compile(NoopFinalPromptRewriteService)
+        assertEquals("success", success.attributionTrace?.status)
+        assertEquals("fallback", fallback.attributionTrace?.status)
+        assertEquals("disabled", disabled.attributionTrace?.status)
+        assertTrue(success.sources.isNotEmpty())
+        assertNull(success.publicProfileReply)
+        assertTrue(success.rendered.splitPrompt.userPrompt.contains("[参考资料 "))
+        assertEquals(fallback.rendered.splitPrompt.userPrompt, disabled.rendered.splitPrompt.userPrompt)
+        val system = success.rendered.splitPrompt.systemPrompt
+        assertTrue(system.contains("我从海军转入太空军，从事政治工作"))
+        assertTrue(system.contains("不从检索片段补充经历"))
+        assertEquals(system, fallback.rendered.splitPrompt.systemPrompt)
+        assertEquals(system, disabled.rendered.splitPrompt.systemPrompt)
+    }
+
     private fun orchestrator(
         rewriteService: FinalPromptRewriteService = NoopFinalPromptRewriteService,
     ): AndroidRagOrchestrator {
@@ -53,6 +124,7 @@ class AndroidRagOrchestratorTest {
         val result = orchestrator().compile(query, RagMode.CHARACTER_RAG, "luo_ji", "evt-001")
         val debug = result.characterDebug as CharacterPromptDebug
         assertFalse(result.rendered.splitPrompt.systemPrompt.contains("大学教社会学"))
+        assertFalse(result.rendered.splitPrompt.systemPrompt.contains("不从检索片段补充经历"))
         assertTrue(result.rendered.splitPrompt.userPrompt.contains(query))
         assertTrue(result.sources.isNotEmpty())
         assertTrue(result.rendered.splitPrompt.userPrompt.contains("本轮检索资料"))
@@ -111,10 +183,11 @@ class AndroidRagOrchestratorTest {
 
     @Test fun invalidAgentDraftFallsBackToRawPromptWithAReasonCode() {
         val result = orchestrator(FakeFinalPromptRewriteService { raw -> validDraft(raw).copy(userPrompt = "篡改的问题") })
-            .compile("大学社会学", RagMode.CHARACTER_RAG, "luo_ji", "evt-001")
+            .compile("大学社会学", RagMode.CHARACTER_RAG, "luo_ji", "evt-001", agentBPromptFormat = AgentBPromptFormat.JSON)
 
         assertEquals("fallback", result.attributionTrace?.status)
         assertEquals("user_question_mutated", result.attributionTrace?.reason)
+        assertEquals(AgentBPromptFormat.TEXT, result.attributionTrace?.finalPromptFormat)
         assertFalse(result.rendered.splitPrompt.userPrompt.contains("[参考资料 "))
         assertTrue(result.rendered.splitPrompt.userPrompt.contains("玩家：大学社会学"))
         assertTrue(result.stageLogs.any {
@@ -128,7 +201,8 @@ class AndroidRagOrchestratorTest {
         val bundle = DatabaseBundleHandle(DatabaseBundleValidator.validate(databaseTestSource()))
         val instance = AndroidRagOrchestrator.fromBundle(bundle,
             File(repo, "app/src/main/assets/prompts/roleplay_system.prompt"), VectorRetrievalFeatureFlags(false, false))
-        val result = instance.compile("你的来历是什么？", RagMode.CHARACTER_RAG, "luo_ji", "evt-001")
+        val result = instance.compile("你的来历是什么？", RagMode.CHARACTER_RAG, "luo_ji", "evt-001",
+            agentBPromptFormat = AgentBPromptFormat.JSON)
         assertFalse(result.turnTrace.external.vectorSearchExecuted)
         assertTrue(result.sources.isEmpty())
         assertTrue(result.contextText.isEmpty())

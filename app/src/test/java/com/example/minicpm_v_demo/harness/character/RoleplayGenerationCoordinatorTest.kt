@@ -8,6 +8,24 @@ import org.junit.Test
 class RoleplayGenerationCoordinatorTest {
     private val coordinator = RoleplayGenerationCoordinator()
 
+    @Test fun publicProfileReplyPreventsExtraBiographicalClaims() {
+        val fact = "我从海军转入太空军，从事政治工作。"
+        val question = "你以前做过什么工作？"
+        val exact = coordinator.resolve(0, fact, "章北海", question, publicProfileReply = fact)
+        assertEquals(RoleplayGenerationAction.Deliver(fact, persistVisibleText = true), exact)
+
+        val expanded = fact + "我还负责战略规划。"
+        val fallback = coordinator.resolve(0, expanded, "章北海", question, publicProfileReply = fact)
+        assertEquals(RoleplayGenerationAction.Fallback(
+            fact, listOf(RoleplayGenerationCoordinator.PUBLIC_PROFILE_FALLBACK), persistVisibleText = true,
+        ), fallback)
+        val rejected = coordinator.resolve(0, "毕竟是AI嘛。", "章北海", question, publicProfileReply = fact)
+        assertEquals(fallback, rejected)
+
+        val ordinary = coordinator.resolve(0, expanded, "章北海", question)
+        assertEquals(RoleplayGenerationAction.Deliver(expanded, persistVisibleText = true), ordinary)
+    }
+
     @Test fun repeatedUnsolicitedQuestionsNeverBecomeVisibleOrPersisted() {
         val text = "我想寻找答案，哪里最合适？"
         assertTrue(coordinator.resolve(0, text, "罗辑", "你最想去哪里？") is RoleplayGenerationAction.Retry)

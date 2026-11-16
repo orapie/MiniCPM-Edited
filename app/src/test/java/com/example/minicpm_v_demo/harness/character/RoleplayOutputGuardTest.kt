@@ -43,6 +43,15 @@ class RoleplayOutputGuardTest {
         assertTrue(RoleplayGenerationCoordinator.repairInstruction(first.ruleIds).contains("直接从“我”说起"))
         assertTrue(coordinator.resolve(1, "你是丁仪。", "史强", "你是谁？") is RoleplayGenerationAction.Fallback)
     }
+    @Test fun selfIdentificationAsAiRetriesWithoutRejectingThirdPartyReferences() {
+        val question = "你以前做过什么工作？"
+        val leak = "我没有个人工作经历哦，毕竟是AI嘛。"
+        assertEquals(RoleplayOutputDecision.RetryWithRepair(listOf("assistant_identity")),
+            RoleplayOutputGuard.evaluate(leak, "史强", question))
+        val thirdParty = "它毕竟是AI嘛，我以前靠自己跑现场。"
+        assertEquals(RoleplayOutputDecision.Accept(thirdParty),
+            RoleplayOutputGuard.evaluate(thirdParty, "史强", question))
+    }
     @Test fun unsolicitedQuestionRequestsRepairButQuotedSpeechIsAllowed() {
         assertEquals(RoleplayOutputDecision.RetryWithRepair(listOf("unsolicited_question")),
             RoleplayOutputGuard.evaluate("史强是我的朋友。我们怎么看他？", "罗辑", "你怎么看史强？"))

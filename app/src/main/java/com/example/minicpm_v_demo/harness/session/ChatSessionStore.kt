@@ -10,6 +10,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
 
+/** 按数据集 ID 和指纹读写会话，维护最近会话及供界面浏览的历史快照。 */
 class ChatSessionStore(
     private val paths: HarnessDataPaths,
     private val datasetIdentity: DatabaseIdentity? = null,
@@ -86,6 +87,7 @@ class ChatSessionStore(
         }.distinctBy { Triple(it.sessionId, it.datasetId, it.datasetFingerprint) }.sortedByDescending { it.updatedAt }
     }
 
+    /** 活动会话须匹配数据集、指纹和角色约束，每个已保存回合也必须属于该角色。 */
     private fun isCompatible(session: ChatSession): Boolean {
         if (datasetIdentity == null) return true // legacy fixture / explicit history access
         return session.datasetId == datasetIdentity.datasetId && session.datasetFingerprint == datasetIdentity.fingerprint &&
@@ -95,6 +97,7 @@ class ChatSessionStore(
             session.turns.all { it.characterId == session.characterId }
     }
 
+    /** 先写入同目录的临时文件，再替换正式记录，减少中途中断留下半份会话文件的风险。 */
     private fun atomicWrite(file: File, text: String) {
         val parent = requireNotNull(file.parentFile)
         check(parent.isDirectory || parent.mkdirs()) { "Cannot create session directory" }

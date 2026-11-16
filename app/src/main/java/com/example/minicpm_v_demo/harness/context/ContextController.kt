@@ -7,6 +7,7 @@ object ContextController {
     private val sentenceUnit = Regex("[^。！？!?；;\\n]+[。！？!?；;]?")
     private val lexicalUnit = Regex("[\\p{IsHan}]+|[A-Za-z0-9_]+")
 
+    /** 根据当前问题与文本单元的词项重合度计算相关性加分。 */
     fun queryBoost(query: String, text: String): Double {
         val queryTerms = terms(query)
         if (queryTerms.isEmpty()) return 0.0

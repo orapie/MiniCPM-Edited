@@ -7,6 +7,7 @@ object RagPromptLogcatPrinter {
     const val TAG = "RagPromptDebug"
     private const val MAX_CHUNK_CHARS = 900
 
+    /** 按回合和阶段输出提示词快照，将长文本拆为带编号的 Logcat 片段。 */
     fun print(turnId: String, stageLogs: List<RagPromptStageLog>) {
         stageLogs.forEachIndexed { index, stageLog ->
             val sequence = index + 1

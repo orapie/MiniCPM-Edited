@@ -54,6 +54,8 @@ import com.example.minicpm_v_demo.harness.data.database.DatabaseInstallResult
 import com.example.minicpm_v_demo.harness.data.database.DatabaseIdentity
 import com.example.minicpm_v_demo.harness.data.database.DatabaseBundleHandle
 import com.example.minicpm_v_demo.harness.attribution.LocalAttributionRewriteService
+import com.example.minicpm_v_demo.harness.attribution.AgentBPromptFormat
+import com.example.minicpm_v_demo.harness.attribution.AttributionFeatureFlags
 import com.example.minicpm_v_demo.harness.data.database.DatabaseTurnLease
 import com.example.minicpm_v_demo.harness.session.ChatSession
 import com.example.minicpm_v_demo.harness.session.ChatSessionStore
@@ -74,6 +76,7 @@ import kotlinx.coroutines.ensureActive
 import java.io.ByteArrayOutputStream
 import java.io.File
 
+/** 聊天页入口，协调媒体输入、模型生成和会话恢复。角色回合用绑定的数据包、角色和剧情截止点贯穿检索、生成与保存。 */
 class MainActivity : AppCompatActivity() {
 
     private lateinit var recyclerChat: RecyclerView
@@ -743,6 +746,7 @@ class MainActivity : AppCompatActivity() {
         return "file-${System.currentTimeMillis()}"
     }
 
+    /** 提交输入前获取数据包租约，把本轮使用的角色、模型和会话固定到生成任务中，任务结束后释放租约。 */
     private fun handleUserInput() {
         if (databaseRebinding) return
         val userMsg = etInput.text.toString().trim()
@@ -912,7 +916,8 @@ class MainActivity : AppCompatActivity() {
                 }
                 is RawGenerationResult.Completed -> {
                     val action = coordinator.resolve(attempt, rawResult.rawOutput, identity.name, userMsg,
-                        identity.aliases, fixedResponse = useFixedResponse)
+                        identity.aliases, fixedResponse = useFixedResponse,
+                        publicProfileReply = promptInput.compiled?.publicProfileReply)
                     observeRoleplayAttempt(promptInput, userMsg, rawResult.rawOutput, attempt, action, "completed")
                     when (action) {
                         is RoleplayGenerationAction.Deliver -> return GenerationOutcome(
@@ -921,6 +926,7 @@ class MainActivity : AppCompatActivity() {
                         )
                         is RoleplayGenerationAction.Fallback -> return GenerationOutcome(
                             visibleText = action.visibleText,
+                            persistedAssistantText = action.visibleText.takeIf { action.persistVisibleText },
                         )
                         is RoleplayGenerationAction.Retry -> {
                             // Do not include the rejected output in this request.  The native
@@ -936,6 +942,7 @@ class MainActivity : AppCompatActivity() {
         return GenerationOutcome(visibleText = RoleplayGenerationCoordinator.DEFAULT_SAFE_FALLBACK)
     }
 
+    /** 把普通聊天的累计输出增量刷新到当前气泡，并在本轮结束后返回可展示和可保存的结果。 */
     private suspend fun generateStreamingResponse(
         promptInput: HarnessPromptInput,
         aiMsgId: Long,
@@ -987,6 +994,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** 统一收集模型流和固定回应。协程取消向上透传，生成异常则连同已收集文本返回。 */
     private suspend fun collectRawResponse(
         request: HarnessChatRequest,
         predictLength: Int,
@@ -1038,6 +1046,7 @@ class MainActivity : AppCompatActivity() {
         Log.i(TAG, observation.toLogLine(includeRawText = includeRawRoleplayOutput))
     }
 
+    /** 依据回合绑定选择普通聊天或 RAG 路径，并将编译结果转换为后端请求。 */
     private fun compilePromptForHarness(userMsg: String, binding: TurnBinding): HarnessPromptInput {
         if (binding.mode == RagMode.OFF) {
             return HarnessPromptInput(HarnessChatRequest(userPrompt = userMsg), null)
@@ -1069,6 +1078,8 @@ class MainActivity : AppCompatActivity() {
                 knowledgeGraphEnabled = characterKnowledgeGraphEnabled,
                 followUpTarget = followUpTarget,
                 modelFamily = binding.modelFamily,
+                agentBPromptFormat = if (isDebuggableBuild()) AttributionFeatureFlags(applicationContext).agentBPromptFormat
+                    else AgentBPromptFormat.TEXT,
             )
             val characterDebug = compiled.characterDebug as? CharacterPromptDebug
             Log.d(
@@ -1106,6 +1117,9 @@ class MainActivity : AppCompatActivity() {
                     "reason=${attributionTrace?.reason ?: "none"} " +
                     "model=${attributionTrace?.modelId ?: "none"} " +
                     "references=${attributionTrace?.referenceCount ?: 0} " +
+                    "format=${attributionTrace?.finalPromptFormat ?: "none"} " +
+                    "schema=${attributionTrace?.finalPromptSchemaVersion ?: "none"} " +
+                    "formatFallback=${attributionTrace?.formatFallbackReason ?: "none"} " +
                     "rawSha=${attributionTrace?.rawPromptFingerprint ?: "none"} " +
                     "finalSha=${attributionTrace?.finalPromptFingerprint ?: "none"}",
             )
@@ -1207,6 +1221,7 @@ class MainActivity : AppCompatActivity() {
         is RoleplayGenerationAction.Fallback -> RoleplayOutputDecision.SafeFallback(ruleIds)
     }
 
+    /** 把已通过输出流程的回复和本轮元数据写入回合开始时绑定的会话存储。 */
     private fun saveCompletedHarnessTurn(
         userMsg: String,
         assistantText: String,
@@ -1430,6 +1445,7 @@ class MainActivity : AppCompatActivity() {
             get() = compiled?.mode == RagMode.CHARACTER_RAG
     }
 
+    /** 记录一轮聊天所使用的模型、数据包、角色、截止点和会话实例，供异步流程共享。 */
     private data class TurnBinding(
         val identity: DatabaseIdentity?,
         val mode: RagMode,

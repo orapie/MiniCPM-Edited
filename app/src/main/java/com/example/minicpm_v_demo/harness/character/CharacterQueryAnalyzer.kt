@@ -6,6 +6,7 @@ package com.example.minicpm_v_demo.harness.character
  * character/time/verification checks in the knowledge stores.
  */
 class CharacterQueryAnalyzer {
+    /** 从问句识别意图，并标记本轮需要检索的角色资料和知识类别。 */
     fun analyze(
         userInput: String,
         knownCharacterNames: Collection<String>,

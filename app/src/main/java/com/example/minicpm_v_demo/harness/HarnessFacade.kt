@@ -7,6 +7,7 @@ import com.example.minicpm_v_demo.ModelInfo
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
+/** 把模型存储、下载和推理后端组合成界面使用的入口。 */
 class HarnessFacade private constructor(
     private val modelStore: LlamaModelStore,
     private val backend: HarnessBackend,
@@ -64,6 +65,7 @@ class HarnessFacade private constructor(
     fun getSelectedModelAvailability(): HarnessModelAvailability =
         modelStore.getSelectedModelAvailability()
 
+    /** 将所选模型的本地文件解析为后端加载参数，包括可选的视觉投影器。 */
     suspend fun loadSelectedModel() {
         val files = modelStore.getSelectedModelFiles()
         val llmFile = files.artifactFiles["llm"]
@@ -118,8 +120,8 @@ class HarnessFacade private constructor(
         backend.destroy()
     }
 
-    fun startDownloadService() {
-        downloadManager.startForegroundDownload()
+    fun startDownloadService(modelId: String = getSelectedModel().id) {
+        downloadManager.startForegroundDownload(modelId)
     }
 
     fun selectedModelArtifactNames(): List<String> =

@@ -19,6 +19,7 @@ class CharacterStateLoader(
     private val cutoffOrder = events.associate { it.eventId to it.timeIndex }
     private val documents = mutableMapOf<String, CharacterStateDocument?>()
 
+    /** 按剧情截止点查找当前生效的状态区间。找不到状态文档或匹配区间时返回空值。 */
     fun currentState(characterId: String, cutoff: String): TimedCharacterState? {
         require(cutoff in cutoffOrder) { "Unknown state cutoff: $cutoff" }
         val document = loadCharacterStateOrNull(characterId) ?: return null

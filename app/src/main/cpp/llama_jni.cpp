@@ -315,7 +315,13 @@ Java_com_example_minicpm_1v_1demo_LlamaEngine_prepare(JNIEnv * /*env*/, jobject 
     LOGi("%s: minicpmv_version=%d -> n_ctx=%d", __func__, g_minicpmv_version, n_ctx);
 
     auto *context = init_context(g_model, n_ctx);
-    if (!context) { return 1; }
+    if (!context) {
+#if defined(ATTRIBUTION_RUNTIME)
+        llama_model_free(g_model);
+        g_model = nullptr;
+#endif
+        return 1;
+    }
     g_context = context;
     g_n_ctx = n_ctx;
     g_batch = llama_batch_init(BATCH_SIZE, 0, 1);

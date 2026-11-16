@@ -4,6 +4,7 @@ import com.example.minicpm_v_demo.harness.character.*
 
 /** Full biographies describe the card's declared cutoff, never an earlier scene. */
 class DatabaseCharacterCardAdapter(private val bundle: ValidatedDatabaseBundle) {
+    /** 按本轮剧情截止点适配角色卡，避免在较早场景使用仅适用于默认截止点的资料。 */
     fun atCutoff(card: CharacterCard, cutoff: String): CharacterCard {
         val sequence = bundle.cutoffs[cutoff] ?: error("database_unknown_cutoff")
         val cardSequence = bundle.cutoffs[card.knowledgeScope.storyCutoff] ?: error("database_unknown_card_cutoff")
@@ -14,7 +15,8 @@ class DatabaseCharacterCardAdapter(private val bundle: ValidatedDatabaseBundle) 
                 psychologicalTraits = emptyList(), behaviorRules = emptyList(),
                 speechExamples = emptyList(),
             ),
-            profileEvidenceRefs = emptyMap(), relationships = emptyList(), episodicMemory = emptyList(),
+            profileEvidenceRefs = emptyMap(), publicProfile = emptyMap(),
+            relationships = emptyList(), episodicMemory = emptyList(),
         )
         // No timed-state capability: a full-biography card's last scene cannot
         // establish where the speaker is, what they carry or what they do now.

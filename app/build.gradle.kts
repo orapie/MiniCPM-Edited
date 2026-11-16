@@ -279,7 +279,8 @@ val buildGgmlCpuV86 = tasks.register("buildGgmlCpu_v86") {
     description = "Build libggml-cpu optimised for armv8.6-a+i8mm+bf16"
 
     val destSo = file("src/main/jniLibs/arm64-v8a/libggml-cpu-v86.so")
-    outputs.file(destSo)
+    val destOpenMp = destSo.resolveSibling("libomp.so")
+    outputs.files(destSo, destOpenMp)
 
     doLast {
         val cmake = "$sdkRoot/cmake/4.1.2/bin/cmake"
@@ -318,8 +319,14 @@ val buildGgmlCpuV86 = tasks.register("buildGgmlCpu_v86") {
         )
 
         val builtSo = fileTree(bd).matching { include("**/libggml-cpu.so") }.singleFile
+        val openMpRuntime = bd.resolve("CMakeCache.txt").useLines { lines ->
+            val key = "OpenMP_omp_LIBRARY:FILEPATH="
+            lines.first { it.startsWith(key) }.removePrefix(key)
+        }
         destSo.parentFile.mkdirs()
         builtSo.copyTo(destSo, overwrite = true)
+        // Both CPU variants dynamically link the NDK OpenMP runtime.
+        File(openMpRuntime).copyTo(destOpenMp, overwrite = true)
         logger.lifecycle("Copied v86 ggml-cpu -> ${destSo.absolutePath} (${destSo.length() / 1024}K)")
     }
 }

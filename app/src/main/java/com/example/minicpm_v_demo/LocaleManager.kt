@@ -6,6 +6,7 @@ import android.content.Intent
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 
+/** 持久化应用语言，并在启动或切换语言时让 Android 加载对应的资源配置。 */
 object LocaleManager {
 
     private const val PREFS_NAME = "minicpm_locale"

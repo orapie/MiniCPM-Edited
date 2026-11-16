@@ -28,6 +28,7 @@ object MarkdownEscape {
 
     private val ESCAPED_MARKDOWN_BREAK = Regex("""\\n\s*(#{1,6}\s|[-*+]\s|\d+[.)]\s|>)""")
 
+    /** 仅当字面量反斜杠加 n 符合 Markdown 块分隔特征时，才在显示文本中还原换行。 */
     fun normalizeResponseText(text: String): String {
         if (!text.contains("\\n")) return text
         val hasBreak = text.contains("\\n\\n") || ESCAPED_MARKDOWN_BREAK.containsMatchIn(text)

@@ -1,62 +1,40 @@
-# 《三体Ⅱ：黑暗森林》角色知识库
+# 《三体Ⅱ：黑暗森林》Android 知识包
 
-本目录是项目统一知识数据源。三体 II 知识库的离线构建、索引、检索、审计和评测代码独立存放在相邻的 `three_body_2_kb_builder/`。当前 V2.2 数据包包含 Android BGE 查询模型和从 SQLite 导出的语义索引；本次接入尚未完成最终构建和设备运行验证。构建只打包当前 `assets/database/` 知识包，启动时安装到 `<filesDir>/database/`；生产检索工厂只从该包创建服务。
+本目录是 Android 应用唯一的知识包构建输入。当前包 ID 为 `three_body_2`，默认角色为罗辑，默认剧情截止点为 `evt-125`。知识包协议、能力、受控路径及文件校验值均由 [manifest.json](manifest.json) 声明。
 
-## 内容
+## 数据与授权
 
-- `characters/`：5 张角色卡，角色为罗辑、章北海、史强、庄颜和丁仪；
-- `story/story_events.jsonl`：125 条带原文行号的角色相关事件；
-- `knowledge_base_v2/`：场景、实体、证据、角色知识边、快照及 SQLite/FTS5 数据库；
-- `reports/character_cards.md`：角色卡摘要；
-- `schemas/`：角色卡和剧情事件 JSON Schema；
-- `scripts/`：可重复运行的角色卡与知识库生成脚本。
-- `manifest.json`：统一入口、数据集身份、文件 SHA-256 与包 fingerprint。
-- `reviewed/atomic_facts.json`：单独核验过对话上下文、角色知情与原文行号的短事实样本。
-- `runtime/android/scene_candidates.json`：536 条原文证据候选及 768 条源认知边的导出，只能用于候选召回。
-- `runtime/android/knowledge_fallback.json`：沿用原有 3 条审核事实及授权边，保留 `canon/source_span_verified` 来源属性；`runtime/android/reviewed_facts_v22.json` 记录新证据映射与原审核依据。
-- `runtime/android/compatibility_report.json`：来源、授权、长度与未完成能力的审计报告。
-- `embedding/bge-small-zh-v1.5/`：固定 revision 的 ONNX 查询编码器、词表、配置与模型清单。
-- `runtime/android/vector/bge_index.json`：从本包 SQLite 导出的 512 维语义证据索引；证据只是参考候选，不自动获得角色授权。
-- `runtime/android/vector/index.json`：保留的 384 维 hash 索引，供没有 BGE 路径的旧格式数据包兼容使用。
+| 数据 | 用途 |
+|---|---|
+| [characters/](characters/) | 五张角色卡。身份、别名、口吻和可公开条目由角色模板及编译器消化。 |
+| [story/](story/) | 剧情时间轴及可使用的 cutoff。 |
+| [knowledge_base_v2/](knowledge_base_v2/) | SQLite、场景、证据、源认知边及语义索引清单，用于离线构建和审计。 |
+| [reviewed/atomic_facts.json](reviewed/atomic_facts.json) | 三条独立审核的角色可知剧情事实。 |
+| [runtime/android/](runtime/android/) | 审核知识、场景候选及向量的 Android 导出。 |
+| [embedding/bge-small-zh-v1.5/](embedding/bge-small-zh-v1.5/) | BGE ONNX 模型、词表及固定版本配置。 |
 
-从仓库根目录执行：
+`public_profile` 以现有 `identity_core` 条目路径为键，值为可触发的问句短语，如 `"identity_core.background[0]": ["做过什么工作"]`。同一路径须有 `evidence_refs`，并核对卡片 cutoff、来源和公开范围。新增职业、学习或其他已确认经历沿用这一结构；在原条目上写经过复核的第一人称句子，可供精确匹配的输出保护使用。移动数组条目时同步检查路径。
+
+`scene_candidates.json` 中的 536 条场景候选和 768 条源认知边服务于检索及来源审计。独立审核的剧情事实另行导出为 `knowledge_fallback.json`，用于角色知情匹配、追问和门控。当前 system 渲染角色身份、口吻和可公开本人事实。筛选后的外部文本进入 user 消息，仍作为参考。
+
+Android 使用 `runtime/android/vector/bge_index.json` 和包内 ONNX 查询编码器。SQLite 是离线来源，回合查询使用内存索引。旧格式包可使用 `runtime/android/vector/index.json` 所代表的 hash n-gram 路径。当前包的顶层 `embedding` 描述兼容 hash 索引；BGE 路径单独声明在 `paths`。当前能力为 `v2/vector=true`、`v1/timed_state=false`。
+
+## 更新与校验
+
+从仓库根目录运行这些命令。
 
 ```bash
 python3 scripts/prepare_database_bundle.py --source database
 python3 scripts/prepare_database_bundle.py --source database --check
-python3 -m unittest discover -s scripts/tests -v
 bash ./gradlew :app:verifyDebugDatabaseAssets
 ```
 
-第一个命令更新运行导出与入口 manifest；`--check` 只读校验，不改写文件。生成工具只使用显式数据根目录，原文取本包嵌入 corpus，不查找旧 `character/`、旧 Harness 文档或 manifest 中的 Windows 来源路径。修改源库、角色卡、事件或已审查事实后，必须重新生成，过期 hash 会使校验失败。
+生成命令更新运行时导出及根 manifest。只读的 `--check` 校验输入、产物、授权映射和哈希。Gradle 的 `prepareDatabaseBundle` 负责校验并复制现有产物，输出到 `app/build/generated/databaseAssets/database/`；APK 清单报告位于 `app/build/reports/database/apk_inventory.json`。编辑角色卡、剧情、审核事实或源库后，运行生成和校验命令再构建。完整的源数据重建见[离线工具](../three_body_2_kb_builder/README.md)。
 
-当前 manifest 声明 `v2/vector=true`，`v1/timed_state=false`。当前包的 BGE 模型与语义索引通过独立受控路径声明；顶层 `embedding` 仍记录兼容用的 hash 索引配置。索引和文件清单携带数据集身份和来源 hash。新库 768 条边中的 `approved` 或 `candidate` 是源库标注，生成器不会因此批量授予角色知识。只有单独审查的 3 条样本被导出为角色可知事实，其中宇宙社会学公理保留为罗辑听闻叶文洁提出的观点。
+## 安装与会话
 
-`prepareDatabaseBundle` 构建任务只校验和复制，不会改写本目录；源 manifest、hash 或预生成索引过期时，构建会失败并要求先运行生成命令。输出固定到 `app/build/generated/databaseAssets/database/`，不会与输入形成循环。APK 校验报告位于 `app/build/reports/database/apk_inventory.json`，核对实际包内文件、hash、旧数据排除和 TTS 音频保留情况。
+启动时先在设备的 staging 目录校验 APK 内的数据包，再整包激活到 `<filesDir>/database/`。相同 fingerprint 的已验证包可复用。同一数据集更新失败时，可以继续使用已验证的旧包，查看 `DatabaseInstallation` 中的 `RETAINED_PREVIOUS` 和实际活动 fingerprint。
 
-启动流程只从 APK 当前数据包复制 manifest 中的受控文件，先在同父目录 staging 校验，再整包激活；不在旧文件上逐个覆盖。相同 fingerprint 在复核已安装文件后复用；同数据集更新失败可保留已验证版本并报告 `RETAINED_PREVIOUS`，不同数据集安装失败不返回旧库句柄。归属不明或修改过的旧包隔离保留，模型、会话和 Memory 不删除。安装状态在 `DatabaseRuntime.installation` 和 `DatabaseInstallation` Logcat 标签中可查。
+归档会话和 Memory 按数据集 ID 和 fingerprint 隔离。自动恢复、摘要和追问还受角色及剧情截止点限制。可从历史记录查看旧会话。更换数据包从仓库根目录生成受控产物并重建 APK。
 
-RAG 模式按当前问题查询本包向量索引，选中资料放入 user 消息。角色模式同样检索本包索引，只有审查事实经当前角色、cutoff 和预算审核后才进入 system；原始长场景不会直接作为角色记忆。旧“世界杯、文档、搜索”等外部路由与小说路径黑名单已经删除，输入这些词不会改变数据根目录。默认每轮检索；诊断向量开关关闭时也不会恢复旧数据源。索引初始化时加载到内存，每轮搜索这个索引，不是每轮执行 SQLite FTS。
-
-完整角色卡按卡内声明的 cutoff 使用；更早回合仅保留基本身份与语气，由已审查事实支撑具体经历。缺时间状态时不把角色卡末场景当作当前任务、情绪或随身物品。原 V2 场景边与未导出的关系仍不自动授权，角色卡中的定向关系只能在卡的有效截止点使用。日志 collection 带 dataset/fingerprint，`databaseStatusCodes` 说明能力限制。
-
-当前会话按 `dataset_id / dataset_fingerprint` 分开保存；重启后只恢复与当前包、角色及 cutoff 匹配的会话。不同包或不同 fingerprint 的历史和 Memory 不会进入当前摘要或追问。缺少包标识的旧会话仍保留，可从“清空对话”对话框进入“查看历史记录”只读查看。切换角色和清空对话保留归档；模型切换不改变数据包身份。
-
-本期换库仍通过修改根 `database/`、生成数据并重新构建 APK 完成，没有设备内导入入口。活动回合持有当前包直到生成、重试和持久化结束；激活请求在这期间会被拒绝，调用方须先取消并等待回合结束。现有向量、角色与 V2 消费者在 fingerprint 变化后失效并重建。Phase 6 已清理可校验的设备旧内置副本；无法确认归属的文件仍保留，但不参与生产检索。旧角色测试 fixture 迁移仍在进行。Phase 5 设备样本与检索证据见 `docs/char_inte_plan/Phase_5_Device_Evidence.md`；其中仍有元叙述和含糊回答，不能将检索通过等同于所有回答质量达标。
-
-原库、角色卡和 story 文件均保留原内容。在线 `V2EpistemicKnowledgeStore` 仅在传入已验证当前包时启用新来源政策；旧合成测试仍使用原 curated 政策。不要把本包导出复制到旧 Harness 目录。
-
-当前包的运行时检索设计为读取 `runtime/android/vector/bge_index.json` 和包内 BGE 模型；源 SQLite 在生成阶段提供向量，不在每轮对话中读取。
-
-当前数据规模：146 个场景、125 个事件、536 条证据事实、2,424 个实体提及和 768 条角色知识边。`knowledge_base_v2/manifest.json` 记录构建参数、数量、cutoff 和校验状态。
-
-## 重新生成
-
-从原始 TXT 构建角色卡、知识库与语义向量的流程位于 [three_body_2_kb_builder/README.md](../three_body_2_kb_builder/README.md)。重建源数据后，应重新审核原文和角色知识映射，再从仓库根目录运行本文件上面的数据包生成与校验命令；源库变更会产生新的 fingerprint，并隔离旧会话。不要直接覆盖设备上的零散文件。
-
-## 校验结果
-
-- 角色卡数量：5
-- SQLite `PRAGMA integrity_check`：`ok`
-- 角色、事件和证据交叉引用：通过
-- 知识库 manifest：`validation.passed = true`
+运行和故障排查见 [RAG 指南](../docs/RAG/RAG_Logic.md)。

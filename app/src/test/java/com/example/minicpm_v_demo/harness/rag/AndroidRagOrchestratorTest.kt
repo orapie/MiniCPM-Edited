@@ -13,6 +13,7 @@ import com.example.minicpm_v_demo.harness.attribution.RawPromptPackage
 import com.example.minicpm_v_demo.harness.attribution.ReferenceAttribution
 import com.example.minicpm_v_demo.harness.attribution.ReferenceDisposition
 import com.example.minicpm_v_demo.harness.character.CharacterPromptDebug
+import com.example.minicpm_v_demo.harness.character.CharacterFollowUpTarget
 import com.example.minicpm_v_demo.harness.data.database.DatabaseBundleHandle
 import com.example.minicpm_v_demo.harness.rag.VectorRetrievalFeatureFlags
 import com.example.minicpm_v_demo.harness.data.database.DatabaseBundleValidator
@@ -91,6 +92,53 @@ class AndroidRagOrchestratorTest {
         assertTrue(system.contains("不从检索片段补充经历"))
         assertEquals(system, fallback.rendered.splitPrompt.systemPrompt)
         assertEquals(system, disabled.rendered.splitPrompt.systemPrompt)
+    }
+
+    @Test fun relationshipFactsFollowTheCutoffAndDirectedTarget() = orchestrator().use { instance ->
+        fun request(question: String, actor: String, cutoff: String, prior: CharacterFollowUpTarget? = null) =
+            instance.compile(question, RagMode.CHARACTER_RAG, actor, cutoff, followUpTarget = prior)
+                .stageLogs.single { it.stage == RagPromptStage.BACKEND_REQUEST }.snapshot!!.userPrompt.orEmpty()
+
+        val trust = "高度信任，依赖其现实判断"
+        val prior = CharacterFollowUpTarget("relevant_relationships", "shi_qiang")
+        assertFalse(request("你怎么看史强？", "luo_ji", "evt-001").contains(trust))
+        assertFalse(request("你怎么看史强？", "luo_ji", "evt-124").contains(trust))
+        assertTrue(request("你怎么看史强？", "luo_ji", "evt-125").contains(trust))
+        assertTrue(request("你和罗辑是什么关系？", "shi_qiang", "evt-118").contains("嘴上调侃，行动上始终可靠"))
+        assertFalse(request("你怎么看东方延绪？", "zhang_beihai", "evt-001").contains("越过其权限"))
+        assertTrue(request("你对东方延绪有什么看法？", "zhang_beihai", "evt-110").contains("越过其权限"))
+        assertFalse(request("你怎么看他？", "luo_ji", "evt-125").contains("本轮角色卡关系事实"))
+        assertTrue(request("你怎么看他？", "luo_ji", "evt-125", prior).contains(trust))
+        assertFalse(request("你怎么看他？", "luo_ji", "evt-001", prior).contains(trust))
+        assertFalse(request("你怎么看庄颜？", "luo_ji", "evt-125", prior).contains(trust))
+    }
+
+    @Test fun relationshipFactsSurviveAttributionWithoutBeingSentToAgentA() {
+        val fact = "高度信任，依赖其现实判断"
+        val rewrite = FakeFinalPromptRewriteService(::validDraft)
+        fun compile(service: FinalPromptRewriteService, format: AgentBPromptFormat) = orchestrator(service).use {
+            it.compile("你怎么看史强？", RagMode.CHARACTER_RAG, "luo_ji", "evt-125", agentBPromptFormat = format)
+        }
+
+        val text = compile(rewrite, AgentBPromptFormat.TEXT)
+        val json = compile(rewrite, AgentBPromptFormat.JSON)
+        val fallback = compile(FakeFinalPromptRewriteService { null }, AgentBPromptFormat.JSON)
+        val disabled = compile(NoopFinalPromptRewriteService, AgentBPromptFormat.TEXT)
+        assertEquals("success", text.attributionTrace?.status)
+        assertEquals(AgentBPromptFormat.JSON, json.attributionTrace?.finalPromptFormat)
+        assertEquals("fallback", fallback.attributionTrace?.status)
+        assertEquals("disabled", disabled.attributionTrace?.status)
+        val agentA = checkNotNull(text.stageLogs.single { it.stage == RagPromptStage.AGENT_A_REQUEST }.snapshot)
+        assertFalse(agentA.userPrompt.orEmpty().contains(fact))
+        assertTrue(agentA.userPrompt.orEmpty().contains("references"))
+        for (result in listOf(text, json, fallback, disabled)) {
+            val request = checkNotNull(result.stageLogs.single { it.stage == RagPromptStage.BACKEND_REQUEST }.snapshot)
+            assertFalse(request.systemPrompt.orEmpty().contains(fact))
+            assertTrue(request.userPrompt.orEmpty().contains(fact))
+            assertTrue(request.userPrompt.orEmpty().contains("three_body_2.txt:L2921"))
+        }
+        val user = SimpleJsonParser(json.rendered.splitPrompt.userPrompt).parse().asJsonObject("backend")
+        assertTrue((user["relationshipContext"] as String).contains(fact))
     }
 
     private fun orchestrator(

@@ -36,13 +36,13 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
 
 /** 提供主模型的选择、下载、加载和删除入口，同时管理独立的归因模型配置。 */
 class ModelManagerActivity : AppCompatActivity() {
 
     private class ModelControls(root: View) {
         val status: TextView = root.findViewById(R.id.tv_model_status)
+        val downloadStatus: TextView = root.findViewById(R.id.tv_download_status)
         val download: MaterialButton = root.findViewById(R.id.btn_download)
         val load: MaterialButton = root.findViewById(R.id.btn_load_model)
         val delete: MaterialButton = root.findViewById(R.id.btn_delete_model)
@@ -51,6 +51,8 @@ class ModelManagerActivity : AppCompatActivity() {
 
     private lateinit var agentA: ModelControls
     private lateinit var agentB: ModelControls
+    private lateinit var agentAAdapter: ModelAdapter
+    private lateinit var agentBAdapter: ModelAdapter
     private lateinit var tabs: TabLayout
     private lateinit var tvLanguageValue: TextView
     private lateinit var switchDoubleAgent: MaterialSwitch
@@ -61,8 +63,7 @@ class ModelManagerActivity : AppCompatActivity() {
     private lateinit var attributionFeatureFlags: AttributionFeatureFlags
     private var updatingAttributionControls = false
     private var fileActionRunning = false
-    private var pendingDownloadId: String? = null
-    private var startingDownloadId: String? = null
+    private val pendingDownloadIds = linkedSetOf<String>()
 
     // Android 13+: POST_NOTIFICATIONS is a runtime permission. We need it
     // for the foreground download service's progress notification (without
@@ -79,8 +80,9 @@ class ModelManagerActivity : AppCompatActivity() {
                     Toast.LENGTH_LONG
                 ).show()
             }
-            pendingDownloadId?.let(::startDownload)
-            pendingDownloadId = null
+            val modelIds = pendingDownloadIds.toList()
+            pendingDownloadIds.clear()
+            modelIds.forEach(harness::startDownloadService)
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -112,7 +114,7 @@ class ModelManagerActivity : AppCompatActivity() {
         attributionEngine = AttributionLlamaEngine.getInstance(applicationContext)
         attributionModelStore = AttributionModelStore(applicationContext)
         attributionFeatureFlags = AttributionFeatureFlags(applicationContext)
-        pendingDownloadId = savedInstanceState?.getString(PENDING_DOWNLOAD_ID)
+        pendingDownloadIds.addAll(savedInstanceState?.getStringArrayList(PENDING_DOWNLOAD_IDS).orEmpty())
 
         setupTabs(savedInstanceState?.getInt(SELECTED_TAB) ?: 0)
         setupModelList()
@@ -135,7 +137,7 @@ class ModelManagerActivity : AppCompatActivity() {
 
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putInt(SELECTED_TAB, tabs.selectedTabPosition)
-        outState.putString(PENDING_DOWNLOAD_ID, pendingDownloadId)
+        outState.putStringArrayList(PENDING_DOWNLOAD_IDS, ArrayList(pendingDownloadIds))
         super.onSaveInstanceState(outState)
     }
 
@@ -161,10 +163,11 @@ class ModelManagerActivity : AppCompatActivity() {
         val models = AttributionModelRegistry.eligibleEntries().map { it.model }
         val list = findViewById<RecyclerView>(R.id.recycler_attribution_models)
         list.layoutManager = LinearLayoutManager(this)
-        list.adapter = ModelAdapter(models, attributionModelStore.getSelectedEntry().model.id) { model ->
+        agentAAdapter = ModelAdapter(models, attributionModelStore.getSelectedEntry().model.id) { model ->
             attributionModelStore.setSelectedModel(model.id)
             updateAttributionControls()
         }.apply { canSelect = { !fileActionRunning } }
+        list.adapter = agentAAdapter
 
         switchDoubleAgent.setOnCheckedChangeListener { _, enabled ->
             if (updatingAttributionControls) return@setOnCheckedChangeListener
@@ -201,7 +204,6 @@ class ModelManagerActivity : AppCompatActivity() {
             }
         }
         updateButtons(agentA, exists, loaded, files.entry.model.id, fileActionRunning)
-        showDownloadProgress(agentA, files.entry.model.id)
 
         if (!exists && attributionFeatureFlags.localAgentAEnabled) {
             attributionFeatureFlags.setLocalAgentAEnabled(false)
@@ -214,7 +216,7 @@ class ModelManagerActivity : AppCompatActivity() {
 
     private fun setupModelList() {
         val selectedModel = harness.getSelectedModel()
-        val modelAdapter = ModelAdapter(
+        agentBAdapter = ModelAdapter(
             models = harness.availableModels(),
             selectedModelId = selectedModel.id,
             onModelSelected = { model ->
@@ -233,10 +235,10 @@ class ModelManagerActivity : AppCompatActivity() {
             }
         )
 
-        modelAdapter.canSelect = { !fileActionRunning && !isAgentBBusy() }
+        agentBAdapter.canSelect = { !fileActionRunning && !isAgentBBusy() }
         val recyclerModels = findViewById<RecyclerView>(R.id.recycler_models)
         recyclerModels.layoutManager = LinearLayoutManager(this)
-        recyclerModels.adapter = modelAdapter
+        recyclerModels.adapter = agentBAdapter
     }
 
     private fun reloadSelectedModel() {
@@ -298,9 +300,6 @@ class ModelManagerActivity : AppCompatActivity() {
                     is LlamaState.ProcessingUserPrompt -> {
                         agentB.status.text = getString(R.string.status_generating)
                     }
-                    is LlamaState.PrefillingImage -> {
-                        agentB.status.text = getString(R.string.status_prefilling_image)
-                    }
                     is LlamaState.Generating -> {
                         agentB.status.text = getString(R.string.status_generating)
                     }
@@ -320,7 +319,7 @@ class ModelManagerActivity : AppCompatActivity() {
     private fun isAgentBBusy(): Boolean = when (harness.state.value) {
         LlamaState.Uninitialized, LlamaState.Initializing, LlamaState.LoadingModel, LlamaState.UnloadingModel,
         LlamaState.ProcessingSystemPrompt, LlamaState.ProcessingUserPrompt,
-        LlamaState.PrefillingImage, LlamaState.Generating -> true
+        LlamaState.Generating -> true
         else -> false
     }
 
@@ -333,17 +332,20 @@ class ModelManagerActivity : AppCompatActivity() {
             model.id,
             fileActionRunning || isAgentBBusy(),
         )
-        showDownloadProgress(agentB, model.id)
     }
 
     private fun updateButtons(controls: ModelControls, exists: Boolean, loaded: Boolean, modelId: String, busy: Boolean) {
-        val downloadInProgress = startingDownloadId != null || ModelDownloadController.isRunning
-        val downloadingModel = startingDownloadId == modelId ||
-            (ModelDownloadController.status.value as? ModelDownloadController.Status.Running)?.modelId == modelId
-        controls.download.isEnabled = !busy && !downloadInProgress
-        controls.load.isEnabled = exists && !busy && !downloadingModel
+        val download = ModelDownloadController.statuses.value[modelId] as? ModelDownloadController.Status.Active
+        val canCancel = download is ModelDownloadController.Status.Running
+        controls.download.setText(if (download == null) R.string.download else R.string.cancel_download)
+        controls.download.isEnabled = canCancel || (!busy && !exists && download == null)
+        controls.load.isEnabled = exists && !busy && download == null
         controls.delete.isVisible = exists
-        controls.delete.isEnabled = !busy && !downloadingModel
+        controls.delete.isEnabled = !busy && download == null
+        controls.progress.isVisible = download != null
+        controls.status.isVisible = download == null
+        controls.downloadStatus.isVisible = download != null
+        controls.downloadStatus.text = download?.message(this)
         controls.load.setText(when {
             exists && loaded -> R.string.reload_model
             exists -> R.string.load_model
@@ -352,88 +354,70 @@ class ModelManagerActivity : AppCompatActivity() {
     }
 
     private fun onDownloadClicked(model: ModelInfo) {
-        if (ModelDownloadController.isRunning || startingDownloadId != null) {
-            Toast.makeText(this, R.string.toast_downloading, Toast.LENGTH_SHORT).show()
-            return
+        when (ModelDownloadController.statuses.value[model.id]) {
+            is ModelDownloadController.Status.Running -> {
+                harness.cancelDownloadService(model.id)
+                return
+            }
+            is ModelDownloadController.Status.Active -> return
+            else -> Unit
         }
-        val downloaded = if (model.id == harness.getSelectedModel().id) harness.isSelectedModelDownloaded()
-            else attributionModelStore.isSelectedModelDownloaded()
-        if (downloaded) {
-            Toast.makeText(this, R.string.toast_already_downloaded, Toast.LENGTH_SHORT).show()
+        if (LlamaEngine.modelFile(this, model).isFile) {
+            refreshInstalledModels()
+            updateLoadButtonState()
+            updateAttributionControls()
             return
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
             != PackageManager.PERMISSION_GRANTED
         ) {
-            pendingDownloadId = model.id
-            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            val requestPermission = pendingDownloadIds.isEmpty()
+            pendingDownloadIds += model.id
+            if (requestPermission) notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else {
-            startDownload(model.id)
+            harness.startDownloadService(model.id)
         }
     }
 
-    private fun startDownload(modelId: String) {
-        if (ModelDownloadController.isRunning || startingDownloadId != null) return
-        startingDownloadId = modelId
+    override fun onResume() {
+        super.onResume()
+        refreshInstalledModels()
         updateLoadButtonState()
         updateAttributionControls()
-        try {
-            harness.startDownloadService(modelId)
-        } catch (error: Exception) {
-            startingDownloadId = null
-            updateLoadButtonState()
-            updateAttributionControls()
-            Toast.makeText(this, getString(R.string.download_failed, error.message), Toast.LENGTH_LONG).show()
-        }
     }
 
-    private fun showDownloadProgress(controls: ModelControls, modelId: String) {
-        val running = ModelDownloadController.status.value as? ModelDownloadController.Status.Running
-        val downloading = startingDownloadId == modelId || running?.modelId == modelId
-        controls.progress.isVisible = downloading
-        if (downloading) {
-            controls.status.text = running?.message?.ifBlank { null } ?: getString(R.string.status_downloading)
-        }
+    private fun refreshInstalledModels() {
+        val installedIds = harness.availableModels()
+            .filter { LlamaEngine.modelFile(this, it).isFile }
+            .mapTo(mutableSetOf(), ModelInfo::id)
+        agentAAdapter.updateInstalledModels(installedIds)
+        agentBAdapter.updateInstalledModels(installedIds)
     }
 
     private fun observeDownloadStatus() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                ModelDownloadController.status.collect { status ->
-                    if (status !is ModelDownloadController.Status.Idle) startingDownloadId = null
-                    val matchingControls = buildList {
-                        if (status.modelId == harness.getSelectedModel().id) add(agentB)
-                        if (status.modelId == attributionModelStore.getSelectedEntry().model.id) add(agentA)
-                    }
+                ModelDownloadController.statuses.collect { statuses ->
+                    if (ModelDownloadController.Status.Completed in statuses.values) refreshInstalledModels()
                     updateLoadButtonState()
                     updateAttributionControls()
-                    val message = when (status) {
-                        is ModelDownloadController.Status.Completed -> getString(R.string.download_complete_status)
-                        is ModelDownloadController.Status.Cancelled -> getString(R.string.download_cancelled)
-                        is ModelDownloadController.Status.Failed -> getString(R.string.download_failed, status.message)
-                        else -> null
-                    }
-                    if (message != null) {
-                        matchingControls.forEach { it.status.text = message }
-                        Toast.makeText(this@ModelManagerActivity, message, Toast.LENGTH_SHORT).show()
-                        ModelDownloadController.acknowledge()
+                    statuses.forEach { (modelId, status) ->
+                        if (status is ModelDownloadController.Status.Finished) {
+                            val modelName = harness.availableModels().find { it.id == modelId }?.displayName ?: modelId
+                            val message = getString(R.string.download_model_message, modelName, status.message(this@ModelManagerActivity))
+                            Toast.makeText(this@ModelManagerActivity, message, Toast.LENGTH_SHORT).show()
+                            ModelDownloadController.acknowledge(modelId, status)
+                        }
                     }
                 }
             }
         }
     }
 
-    /** 聊天模型在这里卸载旧模型并加载所选文件。语音模型则由语音合成页面按需加载。 */
+    /** 卸载旧模型并加载选中的文本模型。 */
     private fun loadSelectedModel() {
         val model = harness.getSelectedModel()
-        // TTS models are loaded on-demand by TtsActivity, not via LlamaEngine.
-        if (model.isTts) {
-            harness.markModelSwitched()
-            finish() // return to parent; MainActivity will redirect
-            return
-        }
-
         val currentState = harness.state.value
         if (currentState is LlamaState.LoadingModel) {
             Toast.makeText(this, R.string.toast_already_loading, Toast.LENGTH_SHORT).show()
@@ -481,7 +465,7 @@ class ModelManagerActivity : AppCompatActivity() {
     }
 
     private fun confirmDeleteModel(model: ModelInfo, isAgentA: Boolean) {
-        val shared = model.isTextOnly && AttributionModelRegistry.findEligibleEntry(model.id) != null &&
+        val shared = AttributionModelRegistry.findEligibleEntry(model.id) != null &&
             harness.availableModels().any { it.id == model.id }
         val names = if (isAgentA) listOf(model.ggufFileName) else harness.selectedModelArtifactNames()
         val fileList = names.joinToString(separator = "\n") { "• $it" }
@@ -497,12 +481,14 @@ class ModelManagerActivity : AppCompatActivity() {
 
     private fun deleteModelFiles(model: ModelInfo, isAgentA: Boolean, shared: Boolean) {
         val controls = if (isAgentA) agentA else agentB
-        if (fileActionRunning || (shared && harness.getSelectedModel().id == model.id && isAgentBBusy())) return
+        if (fileActionRunning || ModelDownloadController.statuses.value[model.id] is ModelDownloadController.Status.Active ||
+            (shared && harness.getSelectedModel().id == model.id && isAgentBBusy())
+        ) return
         runFileAction(controls, R.string.status_unloading, R.string.toast_delete_failed) {
             val deleted = withContext(Dispatchers.IO) {
                 if (shared && harness.getSelectedModel().id == model.id) harness.unloadModel()
                 if (isAgentA || shared) {
-                    val file = File(LlamaEngine.modelDirFor(applicationContext, model), model.ggufFileName)
+                    val file = LlamaEngine.modelFile(applicationContext, model)
                     attributionEngine.deleteModelFile(file)
                 } else {
                     harness.deleteSelectedModelFiles()
@@ -529,6 +515,7 @@ class ModelManagerActivity : AppCompatActivity() {
                 Toast.makeText(this@ModelManagerActivity, getString(errorMessage, error.message), Toast.LENGTH_LONG).show()
             } finally {
                 fileActionRunning = false
+                refreshInstalledModels()
                 updateLoadButtonState()
                 updateAttributionControls()
             }
@@ -559,7 +546,7 @@ class ModelManagerActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val PENDING_DOWNLOAD_ID = "pending_download_id"
+        private const val PENDING_DOWNLOAD_IDS = "pending_download_ids"
         private const val SELECTED_TAB = "selected_tab"
         private val TAG = ModelManagerActivity::class.java.simpleName
     }

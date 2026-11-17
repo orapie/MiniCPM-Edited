@@ -39,7 +39,6 @@ class AttributionLlamaEngine private constructor(context: Context) {
     }
 
     private fun loadTextModelOnDispatcher(model: ModelInfo, modelFile: File, reload: Boolean) {
-        require(model.isTextOnly) { "attribution_model_must_be_text_only" }
         require(modelFile.isFile && modelFile.canRead()) { "attribution_gguf_unavailable" }
         ensureInitialized()
         if (!reload && _loadedModelPath.value == modelFile.absolutePath) return

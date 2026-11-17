@@ -39,7 +39,7 @@ class AttributionModelStore(context: Context) {
     /** 按独立的 Agent A 选择解析 GGUF 路径，供下载状态检查和归因引擎使用。 */
     fun getSelectedModelFiles(): AttributionModelFiles {
         val entry = getSelectedEntry()
-        val path = File(LlamaEngine.modelDirFor(appContext, entry.model), entry.model.ggufFileName)
+        val path = LlamaEngine.modelFile(appContext, entry.model)
         return AttributionModelFiles(entry, path)
     }
 

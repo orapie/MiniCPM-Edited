@@ -156,8 +156,8 @@ class DatabaseRetrievalScenarios(val bundle: DatabaseBundleHandle, private val t
     fun directedCardRelationsRespectCardCutoff() {
         val early = compile("你怎么看史强？")
         val current = compile("你怎么看史强？", "evt-125")
-        assertFalse(early.rendered.splitPrompt.systemPrompt.contains("高度信任"))
-        assertTrue(current.rendered.splitPrompt.systemPrompt.contains("高度信任"))
+        assertFalse(early.renderedPrompt.contains("高度信任，依赖其现实判断"))
+        assertTrue(current.rendered.splitPrompt.userPrompt.contains("高度信任，依赖其现实判断"))
         assertTrue((current.characterDebug as CharacterPromptDebug).selectedItems.any { it.kind == "relevant_relationships" })
     }
 

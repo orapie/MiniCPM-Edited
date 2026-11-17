@@ -307,7 +307,8 @@ object DatabaseBundleValidator {
                 edge.stringValue("character_id"), edge.number("acquired_sequence").toLong(),
                 edge.stringValue("acquisition_method"))
         }
-        return ValidatedDatabaseBundle(paths, manifest, characterIds.toSet(), cutoffs, authorized, parentIds.size, parentIds.toSet())
+        return ValidatedDatabaseBundle(paths, manifest, characterIds.toSet(), cutoffs, authorized,
+            parentIds.size, parentIds.toSet(), documents.mapValues { (_, lines) -> lines.size })
     }
 
     private fun validateExportIdentity(
@@ -360,6 +361,7 @@ data class ValidatedDatabaseBundle(
     val authorizedFacts: List<DatabaseAuthorizedFact>,
     val candidateFactCount: Int,
     val candidateFactIds: Set<String> = emptySet(),
+    val sourceLineCounts: Map<String, Int> = emptyMap(),
 ) {
     val authorizedFactCount: Int get() = authorizedFacts.size
 

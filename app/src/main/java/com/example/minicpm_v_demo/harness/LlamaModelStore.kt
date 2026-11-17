@@ -7,8 +7,7 @@ import java.io.File
 
 data class HarnessModelAvailability(
     val model: ModelInfo,
-    val ggufMissing: Boolean,
-    val supportArtifactMissing: Boolean
+    val ggufMissing: Boolean
 )
 
 data class LlamaModelFiles(
@@ -36,19 +35,13 @@ class LlamaModelStore(private val context: Context) {
 
     fun consumeModelSwitched(): Boolean = LlamaEngine.consumeModelSwitched(context)
 
-    fun getImageMaxSliceNums(): Int = LlamaEngine.getImageMaxSliceNums(context)
-
     fun getSelectedModelSpec(): HarnessModelSpec =
         HarnessModelRegistry.findSpec(getSelectedModel().id) ?: HarnessModelRegistry.defaultEntry.spec
 
     fun getSelectedModelFiles(): LlamaModelFiles {
         val model = getSelectedModel()
         val spec = getSelectedModelSpec()
-        val artifactFiles = buildMap {
-            put("llm", File(LlamaEngine.modelPath(context)))
-            LlamaEngine.mmprojPath(context)?.let { put("vision_projector", File(it)) }
-            LlamaEngine.acousticPath(context)?.let { put("acoustic", File(it)) }
-        }
+        val artifactFiles = mapOf("llm" to LlamaEngine.modelFile(context, model))
         return LlamaModelFiles(
             model = model,
             spec = spec,
@@ -56,25 +49,18 @@ class LlamaModelStore(private val context: Context) {
         )
     }
 
-    /** 分别检查所选模型要求的文件，供界面判断是否可以加载。 */
+    /** 检查所选文本模型的 GGUF 文件是否可加载。 */
     fun getSelectedModelAvailability(): HarnessModelAvailability {
         val files = getSelectedModelFiles()
-        val ggufMissing = files.artifactFiles["llm"]?.exists() != true
-        val supportArtifactMissing = files.spec.artifacts
-            .filter { it.required && it.id != "llm" }
-            .any { artifact -> files.artifactFiles[artifact.id]?.exists() != true }
-        return HarnessModelAvailability(
-            model = files.model,
-            ggufMissing = ggufMissing,
-            supportArtifactMissing = supportArtifactMissing
-        )
+        val ggufMissing = files.artifactFiles["llm"]?.isFile != true
+        return HarnessModelAvailability(model = files.model, ggufMissing = ggufMissing)
     }
 
     fun isSelectedModelDownloaded(): Boolean {
         val files = getSelectedModelFiles()
         val requiredArtifacts = files.spec.artifacts.filter { it.required }
         return requiredArtifacts.all { artifact ->
-            files.artifactFiles[artifact.id]?.exists() == true
+            files.artifactFiles[artifact.id]?.isFile == true
         }
     }
 

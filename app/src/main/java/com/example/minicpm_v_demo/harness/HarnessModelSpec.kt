@@ -4,25 +4,18 @@ import com.example.minicpm_v_demo.LlamaEngine
 import com.example.minicpm_v_demo.ModelInfo
 
 enum class HarnessCapability {
-    TEXT,
-    VISION,
-    VIDEO,
-    TTS
+    TEXT
 }
 
 enum class HarnessModelFamily {
-    MINICPM_VISION,
     MINICPM_TEXT,
-    VOXCPM2,
     LLAMA,
     QWEN,
     OTHER
 }
 
 enum class HarnessDownloadSourceType {
-    HUGGING_FACE,
-    MODELSCOPE,
-    DIRECT
+    MODELSCOPE
 }
 
 data class HarnessArtifact(
@@ -45,7 +38,6 @@ data class HarnessDownloadSource(
 data class HarnessRuntimeHints(
     val defaultPredictLength: Int = LlamaEngine.DEFAULT_PREDICT_LENGTH,
     val recommendedThreads: Int = 4,
-    val defaultImageMaxSliceNums: Int? = null,
     val contextSize: Int? = null,
     val supportsSystemPrompt: Boolean = true
 )
@@ -61,174 +53,27 @@ data class HarnessModelSpec(
     val runtimeHints: HarnessRuntimeHints
 )
 
-/** 从既有模型配置派生能力、文件和下载来源，让 Harness 读取同一套模型信息。 */
-fun ModelInfo.toHarnessSpec(): HarnessModelSpec {
-    val capabilities = linkedSetOf(HarnessCapability.TEXT)
-    if (mmprojFileName != null) {
-        capabilities += HarnessCapability.VISION
-        if (id == "minicpm-v-4_6-instruct") {
-            capabilities += HarnessCapability.VIDEO
-        }
-    }
-    if (isTts) {
-        capabilities += HarnessCapability.TTS
-    }
-
-    val artifacts = buildList {
-        add(
-            HarnessArtifact(
-                id = "llm",
-                fileName = ggufFileName,
-                remotePath = ggufRemotePath,
-                md5 = ggufMd5
-            )
+/** 用同一份模型配置描述文本能力、权重文件和下载来源。 */
+fun ModelInfo.toHarnessSpec(): HarnessModelSpec = HarnessModelSpec(
+    id = id,
+    displayName = displayName,
+    family = when {
+        id.startsWith("minicpm5") -> HarnessModelFamily.MINICPM_TEXT
+        id.startsWith("llama") -> HarnessModelFamily.LLAMA
+        id.startsWith("qwen") -> HarnessModelFamily.QWEN
+        else -> HarnessModelFamily.OTHER
+    },
+    capabilities = setOf(HarnessCapability.TEXT),
+    artifacts = listOf(HarnessArtifact(id = "llm", fileName = ggufFileName, remotePath = ggufFileName)),
+    downloadSources = listOf(
+        HarnessDownloadSource(
+            artifactId = "llm",
+            type = HarnessDownloadSourceType.MODELSCOPE,
+            repo = msRepo,
+            branch = ModelInfo.MODELSCOPE_BRANCH,
+            remotePath = ggufFileName,
+            url = downloadUrl,
         )
-        mmprojFileName?.let {
-            add(
-                HarnessArtifact(
-                    id = "vision_projector",
-                    fileName = it,
-                    remotePath = mmprojRemotePath,
-                    md5 = mmprojMd5
-                )
-            )
-        }
-        acousticFileName?.let {
-            add(
-                HarnessArtifact(
-                    id = "acoustic",
-                    fileName = it,
-                    remotePath = acousticRemotePath,
-                    md5 = acousticMd5
-                )
-            )
-        }
-    }
-
-    val downloadSources = buildList {
-        if (!hfRepo.isNullOrBlank()) {
-            add(
-                HarnessDownloadSource(
-                    artifactId = "llm",
-                    type = HarnessDownloadSourceType.HUGGING_FACE,
-                    repo = hfRepo,
-                    branch = hfBranch,
-                    remotePath = ggufRemotePath
-                )
-            )
-            mmprojRemotePath?.let {
-                add(
-                    HarnessDownloadSource(
-                        artifactId = "vision_projector",
-                        type = HarnessDownloadSourceType.HUGGING_FACE,
-                        repo = hfRepo,
-                        branch = hfBranch,
-                        remotePath = it
-                    )
-                )
-            }
-            acousticRemotePath?.let {
-                add(
-                    HarnessDownloadSource(
-                        artifactId = "acoustic",
-                        type = HarnessDownloadSourceType.HUGGING_FACE,
-                        repo = hfRepo,
-                        branch = hfBranch,
-                        remotePath = it
-                    )
-                )
-            }
-        }
-        if (!msRepo.isNullOrBlank()) {
-            add(
-                HarnessDownloadSource(
-                    artifactId = "llm",
-                    type = HarnessDownloadSourceType.MODELSCOPE,
-                    repo = msRepo,
-                    branch = msBranch,
-                    remotePath = ggufRemotePath
-                )
-            )
-            mmprojRemotePath?.let {
-                add(
-                    HarnessDownloadSource(
-                        artifactId = "vision_projector",
-                        type = HarnessDownloadSourceType.MODELSCOPE,
-                        repo = msRepo,
-                        branch = msBranch,
-                        remotePath = it
-                    )
-                )
-            }
-            acousticRemotePath?.let {
-                add(
-                    HarnessDownloadSource(
-                        artifactId = "acoustic",
-                        type = HarnessDownloadSourceType.MODELSCOPE,
-                        repo = msRepo,
-                        branch = msBranch,
-                        remotePath = it
-                    )
-                )
-            }
-        }
-        directGgufUrl?.let {
-            add(
-                HarnessDownloadSource(
-                    artifactId = "llm",
-                    type = HarnessDownloadSourceType.DIRECT,
-                    url = it
-                )
-            )
-        }
-        directMmprojUrl?.let {
-            add(
-                HarnessDownloadSource(
-                    artifactId = "vision_projector",
-                    type = HarnessDownloadSourceType.DIRECT,
-                    url = it
-                )
-            )
-        }
-        directAcousticUrl?.let {
-            add(
-                HarnessDownloadSource(
-                    artifactId = "acoustic",
-                    type = HarnessDownloadSourceType.DIRECT,
-                    url = it
-                )
-            )
-        }
-    }
-
-    return HarnessModelSpec(
-        id = id,
-        displayName = displayName,
-        family = inferHarnessModelFamily(),
-        capabilities = capabilities,
-        artifacts = artifacts,
-        downloadSources = downloadSources,
-        runtimeHints = inferRuntimeHints()
-    )
-}
-
-private fun ModelInfo.inferHarnessModelFamily(): HarnessModelFamily = when {
-    isTts -> HarnessModelFamily.VOXCPM2
-    id.startsWith("minicpm-v") -> HarnessModelFamily.MINICPM_VISION
-    id.startsWith("minicpm5") -> HarnessModelFamily.MINICPM_TEXT
-    id.startsWith("llama") -> HarnessModelFamily.LLAMA
-    id.startsWith("qwen") -> HarnessModelFamily.QWEN
-    else -> HarnessModelFamily.OTHER
-}
-
-private fun ModelInfo.inferRuntimeHints(): HarnessRuntimeHints = when {
-    id == "minicpm-v-4_6-instruct" -> HarnessRuntimeHints(
-        defaultImageMaxSliceNums = LlamaEngine.DEFAULT_IMAGE_SLICE,
-        contextSize = 8192
-    )
-    mmprojFileName != null -> HarnessRuntimeHints(
-        defaultImageMaxSliceNums = LlamaEngine.DEFAULT_IMAGE_SLICE,
-        contextSize = 4096
-    )
-    else -> HarnessRuntimeHints(contextSize = 4096)
-}
+    ),
+    runtimeHints = HarnessRuntimeHints(contextSize = 4096),
+)

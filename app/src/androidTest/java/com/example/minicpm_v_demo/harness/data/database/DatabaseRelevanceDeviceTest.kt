@@ -6,7 +6,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.example.minicpm_v_demo.LlamaEngine
 import com.example.minicpm_v_demo.LlamaState
 import com.example.minicpm_v_demo.harness.HarnessChatRequest
-import com.example.minicpm_v_demo.harness.HarnessModelFamily
+import com.example.minicpm_v_demo.harness.toHarnessSpec
 import com.example.minicpm_v_demo.harness.LlamaBackendAdapter
 import com.example.minicpm_v_demo.harness.character.*
 import com.example.minicpm_v_demo.harness.rag.AndroidRagOrchestrator
@@ -30,10 +30,8 @@ class DatabaseRelevanceDeviceTest {
         assertTrue("Database startup timed out", AssetBootstrapper.awaitStartup(120_000))
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val model = LlamaEngine.getSelectedModel(context)
-        assumeTrue("This diagnostic uses the already-selected V4.6 model", model.id == "minicpm-v-4_6-instruct")
         val weights = File(LlamaEngine.modelDirFor(context, model), model.ggufFileName)
-        val projector = model.mmprojFileName?.let { File(LlamaEngine.modelDirFor(context, model), it) }
-        assumeTrue("Selected model files must already be present", weights.isFile && (projector == null || projector.isFile))
+        assumeTrue("Selected model files must already be present", weights.isFile)
         val engine = LlamaEngine.getInstance(context)
         val initial = withTimeout(30_000) { engine.state.filter {
             it is LlamaState.Initialized || it is LlamaState.ModelReady || it is LlamaState.Error
@@ -43,7 +41,7 @@ class DatabaseRelevanceDeviceTest {
         val runId = java.util.UUID.randomUUID().toString()
         Log.i("RagQualityDevice", "RUN $runId")
         try {
-            if (didLoad) engine.loadModel(weights.absolutePath, projector?.absolutePath)
+            if (didLoad) engine.loadModel(weights.absolutePath)
             check(engine.state.value is LlamaState.ModelReady)
             val backend = LlamaBackendAdapter(context)
             val orch = AndroidRagOrchestrator.fromContext(context)
@@ -56,7 +54,7 @@ class DatabaseRelevanceDeviceTest {
             for (case in cases) {
                 val start = System.nanoTime()
                 val compiled = orch.compile(case.query, RagMode.CHARACTER_RAG, case.character, case.cutoff,
-                    modelFamily = HarnessModelFamily.MINICPM_VISION)
+                    modelFamily = model.toHarnessSpec().family)
                 val compileMs = (System.nanoTime() - start) / 1_000_000
                 val debug = compiled.characterDebug as CharacterPromptDebug
                 val gate = RoleplayAnswerabilityGate.evaluate(debug, case.query)

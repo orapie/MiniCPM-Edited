@@ -66,8 +66,7 @@ if(NOT DEFINED LLAMA_INSTALL_VERSION)
 endif()
 
 add_library(${CMAKE_PROJECT_NAME} SHARED
-        llama_jni.cpp
-        omni_jni.cpp)
+        llama_jni.cpp)
 
 # Agent A uses a separately loaded JNI DSO. The source is intentionally the
 # same llama bridge with renamed JNI entry points, which isolates its static
@@ -92,9 +91,6 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
         ${LLAMA_SRC}/include
         ${LLAMA_SRC}/ggml/include
         ${LLAMA_SRC}/ggml/src
-        ${LLAMA_SRC}/tools/mtmd
-        ${LLAMA_SRC}/tools/omni
-        ${LLAMA_SRC}/tools/omni/voxcpm2
         # llama-common/peg-parser pulls in <nlohmann/json_fwd.hpp> via chat.h.
         # The vendored nlohmann headers live under llama.cpp-omni/vendor.
         ${LLAMA_SRC}/vendor)
@@ -104,19 +100,21 @@ target_include_directories(minicpm_attribution PRIVATE
         ${LLAMA_SRC}/include
         ${LLAMA_SRC}/ggml/include
         ${LLAMA_SRC}/ggml/src
-        ${LLAMA_SRC}/tools/mtmd
         ${LLAMA_SRC}/vendor)
 
 target_link_libraries(${CMAKE_PROJECT_NAME}
         llama
         llama-common
-        mtmd
-        voxcpm2_runtime
         android
         log)
 target_link_libraries(minicpm_attribution
         llama
         llama-common
-        mtmd
         android
         log)
+
+# Declare OpenMP on the JNI targets so Android Gradle packages it alongside ggml.
+if(ANDROID AND OpenMP_omp_LIBRARY)
+    target_link_libraries(${CMAKE_PROJECT_NAME} "${OpenMP_omp_LIBRARY}")
+    target_link_libraries(minicpm_attribution "${OpenMP_omp_LIBRARY}")
+endif()

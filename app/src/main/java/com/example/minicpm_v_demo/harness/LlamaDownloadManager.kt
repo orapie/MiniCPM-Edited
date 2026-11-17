@@ -16,7 +16,7 @@ class LlamaDownloadManager(private val context: Context) {
         ModelDownloadService.start(context, modelId)
     }
 
-    fun cancelForegroundDownload() {
-        ModelDownloadService.cancel(context)
+    fun cancelForegroundDownload(modelId: String) {
+        ModelDownloadService.cancel(context, modelId)
     }
 }

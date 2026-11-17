@@ -90,7 +90,7 @@ class CharacterQueryAnalyzer {
         }
 
         val definitionQuestion = definitionSignals.any { it in userInput } && !isIdentity
-        val relationshipQuestion = !definitionQuestion &&
+        val relationshipQuestion = (!definitionQuestion || (hasNamedTarget && "关系" in userInput)) &&
             (relationshipSignals.any { it in userInput } || (hasNamedTarget && attitudeSignals.any { it in userInput }))
         if (relationshipQuestion) {
             intents += CharacterQueryIntent.RELATIONSHIP

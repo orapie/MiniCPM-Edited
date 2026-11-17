@@ -19,6 +19,7 @@ data class RawPromptPackage(
     val userQuestion: String,
     val conversationContext: CompressedConversationContext,
     val references: List<CompiledReference>,
+    val relationshipContext: String = "",
 ) {
     init {
         require(schemaVersion == SCHEMA_VERSION) { "unsupported_raw_prompt_schema" }
@@ -38,6 +39,7 @@ data class RawPromptPackage(
                 append(userQuestion).append('\u0000')
                 append(conversationContext.text).append('\u0000')
                 references.forEach { reference -> append(reference.id).append('\u0000').append(reference.text).append('\u0000') }
+                if (relationshipContext.isNotEmpty()) append(relationshipContext).append('\u0000')
             },
         )
 
@@ -157,7 +159,9 @@ class FinalPromptMaterializer(
                 )
             },
             "question" to raw.userQuestion,
-        ), escapeTokenDelimiters = true)
+        ).apply {
+            if (raw.relationshipContext.isNotEmpty()) put("relationshipContext", raw.relationshipContext)
+        }, escapeTokenDelimiters = true)
 
     private fun materializeText(
         raw: RawPromptPackage,
@@ -171,6 +175,7 @@ class FinalPromptMaterializer(
             if (!raw.conversationContext.isEmpty) add(
                 "$CONTEXT_USAGE：\n" + raw.conversationContext.text,
             )
+            if (raw.relationshipContext.isNotEmpty()) add(raw.relationshipContext)
             if (referenceBlocks.isNotEmpty()) add(
                 "$REFERENCE_USAGE：\n" + referenceBlocks.joinToString("\n\n"),
             )

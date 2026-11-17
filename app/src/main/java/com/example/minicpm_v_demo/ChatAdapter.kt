@@ -1,16 +1,13 @@
 package com.example.minicpm_v_demo
 
-import android.graphics.Bitmap
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
-import com.google.android.material.progressindicator.LinearProgressIndicator
 import io.noties.markwon.Markwon
 
 /** 将用户消息、助手回复和欢迎卡片绑定到聊天列表。生成中的回复使用独立更新路径，避免每个片段都重新提交列表。 */
@@ -101,7 +98,7 @@ class ChatAdapter(
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         when (val item = getItem(position)) {
-            is ChatMessage.WelcomeCard -> (holder as WelcomeViewHolder).bind(item)
+            is ChatMessage.WelcomeCard -> (holder as WelcomeViewHolder).bind()
             is ChatMessage.UserMessage -> (holder as UserMessageViewHolder).bind(item)
             is ChatMessage.AiMessage -> {
                 val aiHolder = holder as AiMessageViewHolder
@@ -120,28 +117,10 @@ class ChatAdapter(
     }
 
     inner class WelcomeViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        private val tvWelcomeTitle: TextView = itemView.findViewById(R.id.tv_welcome_title)
-        private val tvWelcomeDesc: TextView = itemView.findViewById(R.id.tv_welcome_desc)
         private val btnSuggestion1: MaterialButton = itemView.findViewById(R.id.btn_suggestion_1)
         private val btnSuggestion2: MaterialButton = itemView.findViewById(R.id.btn_suggestion_2)
 
-        fun bind(item: ChatMessage.WelcomeCard) {
-            val ctx = itemView.context
-            if (item.isTextOnly) {
-                tvWelcomeTitle.setText(R.string.welcome_title_text)
-                tvWelcomeDesc.setText(R.string.welcome_desc_text)
-                btnSuggestion1.setText(R.string.suggestion_1_text)
-                btnSuggestion2.setText(R.string.suggestion_2_text)
-                btnSuggestion1.setIconResource(R.drawable.ic_lightbulb)
-                btnSuggestion2.setIconResource(R.drawable.ic_lightbulb)
-            } else {
-                tvWelcomeTitle.setText(R.string.welcome_title)
-                tvWelcomeDesc.setText(R.string.welcome_desc)
-                btnSuggestion1.setText(R.string.suggestion_1)
-                btnSuggestion2.setText(R.string.suggestion_2)
-                btnSuggestion1.setIconResource(R.drawable.ic_lightbulb)
-                btnSuggestion2.setIconResource(R.drawable.ic_image)
-            }
+        fun bind() {
             val s1 = btnSuggestion1.text.toString()
             val s2 = btnSuggestion2.text.toString()
             btnSuggestion1.setOnClickListener { onSuggestionClick?.invoke(s1) }
@@ -151,29 +130,8 @@ class ChatAdapter(
 
     inner class UserMessageViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val tvText: TextView = itemView.findViewById(R.id.tv_user_text)
-        private val flImageContainer: View = itemView.findViewById(R.id.fl_user_image_container)
-        private val ivImage: ImageView = itemView.findViewById(R.id.iv_user_image)
-        private val ivVideoBadge: ImageView = itemView.findViewById(R.id.iv_video_play_badge)
-        private val tvImageInfo: TextView = itemView.findViewById(R.id.tv_image_info)
-        private val progressImage: LinearProgressIndicator = itemView.findViewById(R.id.progress_image)
-
         fun bind(item: ChatMessage.UserMessage) {
             tvText.text = item.text
-            tvText.visibility = if (item.text.isNotBlank()) View.VISIBLE else View.GONE
-
-            if (item.imageBitmap != null) {
-                ivImage.setImageBitmap(item.imageBitmap)
-                flImageContainer.visibility = View.VISIBLE
-                ivVideoBadge.visibility = if (item.isVideo) View.VISIBLE else View.GONE
-                tvImageInfo.visibility = View.VISIBLE
-                tvImageInfo.text = item.imageInfo ?: ""
-                progressImage.visibility = if (item.isPrefilling) View.VISIBLE else View.GONE
-            } else {
-                flImageContainer.visibility = View.GONE
-                ivVideoBadge.visibility = View.GONE
-                tvImageInfo.visibility = View.GONE
-                progressImage.visibility = View.GONE
-            }
         }
     }
 
@@ -301,11 +259,7 @@ class ChatAdapter(
         override fun areContentsTheSame(oldItem: ChatMessage, newItem: ChatMessage): Boolean {
             return when {
                 oldItem is ChatMessage.UserMessage && newItem is ChatMessage.UserMessage ->
-                    oldItem.text == newItem.text &&
-                            oldItem.imageBitmap == newItem.imageBitmap &&
-                            oldItem.imageInfo == newItem.imageInfo &&
-                            oldItem.isPrefilling == newItem.isPrefilling &&
-                            oldItem.isVideo == newItem.isVideo
+                    oldItem.text == newItem.text
                 oldItem is ChatMessage.AiMessage && newItem is ChatMessage.AiMessage ->
                     oldItem.isGenerating == newItem.isGenerating &&
                             (oldItem.isGenerating || oldItem.text == newItem.text) &&
@@ -313,8 +267,7 @@ class ChatAdapter(
                             oldItem.sources == newItem.sources &&
                             oldItem.debugPrompt == newItem.debugPrompt &&
                             oldItem.debugTrace == newItem.debugTrace
-                oldItem is ChatMessage.WelcomeCard && newItem is ChatMessage.WelcomeCard ->
-                    oldItem.isTextOnly == newItem.isTextOnly
+                oldItem is ChatMessage.WelcomeCard && newItem is ChatMessage.WelcomeCard -> true
                 else -> false
             }
         }

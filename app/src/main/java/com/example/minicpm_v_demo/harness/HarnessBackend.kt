@@ -25,26 +25,18 @@ data class HarnessChatRequest(
     }
 }
 
-/** 应用层与推理实现之间的契约。统一模型生命周期、媒体预填充、生成流和取消操作。 */
+/** 应用层与推理实现之间的契约。统一模型生命周期、生成流和取消操作。 */
 interface HarnessBackend {
     companion object {
         private const val TAG = "HarnessBackend"
     }
 
     val state: StateFlow<LlamaState>
-    val isVisionSupported: Boolean
-    val isVideoUnderstandingSupported: Boolean
 
-    suspend fun loadModel(modelPath: String, mmprojPath: String? = null)
+    suspend fun loadModel(modelPath: String)
     suspend fun unloadModel()
-    suspend fun prefillImage(imageData: ByteArray)
-    suspend fun prefillVideoFrames(
-        frames: List<ByteArray>,
-        onProgress: suspend (current: Int, total: Int) -> Unit = { _, _ -> }
-    )
     suspend fun setSystemPrompt(prompt: String)
     suspend fun clearContext()
-    suspend fun setImageMaxSliceNums(n: Int)
     fun sendUserPrompt(message: String, predictLength: Int): Flow<String>
 
     /** Exact tokenizer count when the active backend exposes one; null for test/mock backends. */

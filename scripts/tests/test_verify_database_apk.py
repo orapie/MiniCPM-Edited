@@ -20,9 +20,8 @@ class ApkInventoryTest(unittest.TestCase):
         entries = {"assets/database/manifest.json": (SOURCE / "manifest.json").read_bytes()}
         entries.update({"assets/database/" + item["path"]: (SOURCE / item["path"]).read_bytes()
                         for item in manifest["files"]})
-        entries["assets/prompts/roleplay_system.prompt"] = (PROGRAM / "prompts/roleplay_system.prompt").read_bytes()
         entries.update({"assets/" + file.relative_to(PROGRAM).as_posix(): file.read_bytes()
-                        for file in (PROGRAM / "ref_audios").glob("*") if file.is_file()})
+                        for file in (PROGRAM / "prompts").glob("*.prompt")})
         if extra:
             entries[extra] = b"legacy data"
         if stale:

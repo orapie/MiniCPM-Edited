@@ -7,7 +7,7 @@ import com.example.minicpm_v_demo.LlamaEngine
 import com.example.minicpm_v_demo.LlamaState
 import com.example.minicpm_v_demo.ModelInfo
 import com.example.minicpm_v_demo.harness.HarnessChatRequest
-import com.example.minicpm_v_demo.harness.HarnessModelFamily
+import com.example.minicpm_v_demo.harness.toHarnessSpec
 import com.example.minicpm_v_demo.harness.LlamaBackendAdapter
 import com.example.minicpm_v_demo.harness.character.*
 import com.example.minicpm_v_demo.harness.rag.AndroidRagOrchestrator
@@ -29,17 +29,16 @@ import com.example.minicpm_v_demo.harness.data.AssetBootstrapper
 /** Synthetic questions only. Records retrieval and sampled native answers separately. */
 @RunWith(AndroidJUnit4::class)
 class DatabaseNativeAcceptanceTest {
-    @Test fun realV46AnswersCurrentDatabaseMatrix() = runBlocking {
+    @Test fun textModelAnswersCurrentDatabaseMatrix() = runBlocking {
         assertTrue("Database startup timed out", AssetBootstrapper.awaitStartup(120_000))
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val bundle = DatabaseRuntime.requireBundle()
         val identity = DatabaseIdentity.from(bundle)
         val originalModel = LlamaEngine.getSelectedModel(context)
-        val model = ModelInfo.AVAILABLE_MODELS.single { it.id == "minicpm-v-4_6-instruct" }
+        val model = ModelInfo.AVAILABLE_MODELS.first()
         val modelDir = File(LlamaEngine.modelDirFor(context, model))
         val weights = File(modelDir, model.ggufFileName)
-        val projector = model.mmprojFileName?.let { File(modelDir, it) }
-        check(weights.isFile && (projector == null || projector.isFile)) { "V4.6 model files unavailable" }
+        check(weights.isFile) { "Model files unavailable" }
         val engine = LlamaEngine.getInstance(context)
         val backend = LlamaBackendAdapter(context)
         val runId = java.util.UUID.randomUUID().toString()
@@ -51,7 +50,7 @@ class DatabaseNativeAcceptanceTest {
             if (initial is LlamaState.Error) error("Native engine initialization failed")
             if (initial is LlamaState.ModelReady && originalModel.id != model.id) engine.unloadModel()
             if (originalModel.id != model.id) LlamaEngine.setSelectedModel(context, model.id)
-            if (engine.state.value is LlamaState.Initialized) engine.loadModel(weights.absolutePath, projector?.absolutePath)
+            if (engine.state.value is LlamaState.Initialized) engine.loadModel(weights.absolutePath)
             check(engine.state.value is LlamaState.ModelReady) { "Native model is not ready" }
 
             val previous = ChatSession(
@@ -79,7 +78,7 @@ class DatabaseNativeAcceptanceTest {
                 val lease = requireNotNull(DatabaseRuntime.beginTurn())
                 try {
                     val prompt = orchestrator.compile(case.query, RagMode.CHARACTER_RAG, "luo_ji", case.cutoff,
-                        followUpTarget = case.followUp, modelFamily = HarnessModelFamily.MINICPM_VISION)
+                        followUpTarget = case.followUp, modelFamily = model.toHarnessSpec().family)
                     val debug = prompt.characterDebug as CharacterPromptDebug
                     assertEquals(identity.fingerprint, prompt.turnTrace.datasetFingerprint)
                     assertTrue(prompt.turnTrace.external.vectorSearchExecuted)

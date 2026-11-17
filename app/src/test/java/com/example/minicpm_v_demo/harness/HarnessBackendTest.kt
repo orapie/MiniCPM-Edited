@@ -67,18 +67,10 @@ class HarnessBackendTest {
 
     private class RecordingBackend : HarnessBackend {
         override val state: StateFlow<LlamaState> = MutableStateFlow(LlamaState.ModelReady)
-        override val isVisionSupported: Boolean = false
-        override val isVideoUnderstandingSupported: Boolean = false
         val calls = mutableListOf<String>()
 
-        override suspend fun loadModel(modelPath: String, mmprojPath: String?) = Unit
+        override suspend fun loadModel(modelPath: String) = Unit
         override suspend fun unloadModel() = Unit
-        override suspend fun prefillImage(imageData: ByteArray) = Unit
-        override suspend fun prefillVideoFrames(
-            frames: List<ByteArray>,
-            onProgress: suspend (current: Int, total: Int) -> Unit,
-        ) = Unit
-
         override suspend fun setSystemPrompt(prompt: String) {
             calls += "system:$prompt"
         }
@@ -86,8 +78,6 @@ class HarnessBackendTest {
         override suspend fun clearContext() {
             calls += "clear"
         }
-
-        override suspend fun setImageMaxSliceNums(n: Int) = Unit
 
         override fun sendUserPrompt(message: String, predictLength: Int): Flow<String> = flow {
             calls += "user:$message:$predictLength"

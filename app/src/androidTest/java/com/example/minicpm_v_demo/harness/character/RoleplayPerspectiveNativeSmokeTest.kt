@@ -6,7 +6,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.example.minicpm_v_demo.LlamaEngine
 import com.example.minicpm_v_demo.LlamaState
 import com.example.minicpm_v_demo.harness.HarnessChatRequest
-import com.example.minicpm_v_demo.harness.HarnessModelFamily
+import com.example.minicpm_v_demo.harness.toHarnessSpec
 import com.example.minicpm_v_demo.harness.LlamaBackendAdapter
 import com.example.minicpm_v_demo.harness.data.AssetBootstrapper
 import com.example.minicpm_v_demo.harness.rag.AndroidRagOrchestrator
@@ -28,19 +28,18 @@ class RoleplayPerspectiveNativeSmokeTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val model = LlamaEngine.getSelectedModel(context)
         val weights = File(LlamaEngine.modelDirFor(context, model), model.ggufFileName)
-        val projector = model.mmprojFileName?.let { File(LlamaEngine.modelDirFor(context, model), it) }
-        check(weights.isFile && (projector == null || projector.isFile)) { "selected model unavailable" }
+        check(weights.isFile) { "selected model unavailable" }
         val engine = LlamaEngine.getInstance(context)
         val state = withTimeout(30_000) {
             engine.state.filter { it is LlamaState.Initialized || it is LlamaState.ModelReady || it is LlamaState.Error }.first()
         }
         check(state !is LlamaState.Error)
-        if (state is LlamaState.Initialized) engine.loadModel(weights.absolutePath, projector?.absolutePath)
+        if (state is LlamaState.Initialized) engine.loadModel(weights.absolutePath)
         check(engine.state.value is LlamaState.ModelReady)
         AndroidRagOrchestrator.fromContext(context).use { orchestrator ->
             val question = "雪地工程的目的是什么？"
             val compiled = orchestrator.compile(question, RagMode.CHARACTER_RAG, characterId = "luo_ji",
-                storyCutoff = "evt-125", modelFamily = HarnessModelFamily.MINICPM_VISION)
+                storyCutoff = "evt-125", modelFamily = model.toHarnessSpec().family)
             assertTrue(compiled.turnTrace.external.vectorSearchExecuted)
             assertTrue(RoleplayAnswerabilityGate.evaluate(compiled.characterDebug as? CharacterPromptDebug, question) is RoleplayAnswerabilityDecision.Allow)
             val repair = InstrumentationRegistry.getArguments().getString("repair") == "true"

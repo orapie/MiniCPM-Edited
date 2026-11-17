@@ -38,6 +38,7 @@ data class CompiledCharacterPrompt(
     /** Raw-text, in-memory only snapshots for Debug Logcat. Never persist these. */
     val stageLogs: List<RagPromptStageLog> = emptyList(),
     val publicProfileReply: String? = null,
+    val relationshipFacts: List<CharacterRelationship> = emptyList(),
 )
 
 /** 记录角色检索、授权和段落预算的编译结果，供日志、后续追问和可回答性判断读取。 */
@@ -165,7 +166,11 @@ data class CharacterRelationship(
     val targetName: String,
     val relationshipType: String,
     val attitude: String,
-)
+    val targetNpcId: String? = null,
+    val evidenceRefs: List<String> = emptyList(),
+) {
+    val targetId: String get() = targetNpcId ?: targetName
+}
 
 data class KnowledgeScope(
     val worldFactRefs: Set<String>,

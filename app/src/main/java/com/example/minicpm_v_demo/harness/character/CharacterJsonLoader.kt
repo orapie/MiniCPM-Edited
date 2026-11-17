@@ -79,6 +79,8 @@ class CharacterJsonLoader(
                     targetName = relation.stringValue("target_name"),
                     relationshipType = relation.stringValue("relationship_type"),
                     attitude = relation.stringValue("attitude"),
+                    targetNpcId = (relation["target_npc_id"] as? String)?.takeIf { it.isNotBlank() },
+                    evidenceRefs = if (relation["evidence_refs"] == null) emptyList() else relation.stringList("evidence_refs"),
                 )
             },
             knowledgeScope = KnowledgeScope(

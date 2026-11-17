@@ -54,14 +54,13 @@ class RoleplayBaselineDeviceTest {
         assertTrue(AssetBootstrapper.awaitStartup(120_000))
         val model = LlamaEngine.getSelectedModel(context)
         val weights = File(LlamaEngine.modelDirFor(context, model), model.ggufFileName)
-        val projector = model.mmprojFileName?.let { File(LlamaEngine.modelDirFor(context, model), it) }
-        check(weights.isFile && (projector == null || projector.isFile)) { "selected model unavailable" }
+        check(weights.isFile) { "selected model unavailable" }
         val engine = LlamaEngine.getInstance(context)
         val state = withTimeout(60_000) {
             engine.state.filter { it is LlamaState.Initialized || it is LlamaState.ModelReady || it is LlamaState.Error }.first()
         }
         check(state !is LlamaState.Error)
-        if (state is LlamaState.Initialized) engine.loadModel(weights.absolutePath, projector?.absolutePath)
+        if (state is LlamaState.Initialized) engine.loadModel(weights.absolutePath)
         val backend = LlamaBackendAdapter(context)
         val attributionTimeoutMs = args.getString("aTimeoutMs")?.toLong()
             ?: LocalAttributionRewriteService.DEFAULT_TIMEOUT_MILLIS

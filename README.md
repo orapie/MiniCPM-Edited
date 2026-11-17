@@ -2,24 +2,30 @@
 
 [简体中文](README.zh-CN.md)
 
-Run local GGUF models on Android for standard chat, retrieval-augmented generation (RAG), and character chat. The app includes a knowledge pack for *The Dark Forest*, the second novel in the *Three-Body* series. In character mode, you can chat with Luo Ji, Shi Qiang, Zhang Beihai, Ding Yi, or Zhuang Yan and choose how far into the story they can draw on events. Supported MiniCPM-V models accept images, MiniCPM-V 4.6 supports video understanding, and VoxCPM2 has a dedicated text-to-speech (TTS) page.
+Run local GGUF models on Android for standard chat, retrieval-augmented generation (RAG), and character chat. The app includes a knowledge pack for *The Dark Forest*, the second novel in the *Three-Body* series. In character mode, you can chat with Luo Ji, Shi Qiang, Zhang Beihai, Ding Yi, or Zhuang Yan and choose how far into the story they can draw on events.
 
 ## Build and Run
 
-Open the repository root in Android Studio. The build requires Android SDK 36.1, NDK `27.0.12077973`, CMake `4.1.2`, and Python 3. The app version is `2.4` (`versionCode = 16`). It requires Android 7.0 (API 24) or later and targets API 36. The APK contains native libraries for `arm64-v8a`, so run it on an ARM64 device or emulator.
+Open the repository root in Android Studio. The build requires Android SDK 36.1, NDK `27.0.12077973`, CMake `4.1.2`, and Python 3. The app version is `2.5` (`versionCode = 17`). It requires Android 7.0 (API 24) or later and targets API 36. The APK supports the Android `arm64-v8a` ABI on devices with 4 KB or 16 KB memory pages.
 
 ```bash
 python3 scripts/prepare_database_bundle.py --check
 bash ./gradlew :app:assembleDebug :app:verifyDebugDatabaseAssets
 ```
 
-The debug APK is at `app/build/outputs/apk/debug/MiniCPM-Edited-debug.apk`. After installation, the app appears as **MiniCPM** in the Android launcher. Download and select a chat model on the Model Management page. You can download GGUF weights to the device or use an existing local model directory. Vision and TTS models also require their respective companion files. For available models and their capabilities, see the [chat model registry](app/src/main/java/com/example/minicpm_v_demo/ModelInfo.kt).
+The debug APK is at `app/build/outputs/apk/debug/MiniCPM-Edited-debug.apk`. After installation, the app appears as **MiniCPM** in the Android launcher. Download and select a chat model on the Model Management page. The app downloads text GGUF weights from ModelScope and can reuse compatible files in the local model directory. For available models and their capabilities, see the [chat model registry](app/src/main/java/com/example/minicpm_v_demo/ModelInfo.kt).
 
 To use Dual Agent mode, first select a text-only GGUF model for Agent A on the Model Management page and make sure its files are available. Then enable Dual Agent mode. It is off by default and uses additional device memory. See the [Agent A model registry](app/src/main/java/com/example/minicpm_v_demo/harness/attribution/AttributionModelRegistry.kt) for model choices.
 
 ## Package a Release
 
-In Android Studio, select **Build → Generate Signed Bundle / APK** and use the signing key from the previous release to build a signed release APK. Upload `MiniCPM-Edited-release.apk` to GitHub Releases. You can use `MiniCPM-Edited v2.4` as the release title. If you choose Android App Bundle, the output file is `MiniCPM-Edited-release.aab`.
+In Android Studio, select **Build → Generate Signed Bundle / APK** and sign with the same key as v2.4 so users can update in place. Name the signed APK `MiniCPM-Edited-v2.5.apk` and attach it to the `v2.5` GitHub release titled `MiniCPM-Edited v2.5`. If you choose Android App Bundle, the output file is `MiniCPM-Edited-release.aab`.
+
+### Changes in v2.5
+
+- Use the baseline ARM64 CPU backend to fix the startup crash caused by preloading the ARMv8.6 variant.
+- Offer seven text GGUF models through ModelScope. Downloads can run concurrently and be cancelled individually. Both Agent lists show an **Installed** badge for models on the device.
+- Remove the chat toolbar title so the mode button stays unobstructed on narrow screens.
 
 ## Chat Modes
 
@@ -38,7 +44,7 @@ In character mode, Agent A labels reference passages with character attributions
 | Path | Contents |
 |---|---|
 | [app/](app/) | Android UI, harness orchestration, Dual Agent mode, chat sessions, and JNI. |
-| [llama.cpp-omni/](llama.cpp-omni/) | Native code for local inference and multimodal processing. |
+| [llama.cpp-omni/](llama.cpp-omni/) | Native dependency for on-device text inference. |
 | [database/](database/) | The sole build input for the runtime knowledge pack. It contains character cards, story events, reviewed facts, and indexes. |
 | [three_body_2_kb_builder/](three_body_2_kb_builder/) | Offline tools for building character cards, a SQLite knowledge base, and semantic indexes from the novel text. |
 | [scripts/](scripts/) | Knowledge pack generation, validation, and APK checks. |

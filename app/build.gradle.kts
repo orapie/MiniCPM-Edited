@@ -72,10 +72,6 @@ abstract class PrepareProgramAssetsTask @Inject constructor(
 ) : DefaultTask() {
     @get:InputDirectory
     @get:PathSensitive(PathSensitivity.RELATIVE)
-    abstract val referenceAudios: DirectoryProperty
-
-    @get:InputDirectory
-    @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val promptTemplates: DirectoryProperty
 
     @get:OutputDirectory
@@ -85,14 +81,12 @@ abstract class PrepareProgramAssetsTask @Inject constructor(
     fun prepare() {
         fileSystemOperations.sync {
             into(outputDirectory)
-            from(referenceAudios) { into("ref_audios") }
             from(promptTemplates) { into("prompts") }
         }
     }
 }
 
 val prepareProgramAssets = tasks.register<PrepareProgramAssetsTask>("prepareProgramAssets") {
-    referenceAudios.set(layout.projectDirectory.dir("src/main/assets/ref_audios"))
     promptTemplates.set(layout.projectDirectory.dir("src/main/assets/prompts"))
     outputDirectory.set(layout.buildDirectory.dir("generated/programAssets"))
 }
@@ -117,15 +111,10 @@ android {
 
     defaultConfig {
         applicationId = "com.example.minicpm_v_demo"
-        // minSdk = 24 (Android 7.0) covers ~99% of in-use devices.
-        // The native code only requires arm64-v8a (Android 5.0+), and the
-        // app itself uses no Android 13+ APIs. The adaptive icon XML is
-        // placed under mipmap-anydpi-v26/ so pre-Oreo devices fall back
-        // to the WebP icons in mipmap-{m,h,xh,xxh,xxxh}dpi/.
         minSdk = 24
         targetSdk = 36
-        versionCode = 16
-        versionName = "2.4"
+        versionCode = 17
+        versionName = "2.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -141,7 +130,7 @@ android {
                 arguments += "-DCMAKE_BUILD_TYPE=Release"
                 arguments += "-DBUILD_SHARED_LIBS=ON"
                 arguments += "-DLLAMA_BUILD_COMMON=ON"
-                arguments += "-DLLAMA_BUILD_TOOLS=ON"
+                arguments += "-DLLAMA_BUILD_TOOLS=OFF"
                 arguments += "-DLLAMA_OPENSSL=OFF"
 
                 // Android is a cross-compile target; GGML_NATIVE invokes try_run()
@@ -208,6 +197,8 @@ android {
     }
 
     sourceSets.getByName("main").assets.directories.clear()
+    // CMake supplies the JNI libraries. Ignore stale copies from older builds.
+    sourceSets.getByName("main").jniLibs.directories.clear()
     sourceSets.getByName("test").kotlin.directories.add("src/sharedTest/java")
     sourceSets.getByName("androidTest").kotlin.directories.add("src/sharedTest/java")
     sourceSets.getByName("androidTest").assets.directories.add(rootProject.file("docs/double_agent/roleplay_eval").absolutePath)
@@ -259,87 +250,4 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
-}
-
-// ---------------------------------------------------------------------------
-// Dynamic CPU dispatch: build an additional libggml-cpu.so optimised for
-// ARMv8.6-a (i8mm + bf16) and package it alongside the baseline build.
-// At runtime the Kotlin CpuFeatures helper detects hardware capabilities
-// and pre-loads the best variant before the rest of the native chain.
-// ---------------------------------------------------------------------------
-
-fun runCmd(vararg args: String) {
-    val proc = ProcessBuilder(*args).inheritIO().start()
-    val rc = proc.waitFor()
-    if (rc != 0) error("Command failed (rc=$rc): ${args.joinToString(" ")}")
-}
-
-val sdkRoot: String = System.getenv("ANDROID_HOME")
-    ?: localProperties.getProperty("sdk.dir")
-    ?: error("Cannot locate Android SDK — set ANDROID_HOME or local.properties")
-
-val buildGgmlCpuV86 = tasks.register("buildGgmlCpu_v86") {
-    group = "native"
-    description = "Build libggml-cpu optimised for armv8.6-a+i8mm+bf16"
-
-    val destSo = file("src/main/jniLibs/arm64-v8a/libggml-cpu-v86.so")
-    val destOpenMp = destSo.resolveSibling("libomp.so")
-    outputs.files(destSo, destOpenMp)
-
-    doLast {
-        val cmake = "$sdkRoot/cmake/4.1.2/bin/cmake"
-        val ninja = "$sdkRoot/cmake/4.1.2/bin/ninja"
-        val toolchain = "$sdkRoot/ndk/27.0.12077973/build/cmake/android.toolchain.cmake"
-        val bd = File(project.layout.buildDirectory.asFile.get(), "v86-cmake-ninja/arm64-v8a")
-        bd.mkdirs()
-
-        runCmd(
-            cmake,
-            "-G", "Ninja",
-            "-DCMAKE_MAKE_PROGRAM=$ninja",
-            "-DCMAKE_TOOLCHAIN_FILE=$toolchain",
-            "-DANDROID_ABI=arm64-v8a",
-            "-DANDROID_PLATFORM=android-24",
-            "-DCMAKE_BUILD_TYPE=Release",
-            "-DBUILD_SHARED_LIBS=ON",
-            "-DLLAMA_BUILD_COMMON=ON",
-            "-DLLAMA_OPENSSL=OFF",
-            "-DLLAMA_CURL=OFF",
-            "-DLLAMA_BUILD_TOOLS=ON",
-            "-DGGML_NATIVE=OFF",
-            "-DGGML_LLAMAFILE=ON",
-            "-DGGML_CPU_KLEIDIAI=OFF",
-            *listOfNotNull(llamaSourceDir?.let { "-DLLAMA_SRC=${file(it).absolutePath.replace('\\', '/')}" }).toTypedArray(),
-            "-DGGML_CPU_ARM_ARCH=armv8.6-a+dotprod+i8mm+fp16+bf16",
-            "-S", file("src/main/cpp").absolutePath,
-            "-B", bd.absolutePath,
-        )
-
-        runCmd(
-            cmake,
-            "--build", bd.absolutePath,
-            "--target", "ggml-cpu",
-            "-j", Runtime.getRuntime().availableProcessors().toString(),
-        )
-
-        val builtSo = fileTree(bd).matching { include("**/libggml-cpu.so") }.singleFile
-        val openMpRuntime = bd.resolve("CMakeCache.txt").useLines { lines ->
-            val key = "OpenMP_omp_LIBRARY:FILEPATH="
-            lines.first { it.startsWith(key) }.removePrefix(key)
-        }
-        destSo.parentFile.mkdirs()
-        builtSo.copyTo(destSo, overwrite = true)
-        // Both CPU variants dynamically link the NDK OpenMP runtime.
-        File(openMpRuntime).copyTo(destOpenMp, overwrite = true)
-        logger.lifecycle("Copied v86 ggml-cpu -> ${destSo.absolutePath} (${destSo.length() / 1024}K)")
-    }
-}
-
-afterEvaluate {
-    // The v86 library lives under src/main/jniLibs, so every variant that
-    // packages JNI libraries must depend on the generator. This also prevents
-    // Debug builds from packaging a stale, pre-16-KB-aligned copy.
-    listOf("mergeDebugJniLibFolders", "mergeReleaseJniLibFolders").forEach { taskName ->
-        tasks.findByName(taskName)?.dependsOn(buildGgmlCpuV86)
-    }
 }

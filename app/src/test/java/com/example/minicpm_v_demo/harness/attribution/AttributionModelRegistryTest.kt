@@ -2,8 +2,8 @@ package com.example.minicpm_v_demo.harness.attribution
 
 import com.example.minicpm_v_demo.ModelInfo
 import com.example.minicpm_v_demo.harness.HarnessCapability
+import com.example.minicpm_v_demo.harness.HarnessDownloadSourceType
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -40,6 +40,12 @@ class AttributionModelRegistryTest {
         })
         assertNull(AttributionModelRegistry.findEligibleEntry("minicpm-v-4"))
         assertNull(AttributionModelRegistry.findEligibleEntry("voxcpm2"))
-        assertFalse(AttributionModelRegistry.availableEntries().all { it.attributionSpec != null })
+        assertEquals(AttributionModelRegistry.availableEntries(), eligible)
+        eligible.forEach { entry ->
+            val source = entry.harnessSpec.downloadSources.single()
+            assertEquals(HarnessDownloadSourceType.MODELSCOPE, source.type)
+            assertEquals(entry.model.downloadUrl, source.url)
+            assertTrue(entry.model.downloadUrl.startsWith("https://www.modelscope.cn/models/"))
+        }
     }
 }

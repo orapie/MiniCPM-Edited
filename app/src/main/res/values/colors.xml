@@ -16,6 +16,8 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 
+    <color name="model_installed_green">#176749</color>
+
     <!-- Launcher icon background (matches iOS AppIcon white canvas). -->
     <color name="ic_launcher_background">#FFFFFFFF</color>
 </resources>

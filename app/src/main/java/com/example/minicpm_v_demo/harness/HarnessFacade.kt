@@ -26,12 +26,6 @@ class HarnessFacade private constructor(
     val state: StateFlow<LlamaState>
         get() = backend.state
 
-    val isVisionSupported: Boolean
-        get() = backend.isVisionSupported
-
-    val isVideoUnderstandingSupported: Boolean
-        get() = backend.isVideoUnderstandingSupported
-
     fun migrateLegacyLayoutIfNeeded() {
         modelStore.migrateLegacyLayoutIfNeeded()
     }
@@ -56,23 +50,16 @@ class HarnessFacade private constructor(
 
     fun isSelectedModelDownloaded(): Boolean = modelStore.isSelectedModelDownloaded()
 
-    fun getImageMaxSliceNums(): Int = modelStore.getImageMaxSliceNums()
-
-    suspend fun setImageMaxSliceNums(n: Int) {
-        backend.setImageMaxSliceNums(n)
-    }
-
     fun getSelectedModelAvailability(): HarnessModelAvailability =
         modelStore.getSelectedModelAvailability()
 
-    /** 将所选模型的本地文件解析为后端加载参数，包括可选的视觉投影器。 */
+    /** 将所选模型的本地文件解析为后端加载参数。 */
     suspend fun loadSelectedModel() {
         val files = modelStore.getSelectedModelFiles()
         val llmFile = files.artifactFiles["llm"]
             ?: throw IllegalStateException("Missing llm artifact path for ${files.model.id}")
         require(llmFile.exists()) { "File not found: ${llmFile.absolutePath}" }
-        val mmprojArg = files.artifactFiles["vision_projector"]?.takeIf { it.exists() }?.absolutePath
-        backend.loadModel(llmFile.absolutePath, mmprojArg)
+        backend.loadModel(llmFile.absolutePath)
     }
 
     suspend fun unloadModel() {
@@ -81,17 +68,6 @@ class HarnessFacade private constructor(
 
     suspend fun clearContext() {
         backend.clearContext()
-    }
-
-    suspend fun prefillImage(imageData: ByteArray) {
-        backend.prefillImage(imageData)
-    }
-
-    suspend fun prefillVideoFrames(
-        frames: List<ByteArray>,
-        onProgress: suspend (current: Int, total: Int) -> Unit = { _, _ -> }
-    ) {
-        backend.prefillVideoFrames(frames, onProgress)
     }
 
     suspend fun setSystemPrompt(prompt: String) {
@@ -122,6 +98,10 @@ class HarnessFacade private constructor(
 
     fun startDownloadService(modelId: String = getSelectedModel().id) {
         downloadManager.startForegroundDownload(modelId)
+    }
+
+    fun cancelDownloadService(modelId: String) {
+        downloadManager.cancelForegroundDownload(modelId)
     }
 
     fun selectedModelArtifactNames(): List<String> =

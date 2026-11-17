@@ -58,7 +58,6 @@ class ChatTemplateRenderer(
                 // system/user messages separately, so debug rendering must not
                 // imply the obsolete raw-text layout.
                 HarnessModelFamily.MINICPM_TEXT -> "chatml"
-                HarnessModelFamily.MINICPM_VISION -> "minicpm_vision"
                 else -> "android_send_user_prompt_v1"
             }
             return ChatTemplateRenderer(profile)

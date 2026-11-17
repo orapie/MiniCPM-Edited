@@ -40,8 +40,6 @@ def verify(apk, source, program_source, report):
         program = {"assets/" + path.relative_to(program_source).as_posix(): path.read_bytes()
                    for path in (program_source / "prompts").rglob("*")
                    if path.is_file() and not path.name.startswith(".")}
-        program.update({"assets/" + path.relative_to(program_source).as_posix(): path.read_bytes()
-                        for path in (program_source / "ref_audios").rglob("*") if path.is_file() and not path.name.startswith(".")})
         require(assets == set(expected) | set(program), "Unexpected or missing program assets in APK")
         for name, content in program.items():
             require(archive.read(entries[name]) == content, f"Program asset changed or missing: {name}")

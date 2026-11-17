@@ -13,8 +13,6 @@
 #include "common.h"
 #include "llama.h"
 #include "sampling.h"
-#include "mtmd.h"
-#include "mtmd-helper.h"
 
 template<class T>
 static std::string join(const std::vector<T> &values, const std::string &delim) {
@@ -32,11 +30,6 @@ static std::string join(const std::vector<T> &values, const std::string &delim) 
 constexpr int   N_THREADS               = 4;
 
 constexpr int   DEFAULT_CONTEXT_SIZE    = 4096;
-// MiniCPM-V-4.6 video understanding feeds up to 64 frames * ~64 visual
-// tokens each into the KV cache; 4096 is not enough.  iOS demo
-// (MBHomeViewController+LoadModel.swift) bumps n_ctx to 8192 only on
-// V-4.6 load so older / non-vision models keep the cheaper 4096 budget.
-constexpr int   V46_CONTEXT_SIZE        = 8192;
 constexpr int   OVERFLOW_HEADROOM       = 4;
 constexpr int   BATCH_SIZE              = 2048;
 // Keep moderate randomness for natural Chinese conversation. Candidate filters
@@ -48,34 +41,10 @@ static llama_context                    * g_context;
 static llama_batch                        g_batch;
 static common_chat_templates_ptr          g_chat_templates;
 static common_sampler                   * g_sampler;
-static mtmd_context                     * g_ctx_vision;
-// MiniCPM-V family version of the loaded mmproj. 0 = not minicpmv / no mmproj.
-// 5  = V-4.0
-// 6  = o-4.0
-// 100045 = o-4.5
-// 46/460/461 = V-4.6 (instruct/thinking)
-static int                                g_minicpmv_version = 0;
 // Whether the loaded text model may enter its reasoning section. This is
 // registry-driven from Kotlin; MiniCPM5-2B disables thinking because the
 // mobile UI's short generation budget otherwise often ends before </think>.
 static bool                               g_enable_thinking = true;
-
-// Most recent slice cap requested by the upper layer.  Persists across
-// loadMmproj calls so a user-chosen value survives e.g. an unload/reload
-// of the model.  Initial fallback = 9 (MiniCPM-V's built-in upper bound)
-// so anything that calls into native before Kotlin has had a chance to
-// thread the user-preference value through gets the "high quality"
-// default rather than the legacy "no slicing" one.  In practice every
-// real call site uses LlamaEngine.loadMmproj(path, n) which passes the
-// persisted preference, so this only matters for the very first
-// setImageMaxSliceNumsNative call before mmproj is loaded.
-static int                                g_image_max_slice_nums = 9;
-
-// Effective n_ctx used to create g_context.  Set by prepare(); reads by
-// the few stay-under-context guards scattered through this file.  Kept
-// as a global rather than a llama_n_ctx() call so we don't depend on
-// llama-side defaults when llama_context_default_params changes.
-static int                                g_n_ctx = DEFAULT_CONTEXT_SIZE;
 
 using SteadyClock = std::chrono::steady_clock;
 
@@ -151,103 +120,12 @@ Java_com_example_minicpm_1v_1demo_LlamaEngine_load(JNIEnv *env, jobject, jstring
 }
 
 extern "C"
-JNIEXPORT jint JNICALL
-Java_com_example_minicpm_1v_1demo_LlamaEngine_loadMmproj(JNIEnv *env, jobject,
-                                                        jstring jmmproj_path,
-                                                        jint jimage_max_slice_nums) {
-    if (!g_model) {
-        LOGe("%s: Base model must be loaded first!", __func__);
-        return 1;
-    }
-
-    const auto *mmproj_path = env->GetStringUTFChars(jmmproj_path, 0);
-    LOGd("%s: Loading mmproj from: \n%s\n", __func__, mmproj_path);
-
-    mtmd_context_params mparams = mtmd_context_params_default();
-    mparams.use_gpu   = false;
-    mparams.print_timings = false;
-
-    // Slice cap re-enabled (sub-module bumped to commit 87aee36b which
-    // re-adds custom_image_max_slice_nums hparam + runtime setter).
-    // Persist the value for setImageMaxSliceNumsNative() to read back,
-    // AND thread it through mtmd_context_params so the very first
-    // encode (before the user touches the slider) already respects it.
-    // -1 = "use model default" (currently 9 for MiniCPM-V).
-    g_image_max_slice_nums          = (jint) jimage_max_slice_nums;
-
-    mparams.n_threads = N_THREADS;
-
-    g_ctx_vision = mtmd_init_from_file(mmproj_path, g_model, mparams);
-    env->ReleaseStringUTFChars(jmmproj_path, mmproj_path);
-
-    if (!g_ctx_vision) {
-        LOGe("%s: Failed to load mmproj model!", __func__);
-        return 2;
-    }
-
-    // mtmd_get_minicpmv_version() was a fork-only API that lived in the
-    // demo-private mtmd-ios.h.  Upstream master mtmd does not expose the
-    // mmproj's MiniCPM-V family version.  The Kotlin layer now sets
-    // g_minicpmv_version explicitly via setMinicpmvVersionNative() based
-    // on the selected ModelInfo id (4.6 -> 46).  See iOS opt-r1's
-    // MBHomeViewController+LoadModel.swift for the symmetric move.
-
-    LOGi("%s: mmproj model loaded successfully! Vision: %s, slice-cap: %d (applied)",
-         __func__,
-         mtmd_support_vision(g_ctx_vision) ? "yes" : "no",
-         g_image_max_slice_nums);
-    return 0;
-}
-
-// Returns the MiniCPM-V family version of the currently loaded mmproj
-// (0 if no mmproj is loaded).  Backed by [setMinicpmvVersionNative]: the
-// Kotlin layer infers the version from the selected ModelInfo id (4.6 ->
-// 46) and pushes it down after loadMmproj.  Replaces the legacy
-// mtmd_get_minicpmv_version() introspection that the fork mtmd-ios.h used
-// to expose but upstream master mtmd removed.
-extern "C"
-JNIEXPORT jint JNICALL
-Java_com_example_minicpm_1v_1demo_LlamaEngine_getMinicpmvVersionNative(JNIEnv * /*env*/, jobject) {
-    return (jint) g_minicpmv_version;
-}
-
-// Kotlin-driven setter for the mmproj version (see comment on
-// getMinicpmvVersionNative).  Affects prepare()'s n_ctx selection and
-// the assistant-turn prefix logic; should be called immediately after
-// loadMmproj() succeeds.  Passing 0 disables both branches.
-extern "C"
-JNIEXPORT void JNICALL
-Java_com_example_minicpm_1v_1demo_LlamaEngine_setMinicpmvVersionNative(JNIEnv * /*env*/,
-                                                                      jobject,
-                                                                      jint jversion) {
-    g_minicpmv_version = (int) jversion;
-    LOGi("%s: minicpmv_version set to %d", __func__, g_minicpmv_version);
-}
-
-extern "C"
 JNIEXPORT void JNICALL
 Java_com_example_minicpm_1v_1demo_LlamaEngine_setEnableThinkingNative(JNIEnv * /*env*/,
                                                                      jobject,
                                                                      jboolean jenabled) {
     g_enable_thinking = jenabled == JNI_TRUE;
     LOGi("%s: enable_thinking set to %s", __func__, g_enable_thinking ? "true" : "false");
-}
-
-// Per-image slice cap.  Now wires through to mtmd_set_image_max_slice_nums
-// (added back in llama.cpp submodule commit 87aee36b), which patches
-// clip_hparams.custom_image_max_slice_nums in place.  Safe to call
-// between images; takes effect on the next encode.
-extern "C"
-JNIEXPORT void JNICALL
-Java_com_example_minicpm_1v_1demo_LlamaEngine_setImageMaxSliceNumsNative(JNIEnv * /*env*/,
-                                                                        jobject,
-                                                                        jint jn) {
-    g_image_max_slice_nums = (int) jn;
-    // mtmd_set_image_max_slice_nums not available in this llama.cpp-omni
-    // branch; slice cap is configured at mmproj load time or via model
-    // defaults. The persisted value is still tracked for future use.
-    LOGi("%s: image_max_slice_nums set to %d (stored, mtmd live-update unavailable)",
-         __func__, g_image_max_slice_nums);
 }
 
 static llama_context *init_context(llama_model *model, const int n_ctx = DEFAULT_CONTEXT_SIZE) {
@@ -304,17 +182,7 @@ static common_sampler *new_sampler(float temp) {
 extern "C"
 JNIEXPORT jint JNICALL
 Java_com_example_minicpm_1v_1demo_LlamaEngine_prepare(JNIEnv * /*env*/, jobject /*unused*/) {
-    // MiniCPM-V-4.6 video understanding (up to 64 frames per turn) needs
-    // a larger KV budget than the 4096 default; everything else stays at
-    // 4096 to keep memory pressure low on older / non-vision models.
-    // Matches the iOS demo's MTMDParams.nCtx = 8192 on V46MultiModel.
-    const bool is_v46 = (g_minicpmv_version == 46) ||
-                        (g_minicpmv_version == 460) ||
-                        (g_minicpmv_version == 461);
-    const int  n_ctx  = is_v46 ? V46_CONTEXT_SIZE : DEFAULT_CONTEXT_SIZE;
-    LOGi("%s: minicpmv_version=%d -> n_ctx=%d", __func__, g_minicpmv_version, n_ctx);
-
-    auto *context = init_context(g_model, n_ctx);
+    auto *context = init_context(g_model);
     if (!context) {
 #if defined(ATTRIBUTION_RUNTIME)
         llama_model_free(g_model);
@@ -323,7 +191,6 @@ Java_com_example_minicpm_1v_1demo_LlamaEngine_prepare(JNIEnv * /*env*/, jobject 
         return 1;
     }
     g_context = context;
-    g_n_ctx = n_ctx;
     g_batch = llama_batch_init(BATCH_SIZE, 0, 1);
     g_chat_templates = common_chat_templates_init(g_model, "");
     g_sampler = new_sampler(DEFAULT_SAMPLER_TEMP);
@@ -344,42 +211,14 @@ static std::vector<common_chat_msg> chat_msgs;
 static llama_pos system_prompt_position;
 static llama_pos current_position;
 static llama_pos generation_start_position;
-static bool g_image_prefilled = false;
-static bool g_vision_mode = false;
 
 static void reset_long_term_states(const bool clear_kv_cache = true) {
     chat_msgs.clear();
     system_prompt_position = 0;
     current_position = 0;
-    g_image_prefilled = false;
-    g_vision_mode = false;
 
     if (clear_kv_cache)
         llama_memory_clear(llama_get_memory(g_context), false);
-}
-
-// Mirror of iOS demo (mtmd-ios.cpp prefill_text role="user"):
-// the assistant turn prefix depends on the MiniCPM-V variant. v4.6-instruct
-// uses enable_thinking=false and embeds the empty <think>...</think> block
-// directly so the model emits the response right after; v4.6-thinking lets
-// the model produce its own thinking; v4.0 / v2.x use plain ChatML.
-//
-// Note: convert_hf_to_gguf.py currently hard-codes clip.minicpmv_version = 46
-// for ALL MiniCPM-V 4.6 mmproj (does not differentiate instruct/thinking).
-// Since this demo only ships the instruct variant, we treat 46 as instruct
-// to match the iOS path (which hard-codes the instruct prefix unconditionally).
-// If a thinking-flavored mmproj is ever shipped, it should write 461 to
-// avoid this collision.
-static const char * assistant_turn_prefix() {
-    switch (g_minicpmv_version) {
-        case 46:  // MiniCPM-V-4.6 (default tag from convert_hf_to_gguf.py; treated as instruct)
-        case 460: // MiniCPM-V-4.6 instruct (enable_thinking = false)
-            return "<|im_start|>assistant\n<think>\n\n</think>\n\n";
-        case 461: // MiniCPM-V-4.6 thinking (model emits its own <think>...</think>)
-            return "<|im_start|>assistant\n";
-        default:
-            return "<|im_start|>assistant\n";
-    }
 }
 
 static void shift_context() {
@@ -459,7 +298,7 @@ static int decode_tokens_in_batches(
         common_batch_clear(batch);
         LOGv("%s: Preparing a batch size of %d starting at: %d", __func__, cur_batch_size, i);
 
-        if (start_pos + i + cur_batch_size >= g_n_ctx - OVERFLOW_HEADROOM) {
+        if (start_pos + i + cur_batch_size >= DEFAULT_CONTEXT_SIZE - OVERFLOW_HEADROOM) {
             LOGw("%s: Current batch won't fit into context! Shifting...", __func__);
             shift_context();
         }
@@ -492,150 +331,30 @@ Java_com_example_minicpm_1v_1demo_LlamaEngine_processSystemPrompt(
 
     const auto *system_prompt = env->GetStringUTFChars(jsystem_prompt, nullptr);
     LOGd("%s: System prompt received", __func__);
-    std::string formatted_system_prompt(system_prompt);
-
-    if (g_ctx_vision) {
-        // The vision user path below uses the Qwen/MiniCPM role markers explicitly. Keep the
-        // system turn on the matching native role path even when the GGUF has no embedded chat
-        // template; otherwise this content becomes an unlabelled prefix and can be interpreted as
-        // part of the following user turn.
-        formatted_system_prompt =
-                "<|im_start|>system\n" + formatted_system_prompt + "<|im_end|>\n";
-        common_chat_msg system_msg;
-        system_msg.role = ROLE_SYSTEM;
-        system_msg.content = system_prompt;
-        chat_msgs.push_back(system_msg);
-    } else {
-        // common_chat_templates_init() always provides a safe default (ChatML)
-        // when a GGUF does not embed a chat_template. Character+RAG is the
-        // first path that sends a system message for text-only MiniCPM models;
-        // passing that message through as raw text made the model continue the
-        // role prompt instead of answering the following user turn.
-        formatted_system_prompt = chat_add_and_format(ROLE_SYSTEM, system_prompt);
-    }
+    const std::string formatted_system_prompt = chat_add_and_format(ROLE_SYSTEM, system_prompt);
     env->ReleaseStringUTFChars(jsystem_prompt, system_prompt);
 
-    if (g_ctx_vision) {
-        mtmd_input_text input_text;
-        input_text.text = formatted_system_prompt.c_str();
-        input_text.add_special = current_position == 0;
-        input_text.parse_special = true;
-
-        mtmd_input_chunks * chunks = mtmd_input_chunks_init();
-        int32_t res = mtmd_tokenize(g_ctx_vision, chunks, &input_text, nullptr, 0);
-        if (res != 0) {
-            LOGe("%s: mtmd_tokenize failed with code %d", __func__, res);
-            mtmd_input_chunks_free(chunks);
-            return 2;
-        }
-
-        llama_pos new_n_past;
-        if (mtmd_helper_eval_chunks(g_ctx_vision, g_context, chunks,
-                                    current_position, 0, BATCH_SIZE,
-                                    true, &new_n_past)) {
-            LOGe("%s: mtmd_helper_eval_chunks failed!", __func__);
-            mtmd_input_chunks_free(chunks);
-            return 2;
-        }
-
-        current_position = new_n_past;
-        generation_start_position = current_position;
-        LOGi("%s: system_tokens=vision_chunks current_position=%d eval_ms=%lld",
-             __func__, current_position,
-             (long long) std::chrono::duration_cast<std::chrono::milliseconds>(
-                 SteadyClock::now() - started_at).count());
-        mtmd_input_chunks_free(chunks);
-    } else {
-        const auto system_tokens = common_tokenize(g_context, formatted_system_prompt,
-                                                   current_position == 0, true);
-        const int max_batch_size = g_n_ctx - OVERFLOW_HEADROOM;
-        if ((int) system_tokens.size() > max_batch_size) {
-            LOGe("%s: System prompt too long for context! %d tokens, max: %d",
-                 __func__, (int) system_tokens.size(), max_batch_size);
-            return 1;
-        }
-
-        if (decode_tokens_in_batches(g_context, g_batch, system_tokens, current_position, true)) {
-            LOGe("%s: llama_decode() failed!", __func__);
-            return 2;
-        }
-
-        current_position += (int) system_tokens.size();
-        LOGi("%s: system_tokens=%d current_position=%d eval_ms=%lld",
-             __func__, (int) system_tokens.size(), current_position,
-             (long long) std::chrono::duration_cast<std::chrono::milliseconds>(
-                 SteadyClock::now() - started_at).count());
-    }
-
-    system_prompt_position = current_position;
-    return 0;
-}
-
-extern "C"
-JNIEXPORT jint JNICALL
-Java_com_example_minicpm_1v_1demo_LlamaEngine_prefillImage(
-        JNIEnv *env,
-        jobject /*unused*/,
-        jbyteArray jimage_data,
-        jint jimage_size
-) {
-    if (!g_ctx_vision) {
-        LOGe("%s: mmproj not loaded!", __func__);
+    const auto system_tokens = common_tokenize(g_context, formatted_system_prompt,
+                                               current_position == 0, true);
+    const int max_batch_size = DEFAULT_CONTEXT_SIZE - OVERFLOW_HEADROOM;
+    if ((int) system_tokens.size() > max_batch_size) {
+        LOGe("%s: System prompt too long for context! %d tokens, max: %d",
+             __func__, (int) system_tokens.size(), max_batch_size);
         return 1;
     }
 
-    jbyte *data = env->GetByteArrayElements(jimage_data, nullptr);
-    if (!data) {
-        LOGe("%s: Failed to get image data from Java", __func__);
+    if (decode_tokens_in_batches(g_context, g_batch, system_tokens, current_position, true)) {
+        LOGe("%s: llama_decode() failed!", __func__);
         return 2;
     }
 
-    auto *bitmap = mtmd_helper_bitmap_init_from_buf(
-        g_ctx_vision,
-        reinterpret_cast<const unsigned char *>(data),
-        static_cast<size_t>(jimage_size)
-    );
+    current_position += (int) system_tokens.size();
+    LOGi("%s: system_tokens=%d current_position=%d eval_ms=%lld",
+         __func__, (int) system_tokens.size(), current_position,
+         (long long) std::chrono::duration_cast<std::chrono::milliseconds>(
+             SteadyClock::now() - started_at).count());
 
-    env->ReleaseByteArrayElements(jimage_data, data, JNI_ABORT);
-
-    if (!bitmap) {
-        LOGe("%s: Failed to create bitmap from image buffer", __func__);
-        return 3;
-    }
-
-    mtmd_input_text text;
-    text.text = mtmd_default_marker();
-    text.add_special = current_position == 0;
-    text.parse_special = true;
-
-    mtmd_input_chunks * chunks = mtmd_input_chunks_init();
-    const mtmd_bitmap * bitmaps_cptr[] = { bitmap };
-    int32_t res = mtmd_tokenize(g_ctx_vision, chunks, &text,
-                                bitmaps_cptr, 1);
-
-    mtmd_bitmap_free(bitmap);
-
-    if (res != 0) {
-        LOGe("%s: mtmd_tokenize failed with code %d", __func__, res);
-        mtmd_input_chunks_free(chunks);
-        return 4;
-    }
-
-    llama_pos new_n_past;
-    if (mtmd_helper_eval_chunks(g_ctx_vision, g_context, chunks,
-                                current_position, 0, BATCH_SIZE,
-                                false, &new_n_past)) {
-        LOGe("%s: mtmd_helper_eval_chunks failed!", __func__);
-        mtmd_input_chunks_free(chunks);
-        return 5;
-    }
-
-    current_position = new_n_past;
-    mtmd_input_chunks_free(chunks);
-    g_image_prefilled = true;
-    g_vision_mode = true;
-
-    LOGi("%s: Image prefilled, current_position: %d", __func__, current_position);
+    system_prompt_position = current_position;
     return 0;
 }
 
@@ -699,39 +418,8 @@ Java_com_example_minicpm_1v_1demo_LlamaEngine_processUserPrompt(
         content_for_format = " ";
     }
 
-    std::string formatted_user_prompt;
-    if (g_ctx_vision) {
-        // No default system prompt: aligned with iOS opt-r1's MBMtmd.mm.
-        // An English-only "You are a helpful assistant." was observed to
-        // bias MiniCPM-V into answering Chinese queries in English. The
-        // reference Python pipeline (`AutoModel.chat(...)` /
-        // `apply_chat_template`) does not inject one either when the
-        // caller passes only a user message. If a system message is
-        // required it must be added through processSystemPrompt()
-        // *before* the first processUserPrompt() call.
-        formatted_user_prompt += "<|im_start|>user\n" + content_for_format + "<|im_end|>\n";
-        formatted_user_prompt += assistant_turn_prefix();
-
-        common_chat_msg new_msg;
-        new_msg.role = ROLE_USER;
-        new_msg.content = content_for_format;
-        chat_msgs.push_back(new_msg);
-
-        LOGi("%s: Formatted user prompt (mtmd, image=%s, minicpmv=%d, bytes=%zu)",
-             __func__,
-             g_image_prefilled ? "yes" : "no",
-             g_minicpmv_version,
-             formatted_user_prompt.size());
-
-        g_image_prefilled = false;
-    } else {
-        // See processSystemPrompt(): use llama.cpp's default ChatML formatter
-        // even when this GGUF has no explicit template metadata. The user
-        // message must be followed by an assistant generation turn; otherwise
-        // the model treats it as an unstructured continuation.
-        formatted_user_prompt = chat_add_and_format(ROLE_USER, content_for_format.c_str());
-        apply_thinking_mode_to_generation_prompt(formatted_user_prompt);
-    }
+    auto formatted_user_prompt = chat_add_and_format(ROLE_USER, content_for_format.c_str());
+    apply_thinking_mode_to_generation_prompt(formatted_user_prompt);
     env->ReleaseStringUTFChars(juser_prompt, user_prompt);
 
     if (formatted_user_prompt.size() >= 8 &&
@@ -739,68 +427,31 @@ Java_com_example_minicpm_1v_1demo_LlamaEngine_processUserPrompt(
         cached_token_chars = "<think>\n";
     }
 
-    const bool use_plain_text_eval = g_ctx_vision && !g_image_prefilled && !g_vision_mode;
-    if (g_ctx_vision && !use_plain_text_eval) {
-        mtmd_input_text text;
-        text.text          = formatted_user_prompt.c_str();
-        text.add_special   = current_position == 0;
-        text.parse_special = true;
-
-        mtmd_input_chunks * chunks = mtmd_input_chunks_init();
-        int32_t res = mtmd_tokenize(g_ctx_vision, chunks, &text, nullptr, 0);
-        if (res != 0) {
-            LOGe("%s: mtmd_tokenize failed with code %d", __func__, res);
-            mtmd_input_chunks_free(chunks);
-            return 2;
-        }
-
-        llama_pos new_n_past;
-        if (mtmd_helper_eval_chunks(g_ctx_vision, g_context, chunks,
-                                    current_position, 0, BATCH_SIZE,
-                                    true, &new_n_past)) {
-            LOGe("%s: mtmd_helper_eval_chunks failed!", __func__);
-            mtmd_input_chunks_free(chunks);
-            return 2;
-        }
-
-        current_position = new_n_past;
-        generation_start_position = current_position;
-        LOGi("%s: user_tokens=vision_chunks current_position=%d eval_ms=%lld",
-             __func__, current_position,
-             (long long) std::chrono::duration_cast<std::chrono::milliseconds>(
-                 SteadyClock::now() - started_at).count());
-        mtmd_input_chunks_free(chunks);
-    } else {
-        if (use_plain_text_eval) {
-            LOGi("%s: Using fast text eval path with mmproj loaded (no image/video in context)",
-                 __func__);
-        }
-        auto user_tokens = common_tokenize(g_context, formatted_user_prompt, current_position == 0, true);
-        const int user_prompt_size = (int) user_tokens.size();
-        const int max_batch_size = g_n_ctx - OVERFLOW_HEADROOM;
-        int skipped_tokens = 0;
-        if (user_prompt_size > max_batch_size) {
-            skipped_tokens = user_prompt_size - max_batch_size;
-            user_tokens.resize(max_batch_size);
-            LOGw("%s: User prompt too long! Skipped %d tokens!", __func__, skipped_tokens);
-        }
-
-        if (decode_tokens_in_batches(g_context, g_batch, user_tokens, current_position, true)) {
-            LOGe("%s: llama_decode() failed!", __func__);
-            return 2;
-        }
-
-        // Advance by the number of tokens actually decoded.  When the user
-        // prompt exceeds the context budget, user_tokens has been resized;
-        // using the original size desynchronizes current_position from KV.
-        current_position += (int) user_tokens.size();
-        generation_start_position = current_position;
-        LOGi("%s: user_tokens=%d original_tokens=%d skipped_tokens=%d current_position=%d eval_ms=%lld",
-             __func__, (int) user_tokens.size(), user_prompt_size, skipped_tokens,
-             current_position,
-             (long long) std::chrono::duration_cast<std::chrono::milliseconds>(
-                 SteadyClock::now() - started_at).count());
+    auto user_tokens = common_tokenize(g_context, formatted_user_prompt, current_position == 0, true);
+    const int user_prompt_size = (int) user_tokens.size();
+    const int max_batch_size = DEFAULT_CONTEXT_SIZE - OVERFLOW_HEADROOM;
+    int skipped_tokens = 0;
+    if (user_prompt_size > max_batch_size) {
+        skipped_tokens = user_prompt_size - max_batch_size;
+        user_tokens.resize(max_batch_size);
+        LOGw("%s: User prompt too long! Skipped %d tokens!", __func__, skipped_tokens);
     }
+
+    if (decode_tokens_in_batches(g_context, g_batch, user_tokens, current_position, true)) {
+        LOGe("%s: llama_decode() failed!", __func__);
+        return 2;
+    }
+
+    // Advance by the number of tokens actually decoded.  When the user
+    // prompt exceeds the context budget, user_tokens has been resized;
+    // using the original size desynchronizes current_position from KV.
+    current_position += (int) user_tokens.size();
+    generation_start_position = current_position;
+    LOGi("%s: user_tokens=%d original_tokens=%d skipped_tokens=%d current_position=%d eval_ms=%lld",
+         __func__, (int) user_tokens.size(), user_prompt_size, skipped_tokens,
+         current_position,
+         (long long) std::chrono::duration_cast<std::chrono::milliseconds>(
+             SteadyClock::now() - started_at).count());
 
     has_generation_limit = n_predict > 0;
     if (has_generation_limit) {
@@ -867,7 +518,7 @@ Java_com_example_minicpm_1v_1demo_LlamaEngine_generateNextToken(
         JNIEnv *env,
         jobject /*unused*/
 ) {
-    if (current_position >= g_n_ctx - OVERFLOW_HEADROOM) {
+    if (current_position >= DEFAULT_CONTEXT_SIZE - OVERFLOW_HEADROOM) {
         LOGw("%s: Context full! Shifting...", __func__);
         shift_context();
     }
@@ -928,11 +579,6 @@ Java_com_example_minicpm_1v_1demo_LlamaEngine_unload(JNIEnv * /*env*/, jobject /
     reset_long_term_states();
     reset_short_term_states();
     g_enable_thinking = true;
-
-    if (g_ctx_vision) {
-        mtmd_free(g_ctx_vision);
-        g_ctx_vision = nullptr;
-    }
 
     common_sampler_free(g_sampler);
     g_chat_templates.reset();

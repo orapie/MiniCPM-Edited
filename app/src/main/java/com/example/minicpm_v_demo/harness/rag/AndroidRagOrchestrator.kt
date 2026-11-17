@@ -231,6 +231,7 @@ class AndroidRagOrchestrator(
                 results = references.allowed,
                 characterDebug = characterPrompt.debug,
                 conversationContext = conversationContext,
+                relationshipFacts = characterPrompt.relationshipFacts,
             )
             val focal = requireNotNull(availableCharacters().firstOrNull { it.npcId == characterId })
             val rawPrompt = RawPromptPackage(
@@ -239,6 +240,7 @@ class AndroidRagOrchestrator(
                 userQuestion = userInput,
                 conversationContext = conversationContext,
                 references = prompt.references,
+                relationshipContext = prompt.relationshipContext,
             )
             val externalSkipReason = if (prompt.characterDebug.publicProfileAnswersQuestion) {
                 "public_profile_sufficient"

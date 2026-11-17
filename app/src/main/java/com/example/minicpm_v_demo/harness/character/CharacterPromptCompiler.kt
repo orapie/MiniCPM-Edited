@@ -62,7 +62,8 @@ class CharacterPromptCompiler(
         val npc = databaseBundle?.let { DatabaseCharacterCardAdapter(it.validated).atCutoff(loadedNpc, cutoff) } ?: loadedNpc
         require(eventsById.containsKey(cutoff)) { "unknown story cutoff: $cutoff" }
         val followUpTarget = runtimeContext.followUpTarget
-        val queryPlan = planKnowledgeQuery(userInput, runtimeContext, followUpTarget)
+        val queryPlan = planKnowledgeQuery(userInput, runtimeContext, followUpTarget,
+            if (databaseBundle != null) npc.relationships.map { it.targetName } else emptyList())
         val graphRetrieval = if (queryPlan.retrieveFacts && (runtimeContext.knowledgeGraphEnabled || databaseBundle != null) && v2KnowledgeStore != null) {
             if (followUpTarget?.kind == "authorized_story_facts") {
                 v2KnowledgeStore.retrieveByClaimIdSafely(npc.npcId, followUpTarget.id, cutoff)
@@ -163,6 +164,8 @@ class CharacterPromptCompiler(
         // Character-card relationships stay as a fail-closed compatibility path.
         val relationships = if (!queryPlan.retrieveRelations || relationRetrieval?.status == KnowledgeStoreStatus.READY) {
             emptyList()
+        } else if (databaseBundle != null) {
+            selectAuthorizedCardRelationships(npc, userInput, followUpTarget)
         } else {
             selectRelationships(npc, userInput)
         }
@@ -280,13 +283,15 @@ class CharacterPromptCompiler(
                 optionalItems += item
             }
         }
-        relationships.forEach { relation ->
-            optionalItems += PromptCandidate(
-                section = "relevant_relationships",
-                id = relation.targetName,
-                text = "${relation.targetName}是你的${relation.relationshipType}；${relation.attitude.take(58)}",
-                priority = if (definitionIntent) 1.65 else 2.0,
-            )
+        if (databaseBundle == null) {
+            relationships.forEach { relation ->
+                optionalItems += PromptCandidate(
+                    section = "relevant_relationships",
+                    id = relation.targetName,
+                    text = "${relation.targetName}是你的${relation.relationshipType}；${relation.attitude.take(58)}",
+                    priority = if (definitionIntent) 1.65 else 2.0,
+                )
+            }
         }
         var relationChars = 0
         graphRelationships.forEach { relation ->
@@ -577,6 +582,7 @@ class CharacterPromptCompiler(
             ),
             stageLogs = stageLogs,
             publicProfileReply = completePublicFact?.statement?.takeIf { it.startsWith("我") },
+            relationshipFacts = if (databaseBundle != null && completePublicFact == null) relationships else emptyList(),
         )
     }
 
@@ -921,10 +927,11 @@ class CharacterPromptCompiler(
         userInput: String,
         runtimeContext: RuntimeContext,
         followUpTarget: CharacterFollowUpTarget?,
+        cardTargetNames: List<String>,
     ): KnowledgeQueryPlan {
         val analysis = queryAnalyzer.analyze(
             userInput = userInput,
-            knownCharacterNames = relationshipTargetNames().values.flatten(),
+            knownCharacterNames = relationshipTargetNames().values.flatten() + cardTargetNames,
             followUpTarget = followUpTarget,
         )
         val retrieveState = analysis.requests(CharacterKnowledgeSurface.STATE)
@@ -958,6 +965,38 @@ class CharacterPromptCompiler(
 
     private fun definitionBoost(eventId: String, primaryEventId: String?): Double =
         if (eventId == primaryEventId) 1.5 else 0.0
+
+    /** The scoped card already excludes relationships beyond its declared cutoff. */
+    private fun selectAuthorizedCardRelationships(
+        npc: CharacterCard,
+        query: String,
+        followUpTarget: CharacterFollowUpTarget?,
+    ): List<CharacterRelationship> {
+        val bundle = requireNotNull(databaseBundle).validated
+        val sourceLineCounts = bundle.sourceLineCounts
+        if (npc.relationships.isEmpty() || sourceLineCounts.isEmpty()) return emptyList()
+        val cardSequence = bundle.cutoffs.getValue(npc.knowledgeScope.storyCutoff)
+        val targetNames = relationshipTargetNames()
+        val explicit = npc.relationships.filter { relation ->
+            (relation.targetNpcId?.let(targetNames::get).orEmpty() + relation.targetName)
+                .any { it.length >= 2 && it in query }
+        }
+        val candidates = if (explicit.isNotEmpty()) explicit else {
+            if (targetNames.values.flatten().any { it.length >= 2 && it in query }) return emptyList()
+            val priorId = followUpTarget?.takeIf { it.kind == "relevant_relationships" }?.id ?: return emptyList()
+            listOfNotNull(npc.relationships.singleOrNull { it.targetId == priorId || it.targetName == priorId })
+        }
+        return candidates.filter { relation ->
+            relation.targetName.isNotBlank() && relation.attitude.isNotBlank() &&
+                relation.evidenceRefs.isNotEmpty() && relation.evidenceRefs.all { ref ->
+                    val match = CardRelationshipEvidenceRef.matchEntire(ref) ?: return@all false
+                    val (source, from, to) = match.destructured
+                    val first = from.toIntOrNull() ?: return@all false
+                    val last = if (to.isEmpty()) first else to.toIntOrNull() ?: return@all false
+                    first <= last && last <= (sourceLineCounts[source] ?: 0) && last <= cardSequence
+                }
+        }
+    }
 
     private fun selectRelationships(npc: CharacterCard, query: String): List<CharacterRelationship> {
         val selected = npc.relationships.filter { it.targetName in query }
@@ -1014,6 +1053,7 @@ class CharacterPromptCompiler(
         )
         private val PublicProfileQuestionPrefix = Regex("^(?:请问[，,\\s]*)?(?:你|您)(?:以前|过去|曾经|从前|之前)?的?(?:主要)?")
         private val PublicProfileQuestionSuffix = Regex("(?:是什么|吗|呢)$")
+        private val CardRelationshipEvidenceRef = Regex("^(.+):L([1-9][0-9]*)(?:-L?([1-9][0-9]*))?$")
 
         private val KnowledgeLeadIns = mapOf(
             "direct" to "你亲历并确认：",

@@ -51,6 +51,7 @@ import com.example.minicpm_v_demo.harness.data.database.DatabaseBundleHandle
 import com.example.minicpm_v_demo.harness.attribution.LocalAttributionRewriteService
 import com.example.minicpm_v_demo.harness.attribution.AgentBPromptFormat
 import com.example.minicpm_v_demo.harness.attribution.AttributionFeatureFlags
+import com.example.minicpm_v_demo.harness.attribution.AttributionModelStore
 import com.example.minicpm_v_demo.harness.data.database.DatabaseTurnLease
 import com.example.minicpm_v_demo.harness.session.ChatSession
 import com.example.minicpm_v_demo.harness.session.ChatSessionStore
@@ -96,6 +97,7 @@ class MainActivity : AppCompatActivity() {
     /** Session-only developer A/B switch; it never changes character data. */
     private var characterKnowledgeGraphEnabled: Boolean = true
     private var generationJob: Job? = null
+    private var attributionWarmupJob: Job? = null
     private var isModelReady = false
     private var hasAutoLoaded = false
     private var loadedModelId: String? = null
@@ -383,6 +385,7 @@ class MainActivity : AppCompatActivity() {
                         isModelReady = true
                         loadedModelId = harness.getSelectedModel().id
                         enableInput(true)
+                        warmAttributionModelIfNeeded()
                     }
                     is LlamaState.ProcessingSystemPrompt,
                     is LlamaState.ProcessingUserPrompt,
@@ -426,6 +429,27 @@ class MainActivity : AppCompatActivity() {
                 withContext(Dispatchers.Main) {
                     Toast.makeText(this@MainActivity, getString(R.string.toast_model_load_failed, e.message), Toast.LENGTH_LONG).show()
                 }
+            }
+        }
+    }
+
+    /** Warm an enabled Agent A after B is ready, including after process restart or direct chat launch. */
+    private fun warmAttributionModelIfNeeded() {
+        if (attributionWarmupJob?.isActive == true) return
+        val flags = AttributionFeatureFlags(applicationContext)
+        if (!flags.localAgentAEnabled) return
+        val files = AttributionModelStore(applicationContext).getSelectedModelFiles()
+        if (!files.llmFile.isFile) return
+        val engine = AttributionLlamaEngine.getInstance(applicationContext)
+        if (engine.loadedModelPath.value == files.llmFile.absolutePath) return
+        attributionWarmupJob = lifecycleScope.launch(Dispatchers.IO) {
+            runCatching {
+                engine.loadTextModel(files.entry.model, files.llmFile)
+            }.onSuccess {
+                Log.i(TAG, "Agent A warmup complete: ${files.entry.model.id}")
+            }.onFailure { error ->
+                if (error is CancellationException) throw error
+                Log.w(TAG, "Agent A warmup failed; turn-time fallback remains available", error)
             }
         }
     }
@@ -858,7 +882,7 @@ class MainActivity : AppCompatActivity() {
                     estimatedUserTokens = characterDebug?.estimatedUserTokens,
                     contextChars = compiled.contextText.length,
                     sourceCount = compiled.sources.size,
-                    predictLength = LlamaEngine.UNLIMITED_PREDICT_LENGTH,
+                    predictLength = ROLEPLAY_PREDICT_LENGTH,
                 )
             }.onFailure { error ->
                 Log.w(TAG, "Failed to create roleplay observation; continuing generation", error)
@@ -1131,7 +1155,11 @@ class MainActivity : AppCompatActivity() {
         val debugTrace: String? = null,
     ) {
         val predictLength: Int
-            get() = LlamaEngine.UNLIMITED_PREDICT_LENGTH
+            get() = when (compiled?.mode) {
+                RagMode.CHARACTER_RAG -> ROLEPLAY_PREDICT_LENGTH
+                RagMode.RAG -> RAG_PREDICT_LENGTH
+                else -> CHAT_PREDICT_LENGTH
+            }
 
         val debugPrompt: String?
             get() = compiled?.renderedPrompt
@@ -1238,5 +1266,8 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private val TAG = MainActivity::class.java.simpleName
+        private const val ROLEPLAY_PREDICT_LENGTH = 256
+        private const val RAG_PREDICT_LENGTH = 384
+        private const val CHAT_PREDICT_LENGTH = 512
     }
 }

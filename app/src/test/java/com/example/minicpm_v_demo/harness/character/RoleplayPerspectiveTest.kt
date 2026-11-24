@@ -37,11 +37,10 @@ class RoleplayPerspectiveTest {
         assertTrue(RoleplayOutputGuard.evaluate("“罗辑决定离开。", "罗辑", "问题") is RoleplayOutputDecision.Accept)
     }
 
-    @Test fun retryIsBoundedAndFixedResponseCannotBypassGate() {
+    @Test fun unsafeOutputFallsBackImmediatelyAndFixedResponseCannotBypassGate() {
         val coordinator = RoleplayGenerationCoordinator()
         val text = "阿明决定离开。"
-        assertTrue(coordinator.resolve(0, text, "阿明", "问题") is RoleplayGenerationAction.Retry)
-        assertTrue(coordinator.resolve(1, text, "阿明", "问题") is RoleplayGenerationAction.Fallback)
+        assertTrue(coordinator.resolve(0, text, "阿明", "问题") is RoleplayGenerationAction.Fallback)
         assertTrue(coordinator.resolve(0, text, "阿明", "问题", fixedResponse = true) is RoleplayGenerationAction.Fallback)
     }
 }

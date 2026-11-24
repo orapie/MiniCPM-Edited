@@ -1,6 +1,7 @@
 package com.example.minicpm_v_demo.harness.attribution
 
 import android.content.Context
+import android.util.Log
 import com.example.minicpm_v_demo.AttributionDeadlineExceeded
 import com.example.minicpm_v_demo.AttributionLlamaEngine
 import kotlinx.coroutines.runBlocking
@@ -18,6 +19,7 @@ class LocalAttributionRewriteService(
     private val modelStore = AttributionModelStore(context)
     private val featureFlags = AttributionFeatureFlags(context)
     private val engine = AttributionLlamaEngine.getInstance(context)
+    @Volatile private var circuitOpenAfterTimeout = false
 
     override val enabled: Boolean
         get() = featureFlags.localAgentAEnabled &&
@@ -28,6 +30,7 @@ class LocalAttributionRewriteService(
     override fun rewrite(request: AttributionAgentRequest): AttributionAgentResult {
         if (!featureFlags.localAgentAEnabled) return AttributionAgentResult.Fallback("feature_disabled")
         if (!isForegroundRuntimeReady()) return AttributionAgentResult.Fallback("foreground_runtime_unavailable")
+        if (circuitOpenAfterTimeout) return AttributionAgentResult.Fallback("agent_a_circuit_open")
         val files = modelStore.getSelectedModelFiles()
         if (!files.llmFile.isFile) return AttributionAgentResult.Fallback("agent_a_model_unavailable")
         val spec = requireNotNull(files.entry.attributionSpec)
@@ -38,7 +41,8 @@ class LocalAttributionRewriteService(
         if (request.messages.sumOf { it.content.length } > spec.maxContextChars) {
             return AttributionAgentResult.Fallback("agent_a_input_budget_exceeded")
         }
-        return runCatching {
+        val startedAt = System.nanoTime()
+        val result = runCatching {
             val deadlineNanos = System.nanoTime() + timeoutMillis * 1_000_000
             runBlocking {
                 withTimeout(timeoutMillis) {
@@ -58,13 +62,25 @@ class LocalAttributionRewriteService(
                 }
             }
         }.getOrElse { error ->
-            val reason = if (error is kotlinx.coroutines.TimeoutCancellationException || error is AttributionDeadlineExceeded) {
+            val timedOut = error is kotlinx.coroutines.TimeoutCancellationException || error is AttributionDeadlineExceeded
+            if (timedOut) circuitOpenAfterTimeout = true
+            val reason = if (timedOut) {
                 "agent_a_timeout"
             } else {
                 "agent_a_${error.message?.takeIf(String::isNotBlank)?.replace(Regex("[^a-zA-Z0-9_]+"), "_") ?: "failed"}"
             }
             AttributionAgentResult.Fallback(reason.take(96))
         }
+        Log.i(
+            TAG,
+            "AGENT_A_REQUEST model=${files.entry.model.id} references=$referenceCount " +
+                "elapsed_ms=${(System.nanoTime() - startedAt) / 1_000_000L} " +
+                "result=${when (result) {
+                    is AttributionAgentResult.Draft -> "success"
+                    is AttributionAgentResult.Fallback -> result.reason
+                }} circuit_open=$circuitOpenAfterTimeout",
+        )
+        return result
     }
 
     override fun close() {
@@ -73,6 +89,7 @@ class LocalAttributionRewriteService(
     }
 
     companion object {
-        const val DEFAULT_TIMEOUT_MILLIS = 60_000L
+        private const val TAG = "LocalAttribution"
+        const val DEFAULT_TIMEOUT_MILLIS = 15_000L
     }
 }

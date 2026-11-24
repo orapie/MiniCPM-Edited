@@ -8,7 +8,7 @@ package com.example.minicpm_v_demo.harness.character
 class RoleplayGenerationCoordinator(
     private val fallbackText: String = DEFAULT_SAFE_FALLBACK,
 ) {
-    /** 根据输出检查结果交付可见文本、发起一次修复重试，或使用固定回退文本。 */
+    /** 根据输出检查结果交付可见文本；当前移动端策略对不安全输出直接使用固定回退文本。 */
     fun resolve(
         attempt: Int,
         rawOutput: String,
@@ -52,7 +52,9 @@ class RoleplayGenerationCoordinator(
     private fun comparableReply(reply: String): String = reply.trim().trimEnd('。', '.', '！', '!')
 
     companion object {
-        const val MAX_REPAIR_ATTEMPTS = 1
+        // A second full mobile inference can double end-to-end latency. Reject
+        // unsafe output immediately and use the deterministic safe fallback.
+        const val MAX_REPAIR_ATTEMPTS = 0
         const val DEFAULT_SAFE_FALLBACK = "这话我一时说不清。"
         const val PUBLIC_PROFILE_FALLBACK = "public_profile_unverified"
         const val REPAIR_INSTRUCTION =

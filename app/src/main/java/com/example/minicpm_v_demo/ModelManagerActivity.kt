@@ -166,6 +166,11 @@ class ModelManagerActivity : AppCompatActivity() {
         agentAAdapter = ModelAdapter(models, attributionModelStore.getSelectedEntry().model.id) { model ->
             attributionModelStore.setSelectedModel(model.id)
             updateAttributionControls()
+            if (attributionFeatureFlags.localAgentAEnabled) {
+                warmAttributionModelIfNeeded()
+            } else {
+                unloadAttributionModel()
+            }
         }.apply { canSelect = { !fileActionRunning } }
         list.adapter = agentAAdapter
 
@@ -175,6 +180,7 @@ class ModelManagerActivity : AppCompatActivity() {
                 Toast.makeText(this, R.string.attribution_enable_requires_model, Toast.LENGTH_LONG).show()
             } else {
                 attributionFeatureFlags.setLocalAgentAEnabled(enabled)
+                if (enabled) warmAttributionModelIfNeeded() else unloadAttributionModel()
             }
             updateAttributionControls()
         }
@@ -189,6 +195,27 @@ class ModelManagerActivity : AppCompatActivity() {
         runFileAction(agentA, R.string.status_loading, R.string.toast_load_failed) {
             attributionEngine.loadTextModel(files.entry.model, files.llmFile)
             Toast.makeText(this, R.string.toast_model_loaded, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /** Load Agent A while the user is still on the model page so chat turns never pay the cold-load cost. */
+    private fun warmAttributionModelIfNeeded() {
+        val files = attributionModelStore.getSelectedModelFiles()
+        if (!files.llmFile.isFile || fileActionRunning ||
+            attributionEngine.loadedModelPath.value == files.llmFile.absolutePath
+        ) return
+        runFileAction(agentA, R.string.status_loading, R.string.toast_load_failed) {
+            attributionEngine.loadTextModel(files.entry.model, files.llmFile)
+            Log.i(TAG, "Agent A preloaded after enable/select: ${files.entry.model.id}")
+        }
+    }
+
+    /** Disabling dual Agent releases A's model/context instead of retaining unused mobile memory. */
+    private fun unloadAttributionModel() {
+        if (fileActionRunning || attributionEngine.loadedModelPath.value == null) return
+        runFileAction(agentA, R.string.status_unloading, R.string.toast_load_failed) {
+            attributionEngine.unloadModel()
+            Log.i(TAG, "Agent A unloaded because dual Agent is disabled")
         }
     }
 

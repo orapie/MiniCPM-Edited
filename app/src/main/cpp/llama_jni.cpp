@@ -364,24 +364,14 @@ Java_com_example_minicpm_1v_1demo_LlamaEngine_fullReset(JNIEnv *, jobject) {
     reset_long_term_states();
     reset_short_term_states();
 
+    // Keep the expensive model context, batch allocation and compiled chat
+    // template alive between independent turns. Clearing llama memory resets
+    // the KV cache; recreating the sampler is still required because Agent A's
+    // grammar can change with the number of references on every request.
     common_sampler_free(g_sampler);
-    g_sampler = nullptr;
-    g_chat_templates.reset();
-    llama_batch_free(g_batch);
-    llama_free(g_context);
-    g_context = nullptr;
-
-    auto *context = init_context(g_model);
-    if (!context) {
-        LOGe("%s: Failed to reinitialize context!", __func__);
-        return;
-    }
-    g_context = context;
-    g_batch = llama_batch_init(BATCH_SIZE, 0, 1);
-    g_chat_templates = common_chat_templates_init(g_model, "");
     g_sampler = new_sampler(DEFAULT_SAMPLER_TEMP);
 
-    LOGi("%s: Full reset complete - context recreated, KV cache fresh, sampler reinitialized", __func__);
+    LOGi("%s: Fast reset complete - KV cache cleared, context reused, sampler reinitialized", __func__);
 }
 
 extern "C"

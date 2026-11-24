@@ -60,10 +60,10 @@ class LlamaEngine private constructor(
          */
         const val UNLIMITED_PREDICT_LENGTH = -1
 
-        // Do not silently truncate ordinary or character-RAG answers.  A
-        // positive value passed explicitly to sendUserPrompt still provides a
-        // caller-selected token cap (useful for short benchmark trials).
-        const val DEFAULT_PREDICT_LENGTH = UNLIMITED_PREDICT_LENGTH
+        // A finite mobile default prevents a missing EOG token from turning a
+        // short chat turn into minutes of generation. Callers may choose a
+        // smaller mode-specific cap or explicitly request unlimited output.
+        const val DEFAULT_PREDICT_LENGTH = 512
 
         const val MODEL_SUBDIR = "models"
 
@@ -329,8 +329,8 @@ class LlamaEngine private constructor(
     private external fun init(nativeLibDir: String)
     private external fun load(modelPath: String): Int
     // Controls whether a text model's chat template enters its reasoning
-    // section. MiniCPM5-2B disables it so short mobile generations produce
-    // a visible answer instead of exhausting the token budget inside <think>.
+    // section. Mobile catalog entries default to direct answers so short
+    // generations do not exhaust their token budget inside <think>.
     private external fun setEnableThinkingNative(enabled: Boolean)
     private external fun prepare(): Int
     private external fun systemInfo(): String
@@ -455,7 +455,7 @@ class LlamaEngine private constructor(
             }
             fullReset()
             _readyForSystemPrompt = true
-            Log.i(TAG, "Context fully reset - context recreated, ready for new conversation")
+            Log.i(TAG, "Context reset - KV cache cleared and allocation reused for the next conversation")
         }
 
     /** 在推理调度器上预填充用户输入，再按生成顺序发出非空文本片段。完成、取消或失败时恢复模型就绪状态。 */
@@ -472,6 +472,8 @@ class LlamaEngine private constructor(
             _cancelGeneration = false
             val startedAt = System.nanoTime()
             var firstTokenLogged = false
+            var sampledTokens = 0
+            var outputChars = 0
             Log.i(TAG, "Sending user prompt...")
             _readyForSystemPrompt = false
             _state.value = LlamaState.ProcessingUserPrompt
@@ -484,15 +486,19 @@ class LlamaEngine private constructor(
                 }
             }
 
+            val prefillMillis = elapsedMillis(startedAt)
             Log.i(
                 TAG,
-                "User prompt processed. prefill_ms=${elapsedMillis(startedAt)}; " +
+                "User prompt processed. prefill_ms=$prefillMillis; " +
                     "generating assistant prompt...",
             )
+            val generationStartedAt = System.nanoTime()
             _state.value = LlamaState.Generating
             while (!_cancelGeneration) {
                 generateNextToken()?.let { utf8token ->
+                    sampledTokens++
                     if (utf8token.isNotEmpty()) {
+                        outputChars += utf8token.length
                         if (!firstTokenLogged) {
                             firstTokenLogged = true
                             Log.i(TAG, "First assistant token received. ttft_ms=${elapsedMillis(startedAt)}")
@@ -506,6 +512,19 @@ class LlamaEngine private constructor(
             } else {
                 Log.i(TAG, "Assistant generation complete. Awaiting user prompt...")
             }
+            val generationMillis = elapsedMillis(generationStartedAt)
+            val tokensPerSecond = if (generationMillis > 0) {
+                sampledTokens * 1_000.0 / generationMillis
+            } else {
+                0.0
+            }
+            Log.i(
+                TAG,
+                "GENERATION_PERF predict_limit=$predictLength prefill_ms=$prefillMillis " +
+                    "generation_ms=$generationMillis total_ms=${elapsedMillis(startedAt)} " +
+                    "sampled_tokens=$sampledTokens output_chars=$outputChars " +
+                    "decode_tokens_per_second=$tokensPerSecond cancelled=$_cancelGeneration",
+            )
             _state.value = LlamaState.ModelReady
         } catch (e: CancellationException) {
             Log.i(TAG, "Assistant generation's flow collection cancelled.")

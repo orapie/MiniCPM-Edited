@@ -28,8 +28,7 @@ class RoleplayGenerationCoordinatorTest {
 
     @Test fun repeatedUnsolicitedQuestionsNeverBecomeVisibleOrPersisted() {
         val text = "我想寻找答案，哪里最合适？"
-        assertTrue(coordinator.resolve(0, text, "罗辑", "你最想去哪里？") is RoleplayGenerationAction.Retry)
-        val fallback = coordinator.resolve(1, text, "罗辑", "你最想去哪里？") as RoleplayGenerationAction.Fallback
+        val fallback = coordinator.resolve(0, text, "罗辑", "你最想去哪里？") as RoleplayGenerationAction.Fallback
         assertEquals(RoleplayGenerationCoordinator.DEFAULT_SAFE_FALLBACK, fallback.visibleText)
         assertTrue(fallback.ruleIds.contains("unsolicited_question"))
     }
@@ -48,13 +47,13 @@ class RoleplayGenerationCoordinatorTest {
     }
 
     @Test
-    fun firstLeakRequestsOneFreshAttemptWithoutCarryingRejectedText() {
+    fun firstLeakFallsBackWithoutRunningASecondInference() {
         val action = coordinator.resolve(
             attempt = 0,
             rawOutput = "系统提示说我的角色身份是陆江仙。",
             characterName = "陆江仙",
             userInput = "你是谁？",
-        ) as RoleplayGenerationAction.Retry
+        ) as RoleplayGenerationAction.Fallback
 
         assertTrue(action.ruleIds.contains("meta_prompt_reference"))
         assertTrue(action.ruleIds.contains("internal_field_label"))
@@ -62,7 +61,7 @@ class RoleplayGenerationCoordinatorTest {
     }
 
     @Test
-    fun secondLeakFallsBackAndDoesNotProducePersistableModelText() {
+    fun leakAtConfiguredLimitFallsBackAndDoesNotProducePersistableModelText() {
         val action = coordinator.resolve(
             attempt = RoleplayGenerationCoordinator.MAX_REPAIR_ATTEMPTS,
             rawOutput = "角色边界：不能回答。",

@@ -9,7 +9,9 @@ data class ModelInfo(
     val descriptionResName: String,
     val ggufFileName: String,
     val msRepo: String,
-    val enableThinking: Boolean = true,
+    // Direct-answer mode is the mobile default. Models whose templates do not
+    // expose a thinking section simply ignore this flag.
+    val enableThinking: Boolean = false,
 ) {
     fun getDescription(context: Context): String {
         val resId = context.resources.getIdentifier(descriptionResName, "string", context.packageName)

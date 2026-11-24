@@ -38,9 +38,10 @@ data class AttributionModelEntry(
 
 /** 登记归因模型目录和使用约束，具有归因规格的条目才可供 Agent A 选择。 */
 object AttributionModelRegistry {
-    // Both agents use the same files. Agent A keeps its own thinking setting.
+    // Both agents use the same files. Agent A is a constrained classifier, so
+    // reasoning text only adds latency and can conflict with its output grammar.
     private val mirroredModels = ModelInfo.AVAILABLE_MODELS.map { model ->
-        model.copy(enableThinking = model.enableThinking && model.id != "minicpm5-2b")
+        model.copy(enableThinking = false)
     }
 
     private val entries: List<AttributionModelEntry> = mirroredModels.map { model ->

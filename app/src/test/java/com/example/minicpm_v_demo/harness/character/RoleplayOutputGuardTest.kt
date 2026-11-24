@@ -39,9 +39,8 @@ class RoleplayOutputGuardTest {
                 RoleplayOutputGuard.evaluate(answer, "史强", "你是谁？"))
         }
         val coordinator = RoleplayGenerationCoordinator()
-        val first = coordinator.resolve(0, "你是丁仪。", "史强", "你是谁？") as RoleplayGenerationAction.Retry
-        assertTrue(RoleplayGenerationCoordinator.repairInstruction(first.ruleIds).contains("直接从“我”说起"))
-        assertTrue(coordinator.resolve(1, "你是丁仪。", "史强", "你是谁？") is RoleplayGenerationAction.Fallback)
+        val fallback = coordinator.resolve(0, "你是丁仪。", "史强", "你是谁？") as RoleplayGenerationAction.Fallback
+        assertTrue(fallback.ruleIds.contains("self_second_person_narration"))
     }
     @Test fun selfIdentificationAsAiRetriesWithoutRejectingThirdPartyReferences() {
         val question = "你以前做过什么工作？"

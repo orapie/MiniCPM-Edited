@@ -60,7 +60,10 @@ class AttributionLlamaEngine private constructor(context: Context) {
         grammar: String,
         deadlineNanos: Long,
     ): String = withContext(dispatcher) {
+        val requestStartedAt = System.nanoTime()
+        val wasLoaded = _loadedModelPath.value == modelFile.absolutePath
         loadTextModelOnDispatcher(model, modelFile, reload = false)
+        val loadMillis = elapsedMillis(requestStartedAt)
         require(systemPrompt.isNotBlank() && userPrompt.isNotBlank()) { "attribution_prompt_required" }
         require(maxOutputTokens in 1..1_024) { "attribution_output_limit_invalid" }
         val remainingMillis = (deadlineNanos - System.nanoTime()) / 1_000_000
@@ -68,21 +71,37 @@ class AttributionLlamaEngine private constructor(context: Context) {
         try {
             configureRequest(remainingMillis, grammar)
             fullReset()
+            val systemStartedAt = System.nanoTime()
             val systemStatus = processSystemPrompt(systemPrompt)
+            val systemPrefillMillis = elapsedMillis(systemStartedAt)
             if (requestAborted()) throw AttributionDeadlineExceeded()
             check(systemStatus == 0) { "attribution_system_prefill_failed" }
+            val userStartedAt = System.nanoTime()
             val userStatus = processUserPrompt(userPrompt, maxOutputTokens)
+            val userPrefillMillis = elapsedMillis(userStartedAt)
             if (requestAborted()) throw AttributionDeadlineExceeded()
             check(userStatus == 0) { "attribution_user_prefill_failed" }
-            buildString {
+            val generationStartedAt = System.nanoTime()
+            var sampledTokens = 0
+            val output = buildString {
                 while (true) {
                     coroutineContext.ensureActive()
                     if (requestAborted()) throw AttributionDeadlineExceeded()
                     val token = generateNextToken() ?: break
+                    sampledTokens++
                     append(token)
                 }
                 if (requestAborted()) throw AttributionDeadlineExceeded()
             }
+            val generationMillis = elapsedMillis(generationStartedAt)
+            Log.i(
+                TAG,
+                "AGENT_A_PERF model=${model.id} warm_model=$wasLoaded load_ms=$loadMillis " +
+                    "system_prefill_ms=$systemPrefillMillis user_prefill_ms=$userPrefillMillis " +
+                    "generation_ms=$generationMillis total_ms=${elapsedMillis(requestStartedAt)} " +
+                    "sampled_tokens=$sampledTokens output_chars=${output.length} limit=$maxOutputTokens",
+            )
+            output
         } catch (error: CancellationException) {
             nativeCancelGeneration()
             throw error
@@ -109,6 +128,9 @@ class AttributionLlamaEngine private constructor(context: Context) {
             _loadedModelPath.value = null
         }
     }
+
+    private fun elapsedMillis(startedAt: Long): Long =
+        (System.nanoTime() - startedAt) / 1_000_000L
 
     private suspend fun awaitBackend() {
         val state = LlamaEngine.getInstance(appContext).state.first {

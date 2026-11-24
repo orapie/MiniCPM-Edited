@@ -14,9 +14,7 @@ class AttributionModelRegistryTest {
         val agentB = ModelInfo.AVAILABLE_MODELS
         val agentA = AttributionModelRegistry.availableModelInfos()
 
-        val expected = agentB.map { model ->
-            if (model.id == "minicpm5-2b") model.copy(enableThinking = false) else model
-        }
+        val expected = agentB.map { model -> model.copy(enableThinking = false) }
         assertEquals(expected, agentA)
         assertNotSame(agentB, agentA)
         agentB.indices.forEach { index -> assertNotSame(agentB[index], agentA[index]) }

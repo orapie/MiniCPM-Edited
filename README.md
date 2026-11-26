@@ -57,6 +57,5 @@ The build copies the files listed in the manifest to `app/build/generated/databa
 bash ./gradlew :app:testDebugUnitTest
 ```
 
-- [RAG, Dual Agent mode, and log troubleshooting](docs/RAG/RAG_Logic.md)
-- [Follow-up plan for character fidelity and Dual Agent mode](docs/double_agent/Agent_B_JSON_Prompt_Experiment_Plan.md)
-- [Roleplay regression results and commands for rerunning tests on a device](docs/double_agent/roleplay_eval/results.md)
+- [RAG, Dual Agent mode, and log troubleshooting](RAG_Logic.md)
+- [Roleplay device evaluation test](app/src/androidTest/java/com/example/minicpm_v_demo/harness/character/RoleplayBaselineDeviceTest.kt) and [test cases](app/src/androidTest/assets/cases.jsonl).

@@ -37,4 +37,4 @@ bash ./gradlew :app:verifyDebugDatabaseAssets
 
 归档会话和 Memory 按数据集 ID 和 fingerprint 隔离。自动恢复、摘要和追问还受角色及剧情截止点限制。可从历史记录查看旧会话。更换数据包从仓库根目录生成受控产物并重建 APK。
 
-运行和故障排查见 [RAG 指南](../docs/RAG/RAG_Logic.md)。
+运行和故障排查见 [RAG 指南](../RAG_Logic.md)。

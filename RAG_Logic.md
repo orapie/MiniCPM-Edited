@@ -2,7 +2,7 @@
 
 ## 知识包与检索
 
-[根目录 database](../../database/) 是 Android 应用的知识数据输入。Gradle 的 `prepareDatabaseBundle` 校验 manifest 和受控文件，再暂存到 `app/build/generated/databaseAssets/database/`。应用启动时由 `DatabaseBundleInstaller` 校验并激活 `<filesDir>/database/` 中的数据包，活动回合持有该包的句柄，直到生成及保存结束。程序提示模板与 TTS 参考音频走独立资源流程。
+[根目录 database](database/) 是 Android 应用的知识数据输入。Gradle 的 `prepareDatabaseBundle` 校验 manifest 和受控文件，再暂存到 `app/build/generated/databaseAssets/database/`。应用启动时由 `DatabaseBundleInstaller` 校验并激活 `<filesDir>/database/` 中的数据包，活动回合持有该包的句柄，直到生成及保存结束。程序提示模板与 TTS 参考音频走独立资源流程。
 
 当前 `three_body_2` 包声明 `v2/vector=true`、`v1/timed_state=false`。普通和角色 RAG 使用包内 BGE ONNX 查询模型和 512 维语义索引。Android 在内存中查询索引，SQLite 用于离线构建与审计。384 维 hash n-gram 索引保留给未声明 BGE 路径的旧包。当前包的 BGE 初始化或查询失败会报告诊断状态；默认关闭的混合检索可额外融合词项候选。
 
@@ -34,7 +34,7 @@ A 使用独立的纯文本 GGUF 和原生运行时。只有显式启用、模型
 
 调试器把 `rag_attribution_flags` 的 `agent_b_json_prompt` 布尔值设为 `true` 后，A 成功且校验通过的回合尝试 JSON 定稿。JSON user 超过 4,000 个 UTF-16 代码单元时使用原有 TEXT 定稿，完整保留参考和问题。日志中的 `format`、`schema`、`formatFallback` 分别记录实际输入格式、JSON 版本和格式回退原因。设为 `false` 恢复默认 TEXT。
 
-B 生成前由 `RoleplayAnswerabilityGate` 检查可回答性。门控可以在特定未来知识或证据不足的回合直接返回保守答复。生成后由 `RoleplayGenerationCoordinator` 检查缓冲的可见输出，普通角色回答必要时有一次修复重试，随后采用安全回退。B 的 JSON user 格式见[契约和对照方案](../double_agent/Agent_B_JSON_Prompt_Experiment_Plan.md)。
+B 生成前由 `RoleplayAnswerabilityGate` 检查可回答性。门控可以在特定未来知识或证据不足的回合直接返回保守答复。生成后由 `RoleplayGenerationCoordinator` 检查缓冲的可见输出，普通角色回答必要时有一次修复重试，随后采用安全回退。B 的 JSON user 格式见[提示契约实现](app/src/main/java/com/example/minicpm_v_demo/harness/attribution/FinalPromptContracts.kt)。
 
 ## 排查
 
@@ -51,4 +51,4 @@ adb logcat -v threadtime -s DatabaseInstallation:I MainActivity:D RagPromptDebug
 
 默认诊断只保留元数据和指纹。需要查看阶段原文时，在可调试版本中通过调试器将 `rag_debug` 的 `raw_prompt_logcat` 布尔值临时设为 `true`。在 `RagPromptDebug` 中按同一 `turn`、`seq` 及 `BEGIN/CHUNK/END` 顺序读取，完成后恢复为 `false`。原文可能含用户输入和检索资料，复测使用合成用例。
 
-在设备上复现见[角色评测与命令](../double_agent/roleplay_eval/results.md)。源码入口为 [AndroidRagOrchestrator](../../app/src/main/java/com/example/minicpm_v_demo/harness/rag/AndroidRagOrchestrator.kt)、[CharacterPromptCompiler](../../app/src/main/java/com/example/minicpm_v_demo/harness/character/CharacterPromptCompiler.kt) 和 [FinalPromptContracts](../../app/src/main/java/com/example/minicpm_v_demo/harness/attribution/FinalPromptContracts.kt)。
+设备复测入口为 [RoleplayBaselineDeviceTest](app/src/androidTest/java/com/example/minicpm_v_demo/harness/character/RoleplayBaselineDeviceTest.kt)，合成用例位于 [cases.jsonl](app/src/androidTest/assets/cases.jsonl)。源码入口为 [AndroidRagOrchestrator](app/src/main/java/com/example/minicpm_v_demo/harness/rag/AndroidRagOrchestrator.kt)、[CharacterPromptCompiler](app/src/main/java/com/example/minicpm_v_demo/harness/character/CharacterPromptCompiler.kt) 和 [FinalPromptContracts](app/src/main/java/com/example/minicpm_v_demo/harness/attribution/FinalPromptContracts.kt)。

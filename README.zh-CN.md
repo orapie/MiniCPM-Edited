@@ -55,6 +55,5 @@ bash ./gradlew :app:assembleDebug :app:verifyDebugDatabaseAssets
 bash ./gradlew :app:testDebugUnitTest
 ```
 
-- [RAG、双 Agent 与日志排查](docs/RAG/RAG_Logic.md)
-- [角色贴合与双 Agent 后续计划](docs/double_agent/Agent_B_JSON_Prompt_Experiment_Plan.md)
-- [角色回归结果与设备复测命令](docs/double_agent/roleplay_eval/results.md)
+- [RAG、双 Agent 与日志排查](RAG_Logic.md)
+- [角色设备评测入口](app/src/androidTest/java/com/example/minicpm_v_demo/harness/character/RoleplayBaselineDeviceTest.kt)与[测试用例](app/src/androidTest/assets/cases.jsonl)。

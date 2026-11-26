@@ -201,7 +201,6 @@ android {
     sourceSets.getByName("main").jniLibs.directories.clear()
     sourceSets.getByName("test").kotlin.directories.add("src/sharedTest/java")
     sourceSets.getByName("androidTest").kotlin.directories.add("src/sharedTest/java")
-    sourceSets.getByName("androidTest").assets.directories.add(rootProject.file("docs/double_agent/roleplay_eval").absolutePath)
 
     androidResources {
         noCompress.add("gguf")
